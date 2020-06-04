@@ -4,6 +4,7 @@ Cloud Spanner Query Plan Visualizer using GraphViz.
 
 ![query plan](docs/param.svg)
 
+
 ## Install
 
 ```
@@ -22,8 +23,13 @@ $ gcloud spanner databases execute-sql --instance=sampleinstance sampledb --quer
   spannerplanviz --full --type=svg --output profile.svg
 ```
 ### PLAN
+
 ```
 $ gcloud spanner databases execute-sql --instance=sampleinstance sampledb --query-mode=PLAN --format=yaml \
   --sql="SELECT SongName FROM Songs WHERE STARTS_WITH(SongName, @prefix)" |
   spannerplanviz --full --type=svg --output plan.svg
 ```
+
+## Disclaimer
+
+This tool is PRE-ALPHA quality.
