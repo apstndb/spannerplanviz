@@ -82,14 +82,23 @@ func _main() error {
 	flag.Parse()
 
 	var input io.ReadCloser
-	if flag.NArg() == 1 {
+	if flag.NArg() > 1 {
+		flag.Usage()
+		os.Exit(1)
+	} else if flag.NArg() == 1 {
 		if file, err := os.Open(flag.Arg(0)); err != nil {
 			return err
 		} else {
 			input = file
 		}
 	} else {
-		input = os.Stdin
+		stat, _ := os.Stdin.Stat()
+		if (stat.Mode() & os.ModeCharDevice) == 0 {
+			input = os.Stdin
+		} else {
+			flag.Usage()
+			os.Exit(1)
+		}
 	}
 	defer input.Close()
 
