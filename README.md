@@ -2,6 +2,8 @@
 
 Cloud Spanner Query Plan Visualizer using GraphViz.
 
+![query plan](docs/param.svg)
+
 ## install
 
 ```
@@ -9,6 +11,8 @@ $ go get -u github.com/apstndb/spannerplanviz
 ```
 
 ## usage
+
+It can read [`ResultSet`](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSet?hl=en) in JSON or YAML.
 
 ### PROFILE
 
