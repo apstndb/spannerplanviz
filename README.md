@@ -15,6 +15,8 @@ $ go get -u github.com/apstndb/spannerplanviz
 
 It can read [`ResultSet`](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSet?hl=en) in JSON or YAML.
 
+(EXPERIMENTAL) It can also read JSON response of `executeStreamingSql` in GCP console.
+
 ### PROFILE
 
 ```
