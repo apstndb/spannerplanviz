@@ -2,7 +2,7 @@
 
 Cloud Spanner Query Plan Visualizer using [goccy/go-graphviz](https://github.com/goccy/go-graphviz).
 
-![query plan](docs/param.svg)
+![query plan](docs/param.png)
 
 
 ## Install
