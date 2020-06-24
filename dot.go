@@ -1,4 +1,4 @@
-package main
+package spannerplanviz
 
 import (
 	"bytes"
@@ -18,7 +18,20 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-func renderImage(rowType *spanner.StructType, queryStats *spanner.ResultSetStats, format graphviz.Format, writer io.Writer, param visualizeParam) error {
+type VisualizeParam struct {
+	ShowQuery        bool
+	ShowQueryStats   bool
+	NonVariableScala bool
+	VariableScalar   bool
+	Metadata         bool
+	ExecutionStats   bool
+	ExecutionSummary bool
+	SerializeResult  bool
+	HideScanTarget   bool
+	HideMetadata     []string
+}
+
+func RenderImage(rowType *spanner.StructType, queryStats *spanner.ResultSetStats, format graphviz.Format, writer io.Writer, param VisualizeParam) error {
 	g := graphviz.New()
 	graph, err := g.Graph()
 	if err != nil {
@@ -39,7 +52,7 @@ func renderImage(rowType *spanner.StructType, queryStats *spanner.ResultSetStats
 	return g.Render(graph, format, writer)
 }
 
-func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *spanner.StructType, queryStats *spanner.ResultSetStats, param visualizeParam) error {
+func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *spanner.StructType, queryStats *spanner.ResultSetStats, param VisualizeParam) error {
 	graph.SetRankDir(cgraph.BTRank)
 
 	queryPlan := queryStats.GetQueryPlan()
@@ -57,26 +70,26 @@ func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *spanner.StructType, q
 			metadataFields := planNode.GetMetadata().GetFields()
 
 			childLinks := getNonVariableChildLinks(queryPlan, planNode)
-			if param.serializeResult && planNode.DisplayName == "Serialize Result" && rowType != nil {
+			if param.SerializeResult && planNode.DisplayName == "Serialize Result" && rowType != nil {
 				labelBuf.WriteString(renderSerializeResult(rowType, childLinks))
 			}
 
-			if !param.hideScanTarget && planNode.GetDisplayName() == "Scan" {
+			if !param.HideScanTarget && planNode.GetDisplayName() == "Scan" {
 				scanType := strings.TrimSuffix(metadataFields["scan_type"].GetStringValue(), "Scan")
 				scanTarget := metadataFields["scan_target"].GetStringValue()
 				s := fmt.Sprintf("%s: %s\n", scanType, scanTarget)
 				labelBuf.WriteString(s)
 			}
 
-			if param.nonVariableScala {
+			if param.NonVariableScala {
 				labelBuf.WriteString(renderChildLinks(childLinks))
 			}
 
-			if param.metadata {
+			if param.Metadata {
 				labelBuf.WriteString(renderMetadata(metadataFields, param))
 			}
 
-			if param.variableScalar {
+			if param.VariableScalar {
 				childLinks := getVariableChildLinks(queryPlan, planNode)
 				labelBuf.WriteString(renderChildLinks(childLinks))
 			}
@@ -123,7 +136,7 @@ func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *spanner.StructType, q
 		}
 	}
 
-	if queryStats != nil && (param.showQuery || param.showQueryStats) {
+	if queryStats != nil && (param.ShowQuery || param.ShowQueryStats) {
 		n, err := setupQueryNode(graph, queryStats, param)
 		if err != nil {
 			return err
@@ -136,27 +149,27 @@ func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *spanner.StructType, q
 	return nil
 }
 
-func renderExecutionStatsOfNode(planNode *spanner.PlanNode, param visualizeParam) string {
+func renderExecutionStatsOfNode(planNode *spanner.PlanNode, param VisualizeParam) string {
 	var statsBuf bytes.Buffer
 
 	executionStatsFields := planNode.GetExecutionStats().GetFields()
-	if param.executionStats {
+	if param.ExecutionStats {
 		statsBuf.WriteString(renderExecutionStatsWithoutSummary(executionStatsFields))
 	}
 
-	if param.executionSummary {
+	if param.ExecutionSummary {
 		statsBuf.WriteString(renderExecutionSummary(executionStatsFields))
 	}
 	return statsBuf.String()
 }
 
-func setupQueryNode(graph *cgraph.Graph, queryStats *spanner.ResultSetStats, param visualizeParam) (*cgraph.Node, error){
+func setupQueryNode(graph *cgraph.Graph, queryStats *spanner.ResultSetStats, param VisualizeParam) (*cgraph.Node, error){
 	var buf bytes.Buffer
 
 	fmt.Fprintf(&buf, "<b>%s</b>", toLeftAlignedText(queryStats.GetQueryStats().GetFields()["query_text"].GetStringValue()))
 
 	var statsBuf bytes.Buffer
-	if param.showQueryStats {
+	if param.ShowQueryStats {
 		for k, v := range queryStats.GetQueryStats().GetFields() {
 			if k == "query_text" {
 				continue
@@ -190,11 +203,11 @@ func renderExecutionStatsWithoutSummary(executionStatsFields map[string]*structp
 	return s
 }
 
-func renderMetadata(metadataFields map[string]*structpb.Value, param visualizeParam) string {
+func renderMetadata(metadataFields map[string]*structpb.Value, param VisualizeParam) string {
 	var metadataBuf bytes.Buffer
 	for k, v := range metadataFields {
 		switch {
-		case in(k, param.hideMetadata...):
+		case in(k, param.HideMetadata...):
 			continue
 		case in(k, "call_type", "scan_type", "scan_target", "iterator_type"):
 			continue

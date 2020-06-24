@@ -26,24 +26,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/apstndb/spannerplanviz"
 	"github.com/apstndb/spannerplanviz/protoyaml"
 	"github.com/goccy/go-graphviz"
 	pb "google.golang.org/genproto/googleapis/spanner/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 )
-
-type visualizeParam struct {
-	showQuery        bool
-	showQueryStats   bool
-	nonVariableScala bool
-	variableScalar   bool
-	metadata         bool
-	executionStats   bool
-	executionSummary bool
-	serializeResult  bool
-	hideScanTarget   bool
-	hideMetadata     []string
-}
 
 func main() {
 	if err := _main(); err != nil {
@@ -123,24 +111,34 @@ func _main() error {
 	}
 	defer writer.Close()
 
-	var param visualizeParam
+	var param spannerplanviz.VisualizeParam
 	if *full {
-		param = visualizeParam{*showQuery, *showQueryStats, true, true, true, true, true, true, false, hideMetadata}
+		param = spannerplanviz.VisualizeParam{
+			ShowQuery: *showQuery,
+			ShowQueryStats: *showQueryStats,
+			NonVariableScala: true,
+			VariableScalar: true,
+			Metadata: true,
+			ExecutionStats: true,
+			ExecutionSummary: true,
+			SerializeResult: true,
+			HideMetadata: hideMetadata,
+		}
 	} else {
-		param = visualizeParam{
-			showQuery:        *showQuery,
-			showQueryStats:   *showQueryStats,
-			nonVariableScala: *nonVariableScalar,
-			variableScalar:   *variableScalar,
-			metadata:         *metadata,
-			executionStats:   *executionStats,
-			executionSummary: *executionSummary,
-			serializeResult:  *serializeResult,
-			hideScanTarget:   *hideScanTarget,
-			hideMetadata:     hideMetadata,
+		param = spannerplanviz.VisualizeParam{
+			ShowQuery:        *showQuery,
+			ShowQueryStats:   *showQueryStats,
+			NonVariableScala: *nonVariableScalar,
+			VariableScalar:   *variableScalar,
+			Metadata:         *metadata,
+			ExecutionStats:   *executionStats,
+			ExecutionSummary: *executionSummary,
+			SerializeResult:  *serializeResult,
+			HideScanTarget:   *hideScanTarget,
+			HideMetadata:     hideMetadata,
 		}
 	}
-	err = renderImage(rowType, queryStats, graphviz.Format(*typeFlag), writer, param)
+	err = spannerplanviz.RenderImage(rowType, queryStats, graphviz.Format(*typeFlag), writer, param)
 	if err != nil {
 		os.Remove(*filename)
 	}
