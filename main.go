@@ -26,7 +26,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/apstndb/spannerplanviz"
+	"github.com/apstndb/spannerplanviz/visualize"
 	"github.com/apstndb/spannerplanviz/protoyaml"
 	"github.com/goccy/go-graphviz"
 	pb "google.golang.org/genproto/googleapis/spanner/v1"
@@ -111,9 +111,9 @@ func _main() error {
 	}
 	defer writer.Close()
 
-	var param spannerplanviz.VisualizeParam
+	var param visualize.VisualizeParam
 	if *full {
-		param = spannerplanviz.VisualizeParam{
+		param = visualize.VisualizeParam{
 			ShowQuery: *showQuery,
 			ShowQueryStats: *showQueryStats,
 			NonVariableScala: true,
@@ -125,7 +125,7 @@ func _main() error {
 			HideMetadata: hideMetadata,
 		}
 	} else {
-		param = spannerplanviz.VisualizeParam{
+		param = visualize.VisualizeParam{
 			ShowQuery:        *showQuery,
 			ShowQueryStats:   *showQueryStats,
 			NonVariableScala: *nonVariableScalar,
@@ -138,7 +138,7 @@ func _main() error {
 			HideMetadata:     hideMetadata,
 		}
 	}
-	err = spannerplanviz.RenderImage(rowType, queryStats, graphviz.Format(*typeFlag), writer, param)
+	err = visualize.RenderImage(rowType, queryStats, graphviz.Format(*typeFlag), writer, param)
 	if err != nil {
 		os.Remove(*filename)
 	}

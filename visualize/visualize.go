@@ -1,4 +1,4 @@
-package spannerplanviz
+package visualize
 
 import (
 	"bytes"

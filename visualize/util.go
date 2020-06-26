@@ -1,4 +1,4 @@
-package spannerplanviz
+package visualize
 
 func skipEmpty(values ...string) []string {
 	var result []string
