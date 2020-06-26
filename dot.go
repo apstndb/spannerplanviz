@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apstndb/spannerplanviz/protoyaml"
 	"github.com/goccy/go-graphviz"
 	"github.com/goccy/go-graphviz/cgraph"
 	"google.golang.org/genproto/googleapis/spanner/v1"
 	"google.golang.org/protobuf/types/known/structpb"
+	"sigs.k8s.io/yaml"
 )
 
 type VisualizeParam struct {
@@ -212,7 +212,7 @@ func renderMetadata(metadataFields map[string]*structpb.Value, param VisualizePa
 		case in(k, "call_type", "scan_type", "scan_target", "iterator_type"):
 			continue
 		default:
-			fmt.Fprintf(&metadataBuf, "%s=%s\n", k, toString(v))
+			fmt.Fprintf(&metadataBuf, "%s=%v\n", k, v.AsInterface())
 		}
 	}
 	s := metadataBuf.String()
@@ -223,12 +223,12 @@ func renderExecutionSummary(executionStatsFields map[string]*structpb.Value) str
 	var executionSummaryBuf bytes.Buffer
 	if executionSummary, ok := executionStatsFields["execution_summary"]; ok {
 		fmt.Fprintln(&executionSummaryBuf, "execution_summary:")
-		for k, v := range executionSummary.GetStructValue().GetFields() {
+		for k, v := range executionSummary.GetStructValue().AsMap() {
 			var value string
 			if strings.HasSuffix(k, "timestamp") {
-				value = tryToTimestampStr(v)
+				value = tryToTimestampStr(fmt.Sprint(v))
 			} else {
-				value = toString(v)
+				value = fmt.Sprint(v)
 			}
 			fmt.Fprintf(&executionSummaryBuf, "   %s: %s\n", k, value)
 		}
@@ -248,18 +248,18 @@ func toLeftAlignedText(str string) string {
 
 const RFC3339Micro = "2006-01-02T15:04:05.999999Z07:00"
 
-func tryToTimestampStr(v *structpb.Value) string {
-	ss := strings.Split(v.GetStringValue(), ".")
+func tryToTimestampStr(s string) string {
+	ss := strings.Split(s, ".")
 	if len(ss) != 2 || len(ss[1]) > 6 {
-		return v.GetStringValue()
+		return s
 	}
 	sec, err := strconv.Atoi(ss[0])
 	if err != nil {
-		return v.GetStringValue()
+		return s
 	}
 	usec, err := strconv.Atoi(ss[1])
 	if err != nil {
-		return v.GetStringValue()
+		return s
 	}
 	return time.Unix(int64(sec), int64(usec)*1000).UTC().Format(RFC3339Micro)
 }
@@ -272,7 +272,7 @@ func setupGvNode(graph *cgraph.Graph, planNode *spanner.PlanNode, nodeTitle stri
 
 	n.SetShape(cgraph.BoxShape)
 
-	b, err := protoyaml.Marshal(planNode)
+	b, err := yaml.Marshal(planNode)
 	if err != nil {
 		return nil, err
 	}
@@ -360,19 +360,6 @@ func renderChildLinks(childLinks []*ChildLinkGroup) string {
 		}
 	}
 	return buf.String()
-}
-
-func toString(v *structpb.Value) string {
-	switch x := v.GetKind().(type) {
-	case *structpb.Value_StringValue:
-		return x.StringValue
-	case *structpb.Value_NumberValue:
-		return fmt.Sprint(x.NumberValue)
-	case *structpb.Value_BoolValue:
-		return strconv.FormatBool(x.BoolValue)
-	default:
-		return v.String()
-	}
 }
 
 type ChildLinkEntry struct {
