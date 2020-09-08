@@ -382,9 +382,9 @@ func getScalarChildLinks(plan *spanner.QueryPlan, node *spanner.PlanNode, filter
 			continue
 		}
 		if _, ok := typeToChildLinks[childType]; !ok {
-			current := &ChildLinkGroup{Type: childType}
-			typeToChildLinks[childType] = current
-			result = append(result, current)
+			newEntry := &ChildLinkGroup{Type: childType}
+			typeToChildLinks[childType] = newEntry
+			result = append(result, newEntry)
 		}
 		childLinks := typeToChildLinks[childType]
 		childLinks.PlanNodes = append(childLinks.PlanNodes, &ChildLinkEntry{cl.GetVariable(), plan.PlanNodes[childIndex]})
