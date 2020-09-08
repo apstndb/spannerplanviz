@@ -60,7 +60,7 @@ func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *spanner.StructType, q
 	gvNodes := make([]*cgraph.Node, len(planNodes))
 
 	for _, planNode := range planNodes {
-		if isInlined(planNode) {
+		if isInlined(planNodes, planNode) {
 			continue
 		}
 
@@ -109,12 +109,12 @@ func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *spanner.StructType, q
 	}
 
 	for _, node := range queryPlan.PlanNodes {
-		if isInlined(node) {
+		if isInlined(queryPlan.PlanNodes, node) {
 			continue
 		}
 		for i, child := range node.ChildLinks {
 			childPlanNode := queryPlan.PlanNodes[child.ChildIndex]
-			if isInlined(childPlanNode) {
+			if isInlined(queryPlan.PlanNodes, childPlanNode) {
 				continue
 			}
 
@@ -311,10 +311,8 @@ func getNodeTitle(planNode *spanner.PlanNode) string {
 	), " ")
 }
 
-var inlinedOperators = []string{"Function", "Reference", "Constant", "Array Constructor", "Parameter"}
-
-func isInlined(node *spanner.PlanNode) bool {
-	return in(node.GetDisplayName(), inlinedOperators...)
+func isInlined(nodes[]*spanner.PlanNode, node *spanner.PlanNode) bool {
+	return node.GetKind() == spanner.PlanNode_SCALAR && (len(node.GetChildLinks()) == 0 || nodes[node.GetChildLinks()[0].GetChildIndex()].GetKind() != spanner.PlanNode_RELATIONAL)
 }
 
 func renderSerializeResult(rowType *spanner.StructType, childLinks []*ChildLinkGroup) string {
