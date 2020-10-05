@@ -11,23 +11,13 @@ def ispredicate: .type | strings | endswith("Condition") or . == "Split Range";
     {depth: ((.depth // 0) + 1), link: $planNodes[.link.childIndex // 0].childLinks[]};
     select($planNodes[.link.childIndex // 0].kind == "RELATIONAL" or .link.type == "Scalar")
   ) |
-  .link.type as $linkType |
-  (.depth // 0) as $depth |
-  (.link.childIndex // 0) as $index |
+  {index: (.link.childIndex // 0), type: (.link.type // ""), depth: (.depth // 0)} as {$index, $type, $depth} |
   $planNodes[$index] |
-  . as $currentNode |
   (.metadata.scan_type | rtrimstr("Scan")) as $scanType |
   {
-    idStr: (if $currentNode.childLinks | any(ispredicate) then "*\($index)" else $index end | lpad($maxRelationalNodeIDLength + 1)),
-    displayNameStr: (
-      [
-        .metadata.call_type,
-        .metadata.iterator_type,
-        $scanType,
-        .displayName
-      ] | map(values) | join(" ")
-    ),
-    linkTypeStr: ($linkType | if . then "[\(.)] " else "" end),
+    idStr: (if .childLinks | any(ispredicate) then "*\($index)" else $index end | lpad($maxRelationalNodeIDLength + 1)),
+    displayNameStr: ( [.metadata.call_type, .metadata.iterator_type, $scanType, .displayName] | map(strings) | join(" ")),
+    linkTypeStr: ($type | if . != "" then "[\(.)] " end),
     indent: ("  " * $depth // ""),
     metadataStr: (
       .metadata // {} |
