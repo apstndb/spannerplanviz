@@ -1,37 +1,39 @@
 def lpad(n): (" " * (n - (tostring | length))) + tostring;
-def predicates: map(select(.type | strings | endswith("Condition") or . == "Split Range"));
+def ispredicate: .type | strings | endswith("Condition") or . == "Split Range";
+
 .. | .planNodes? | values |
 . as $planNodes |
 (map(select(.kind == "RELATIONAL") | .index // 0) | max | tostring | length) as $maxRelationalNodeIDLength |
 # render tree part
 (
-  {depth: 0, planNode: .[0]} |
+  {} |
   recurse(
-    (.depth + 1) as $depth |
-    .planNode.childLinks[] |
-    .type as $linkType |
-    $planNodes[.childIndex] |
-    select(.kind == "RELATIONAL" or $linkType == "Scalar") |
-    {planNode: ., $depth, $linkType}
+    {depth: ((.depth // 0) + 1), link: $planNodes[.link.childIndex // 0].childLinks[]};
+    select($planNodes[.link.childIndex // 0].kind == "RELATIONAL" or .link.type == "Scalar")
   ) |
-  .planNode as $currentNode |
+  .link.type as $linkType |
+  (.depth // 0) as $depth |
+  (.link.childIndex // 0) as $index |
+  $planNodes[$index] |
+  . as $currentNode |
+  (.metadata.scan_type | rtrimstr("Scan")) as $scanType |
   {
-    idStr: (.planNode.index // 0 | tostring | if ($currentNode.childLinks | predicates) != [] then "*\(.)" end | lpad($maxRelationalNodeIDLength + 1)),
+    idStr: (if $currentNode.childLinks | any(ispredicate) then "*\($index)" else $index end | lpad($maxRelationalNodeIDLength + 1)),
     displayNameStr: (
       [
-        .planNode.metadata.call_type,
-        .planNode.metadata.iterator_type,
-        (.planNode.metadata.scan_type | rtrimstr("Scan")),
-        .planNode.displayName
+        .metadata.call_type,
+        .metadata.iterator_type,
+        $scanType,
+        .displayName
       ] | map(values) | join(" ")
     ),
-    linkTypeStr: (.linkType | if . then "[\(.)] " else "" end),
-    indent: ("  " * .depth // ""),
+    linkTypeStr: ($linkType | if . then "[\(.)] " else "" end),
+    indent: ("  " * $depth // ""),
     metadataStr: (
-      .planNode.metadata // {} |
+      .metadata // {} |
       del(.["subquery_cluster_node", "scan_type", "iterator_type", "call_type"]) |
       to_entries |
-      map(if .key == "scan_target" then .key = ($currentNode.metadata.scan_type | rtrimstr("Scan")) end | "\(.key): \(.value)") |
+      map(if .key == "scan_target" then .key = $scanType end | "\(.key): \(.value)") |
       sort |
       join(", ") |
       if . != "" then " (\(.))" end
@@ -43,7 +45,7 @@ def predicates: map(select(.type | strings | endswith("Condition") or . == "Spli
 (
   map(
     .index as $nodeIndex |
-    .childLinks // [] | predicates | to_entries[] |
+    .childLinks // [] | map(select(ispredicate)) | to_entries[] |
     {
        type: .value.type,
        prefix: (if .key == 0 then "\($nodeIndex // 0):" else "" end),
