@@ -1,4 +1,4 @@
-def lpad(n): (" " * (n - (tostring | length))) + tostring;
+def lpad($n): tostring | " " * ($n - length) + .;
 def ispredicate: .type | strings | endswith("Condition") or . == "Split Range";
 
 .. | .planNodes? | values |
