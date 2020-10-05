@@ -17,16 +17,16 @@ def ispredicate: .type | strings | endswith("Condition") or . == "Split Range";
   {
     idStr: (if .childLinks | any(ispredicate) then "*\($index)" else $index end | lpad($maxRelationalNodeIDLength + 1)),
     displayNameStr: ( [.metadata.call_type, .metadata.iterator_type, $scanType, .displayName] | map(strings) | join(" ")),
-    linkTypeStr: ($type | if . != "" then "[\(.)] " end),
+    linkTypeStr: ($type | if . != "" then "[\(.)] " else . end),
     indent: ("  " * $depth // ""),
     metadataStr: (
       .metadata // {} |
       del(.["subquery_cluster_node", "scan_type", "iterator_type", "call_type"]) |
       to_entries |
-      map(if .key == "scan_target" then .key = $scanType end | "\(.key): \(.value)") |
+      map(if .key == "scan_target" then .key = $scanType else . end | "\(.key): \(.value)") |
       sort |
       join(", ") |
-      if . != "" then " (\(.))" end
+      if . != "" then " (\(.))" else . end
     )
   } |
   "\(.idStr) \(.indent)\(.linkTypeStr)\(.displayNameStr)\(.metadataStr)"
