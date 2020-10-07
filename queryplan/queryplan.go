@@ -15,8 +15,8 @@ func New(planNodes []*spanner.PlanNode) *QueryPlan {
 }
 
 func (qp *QueryPlan) IsPredicate(childLink *spanner.PlanNode_ChildLink) bool {
-	// Known predicates are Condition(Filter/Hash Join) or Seek Condition/Residual Condition(FilterScan) or Split Range(Distributed Union).
-	// Agg is a Function but not a predicate.
+	// Known predicates are Condition(Filter, Hash Join) or Seek Condition(FilterScan) or Residual Condition(FilterScan, Hash Join) or Split Range(Distributed Union).
+	// Agg(Aggregate) is a Function but not a predicate.
 	child := qp.GetNodeByChildLink(childLink)
 	if child.DisplayName != "Function" {
 		return false
@@ -46,6 +46,8 @@ func (qp *QueryPlan) VisibleChildLinks(node *spanner.PlanNode) []*spanner.PlanNo
 	return links
 }
 
+// GetNodeByChildLink returns PlanNode indicated by `link`.
+// If `link` is nil, return the root node.
 func (qp *QueryPlan) GetNodeByChildLink(link *spanner.PlanNode_ChildLink) *spanner.PlanNode {
 	return qp.planNodes[link.GetChildIndex()]
 }
