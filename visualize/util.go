@@ -26,4 +26,3 @@ func encloseIfNotEmpty(open, s, close string) string {
 	}
 	return open + s + close
 }
-

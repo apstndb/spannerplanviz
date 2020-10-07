@@ -26,8 +26,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/apstndb/spannerplanviz/visualize"
 	"github.com/apstndb/spannerplanviz/protoyaml"
+	"github.com/apstndb/spannerplanviz/visualize"
 	"github.com/goccy/go-graphviz"
 	pb "google.golang.org/genproto/googleapis/spanner/v1"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -114,15 +114,15 @@ func _main() error {
 	var param visualize.VisualizeParam
 	if *full {
 		param = visualize.VisualizeParam{
-			ShowQuery: *showQuery,
-			ShowQueryStats: *showQueryStats,
+			ShowQuery:        *showQuery,
+			ShowQueryStats:   *showQueryStats,
 			NonVariableScala: true,
-			VariableScalar: true,
-			Metadata: true,
-			ExecutionStats: true,
+			VariableScalar:   true,
+			Metadata:         true,
+			ExecutionStats:   true,
 			ExecutionSummary: true,
-			SerializeResult: true,
-			HideMetadata: hideMetadata,
+			SerializeResult:  true,
+			HideMetadata:     hideMetadata,
 		}
 	} else {
 		param = visualize.VisualizeParam{
