@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -163,21 +164,23 @@ func renderExecutionStatsOfNode(planNode *spanner.PlanNode, param VisualizeParam
 	return statsBuf.String()
 }
 
-func setupQueryNode(graph *cgraph.Graph, queryStats *spanner.ResultSetStats, param VisualizeParam) (*cgraph.Node, error){
+func setupQueryNode(graph *cgraph.Graph, queryStats *spanner.ResultSetStats, param VisualizeParam) (*cgraph.Node, error) {
 	var buf bytes.Buffer
 
 	fmt.Fprintf(&buf, "<b>%s</b>", toLeftAlignedText(queryStats.GetQueryStats().GetFields()["query_text"].GetStringValue()))
 
-	var statsBuf bytes.Buffer
+	var stats []string
 	if param.ShowQueryStats {
 		for k, v := range queryStats.GetQueryStats().GetFields() {
 			if k == "query_text" {
 				continue
 			}
-			fmt.Fprintf(&statsBuf, fmt.Sprintf("%s: %s\n", k, v.GetStringValue()))
+			stats = append(stats, fmt.Sprintf("%s: %s", k, v.GetStringValue()))
 		}
 	}
-	fmt.Fprintf(&buf, encloseIfNotEmpty("<i>", toLeftAlignedText(statsBuf.String()), "</i>"))
+
+	sort.Strings(stats)
+	fmt.Fprintf(&buf, encloseIfNotEmpty("<i>", toLeftAlignedText(strings.Join(stats, "\n")), "</i>"))
 
 	n, err := graph.CreateNode("query")
 	if err != nil {
@@ -191,16 +194,16 @@ func setupQueryNode(graph *cgraph.Graph, queryStats *spanner.ResultSetStats, par
 }
 
 func renderExecutionStatsWithoutSummary(executionStatsFields map[string]*structpb.Value) string {
-	var buf bytes.Buffer
+	var statsStrings []string
 	for k, v := range executionStatsFields {
 		if k == "execution_summary" {
 			continue
 		}
 
-		fmt.Fprintf(&buf, "%s: %s\n", k, formatExecutionStatsValue(v))
+		statsStrings = append(statsStrings, fmt.Sprintf("%s: %s\n", k, formatExecutionStatsValue(v)))
 	}
-	s := buf.String()
-	return s
+	sort.Strings(statsStrings)
+	return strings.Join(statsStrings, "")
 }
 
 func renderMetadata(metadataFields map[string]*structpb.Value, param VisualizeParam) string {
@@ -223,6 +226,7 @@ func renderExecutionSummary(executionStatsFields map[string]*structpb.Value) str
 	var executionSummaryBuf bytes.Buffer
 	if executionSummary, ok := executionStatsFields["execution_summary"]; ok {
 		fmt.Fprintln(&executionSummaryBuf, "execution_summary:")
+		var executionSummaryStrings []string
 		for k, v := range executionSummary.GetStructValue().AsMap() {
 			var value string
 			if strings.HasSuffix(k, "timestamp") {
@@ -230,8 +234,10 @@ func renderExecutionSummary(executionStatsFields map[string]*structpb.Value) str
 			} else {
 				value = fmt.Sprint(v)
 			}
-			fmt.Fprintf(&executionSummaryBuf, "   %s: %s\n", k, value)
+			executionSummaryStrings = append(executionSummaryStrings, fmt.Sprintf("   %s: %s\n", k, value))
 		}
+		sort.Strings(executionSummaryStrings)
+		fmt.Fprint(&executionSummaryBuf, strings.Join(executionSummaryStrings, ""))
 	}
 	s := executionSummaryBuf.String()
 	return s
@@ -311,7 +317,7 @@ func getNodeTitle(planNode *spanner.PlanNode) string {
 	), " ")
 }
 
-func isInlined(nodes[]*spanner.PlanNode, node *spanner.PlanNode) bool {
+func isInlined(nodes []*spanner.PlanNode, node *spanner.PlanNode) bool {
 	return node.GetKind() == spanner.PlanNode_SCALAR && (len(node.GetChildLinks()) == 0 || nodes[node.GetChildLinks()[0].GetChildIndex()].GetKind() != spanner.PlanNode_RELATIONAL)
 }
 
