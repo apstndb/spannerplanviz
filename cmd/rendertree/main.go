@@ -13,10 +13,10 @@ import (
 	"text/template"
 
 	"github.com/apstndb/spannerplanviz/plantree"
+	"github.com/apstndb/spannerplanviz/protoyaml"
 	"github.com/apstndb/spannerplanviz/queryplan"
 	"github.com/olekukonko/tablewriter"
 	"google.golang.org/genproto/googleapis/spanner/v1"
-	"google.golang.org/protobuf/encoding/protojson"
 	"sigs.k8s.io/yaml"
 )
 
@@ -211,7 +211,7 @@ func _main() error {
 	}
 
 	var qp spanner.QueryPlan
-	err = protojson.Unmarshal(b, &qp)
+	err = protoyaml.Unmarshal(b, &qp)
 	if err != nil {
 		return err
 	}
