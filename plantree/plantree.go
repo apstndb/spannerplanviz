@@ -142,7 +142,7 @@ func nodeTitle(node *spanner.PlanNode) string {
 			continue
 		case "scan_target":
 			fields = append(fields, fmt.Sprintf("%s: %s",
-				strings.TrimSuffix(metadataFields["scan_target"].GetStringValue(), "Scan"),
+				strings.TrimSuffix(metadataFields["scan_type"].GetStringValue(), "Scan"),
 				v.GetStringValue()))
 		default:
 			fields = append(fields, fmt.Sprintf("%s: %s", k, v.GetStringValue()))
