@@ -17,7 +17,7 @@ import (
 	"github.com/apstndb/spannerplanviz/queryplan"
 	"github.com/olekukonko/tablewriter"
 	"google.golang.org/genproto/googleapis/spanner/v1"
-	"sigs.k8s.io/yaml"
+	"gopkg.in/yaml.v3"
 )
 
 func main() {
