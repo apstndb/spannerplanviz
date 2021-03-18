@@ -227,7 +227,7 @@ func renderMetadata(metadataFields map[string]*structpb.Value, param VisualizePa
 		switch {
 		case in(k, param.HideMetadata...):
 			continue
-		case in(k, "call_type", "scan_type", "scan_target", "iterator_type"):
+		case in(k, "call_type", "scan_type", "scan_target", "iterator_type", "subquery_cluster_node"):
 			continue
 		default:
 			fmt.Fprintf(&metadataBuf, "%s=%v\n", k, v.AsInterface())
