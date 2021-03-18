@@ -1,5 +1,14 @@
-This tool render YAML or JSON representation of [QueryPlan](https://cloud.google.com/spanner/docs/reference/rpc/google.spanner.v1?hl=en#queryplan) as ascii format.
+This tool render YAML or JSON representation of Cloud Spanner query plan as ascii format.
 
+It can read various types.
+* [QueryPlan](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSetStats?hl=en#QueryPlan)
+  * Can get easily by client libraries
+    * [AnalyzeQuery()](https://pkg.go.dev/cloud.google.com/go/spanner#ReadOnlyTransaction.AnalyzeQuery)
+    * [RowIterator.QueryPlan](https://pkg.go.dev/cloud.google.com/go/spanner#RowIterator)
+* [ResultSetStats](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSetStats?hl=en)
+  * Output of DOWNLOAD JSON in [the official query plan visualizer](https://cloud.google.com/spanner/docs/tune-query-with-visualizer?hl=en)
+* [ResultSet](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSet?hl=en)
+  * Output of `gcloud spanner databases execute-sql` and [execspansql](https://github.com/apstndb/execspansql)
 It can render both PLAN or PROFILE.
 
 ```
@@ -20,7 +29,7 @@ Predicates(identified by ID):
 
 # with gcloud spanner databases execute-sql
 $ gcloud spanner databases execute-sql ${DATABASE_ID} --sql="SELECT * FROM Singers" --format=json --query-mode=PROFILE |
-    jq .stats.queryPlan | rendertree --mode=PROFILE
+    rendertree --mode=PROFILE
 +----+-------------------------------------------------------+------+-------+------------+
 | ID | Operator                                              | Rows | Exec. | Latency    |
 +----+-------------------------------------------------------+------+-------+------------+
