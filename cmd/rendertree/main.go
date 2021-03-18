@@ -213,7 +213,7 @@ func _main() error {
 	var qp spanner.QueryPlan
 	err = protoyaml.Unmarshal(b, &qp)
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid input at protoyaml.Unmarshal:\nerror: %w\ninput: %.140s", err, strings.TrimSpace(string(b)))
 	}
 
 	rows, err := plantree.ProcessPlan(queryplan.New(qp.GetPlanNodes()))
