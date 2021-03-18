@@ -13,9 +13,15 @@ $ go get -u github.com/apstndb/spannerplanviz
 
 ## Usage
 
-It can read [`ResultSet`](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSet?hl=en) in JSON or YAML.
-
-(EXPERIMENTAL) It can also read JSON response of `executeStreamingSql` in GCP console.
+It can read various types in JSON and YAML.
+* [QueryPlan](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSetStats?hl=en#QueryPlan)
+    * Can get easily by client libraries
+        * [AnalyzeQuery()](https://pkg.go.dev/cloud.google.com/go/spanner#ReadOnlyTransaction.AnalyzeQuery)
+        * [RowIterator.QueryPlan](https://pkg.go.dev/cloud.google.com/go/spanner#RowIterator)
+* [ResultSetStats](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSetStats?hl=en)
+    * Output of DOWNLOAD JSON in [the official query plan visualizer](https://cloud.google.com/spanner/docs/tune-query-with-visualizer?hl=en)
+* [ResultSet](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSet?hl=en)
+    * Output of `gcloud spanner databases execute-sql` and [execspansql](https://github.com/apstndb/execspansql)
 
 ### PROFILE
 
