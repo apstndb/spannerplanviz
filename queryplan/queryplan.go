@@ -11,6 +11,9 @@ type QueryPlan struct {
 }
 
 func New(planNodes []*spanner.PlanNode) *QueryPlan {
+	if len(planNodes) == 0 {
+		panic("planNodes is empty")
+	}
 	return &QueryPlan{planNodes}
 }
 

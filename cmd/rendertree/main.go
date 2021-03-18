@@ -187,6 +187,8 @@ func (s *stringList) Set(s2 string) error {
 	return nil
 }
 
+const jsonSnippetLen = 140
+
 func _main() error {
 	customFile := flag.String("custom-file", "", "")
 	mode := flag.String("mode", "", "PROFILE or PLAN(ignore case)")
@@ -213,7 +215,11 @@ func _main() error {
 	var qp spanner.QueryPlan
 	err = protoyaml.Unmarshal(b, &qp)
 	if err != nil {
-		return err
+		var collapsedStr string
+		if len(b) > jsonSnippetLen {
+			collapsedStr = "(collapsed)"
+		}
+		return fmt.Errorf("invalid input at protoyaml.Unmarshal:\nerror: %w\ninput: %.*s%s", err, jsonSnippetLen, strings.TrimSpace(string(b)), collapsedStr)
 	}
 
 	rows, err := plantree.ProcessPlan(queryplan.New(qp.GetPlanNodes()))
