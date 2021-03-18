@@ -9,6 +9,7 @@ It can read various types.
   * Output of DOWNLOAD JSON in [the official query plan visualizer](https://cloud.google.com/spanner/docs/tune-query-with-visualizer?hl=en)
 * [ResultSet](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSet?hl=en)
   * Output of `gcloud spanner databases execute-sql` and [execspansql](https://github.com/apstndb/execspansql)
+
 It can render both PLAN or PROFILE.
 
 ```
