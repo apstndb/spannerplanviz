@@ -4,6 +4,7 @@ Cloud Spanner Query Plan Visualizer using [goccy/go-graphviz](https://github.com
 
 ![query plan](docs/plan.png)
 
+(Possibly) remote calls are rendered as dashed lines.
 
 ## Install
 
