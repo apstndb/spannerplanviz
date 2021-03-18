@@ -92,6 +92,10 @@ func renderTree(graph *cgraph.Graph, rowType *spanner.StructType, childLink *spa
 				return gvNode, err
 			}
 
+			if isRemoteCall(node, cl) {
+				ed.SetStyle(cgraph.DashedEdgeStyle)
+			}
+
 			var childType string
 			if cl.GetType() == "" && strings.HasSuffix(node.GetDisplayName(), "Apply") && i == 0 {
 				childType = "Input"
@@ -103,6 +107,17 @@ func renderTree(graph *cgraph.Graph, rowType *spanner.StructType, childLink *spa
 		}
 	}
 	return gvNode, nil
+}
+
+func isRemoteCall(node *spanner.PlanNode, cl *spanner.PlanNode_ChildLink) bool {
+	n, ok := node.GetMetadata().GetFields()["subquery_cluster_node"]
+	if !ok {
+		return false
+	}
+	if node.GetMetadata().GetFields()["call_type"].GetStringValue() == "Local" {
+		return false
+	}
+	return n.GetStringValue() == strconv.Itoa(int(cl.GetChildIndex()))
 }
 
 func renderNode(graph *cgraph.Graph, rowType *spanner.StructType, childLink *spanner.PlanNode_ChildLink, queryPlan *queryplan.QueryPlan, param VisualizeParam) (*cgraph.Node, error) {
