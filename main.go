@@ -17,7 +17,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -26,11 +25,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/apstndb/spannerplanviz/protoyaml"
+	"github.com/apstndb/spannerplanviz/queryplan"
 	"github.com/apstndb/spannerplanviz/visualize"
 	"github.com/goccy/go-graphviz"
-	pb "google.golang.org/genproto/googleapis/spanner/v1"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func main() {
@@ -95,7 +92,7 @@ func _main() error {
 		return err
 	}
 
-	queryStats, rowType, err := extractStatsAndRowType(b)
+	queryStats, rowType, err := queryplan.ExtractQueryPlan(b)
 	if err != nil {
 		return err
 	}
@@ -143,34 +140,4 @@ func _main() error {
 		os.Remove(*filename)
 	}
 	return err
-}
-
-func extractStatsAndRowType(b []byte) (stats *pb.ResultSetStats, rowType *pb.StructType, err error) {
-	// Parse ResultSet(ignore error).
-	{
-		var result pb.ResultSet
-		if err := protoyaml.Unmarshal(b, &result); err == nil {
-			return result.GetStats(), result.GetMetadata().GetRowType(), nil
-		}
-	}
-	// Parse jsonpb of []PartialResultSet from Cloud Spanner console.
-	// Only the last PartialResultSet contains stats.
-	j, err := takeLastElemJson(b)
-	if err != nil {
-		return nil, nil, err
-	}
-	var partialResultSet pb.PartialResultSet
-	if err := protojson.Unmarshal(j, &partialResultSet); err != nil {
-		return nil, nil, err
-	}
-	return partialResultSet.GetStats(), partialResultSet.GetMetadata().GetRowType(), nil
-}
-
-func takeLastElemJson(input []byte) ([]byte, error) {
-	var jsonArray []json.RawMessage
-	if err := json.Unmarshal(input, &jsonArray); err != nil {
-		return nil, err
-	}
-
-	return jsonArray[len(jsonArray)-1], nil
 }

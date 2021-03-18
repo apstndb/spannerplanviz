@@ -13,11 +13,8 @@ import (
 	"text/template"
 
 	"github.com/apstndb/spannerplanviz/plantree"
-	"github.com/apstndb/spannerplanviz/protoyaml"
 	"github.com/apstndb/spannerplanviz/queryplan"
 	"github.com/olekukonko/tablewriter"
-	"github.com/pkg/errors"
-	"google.golang.org/genproto/googleapis/spanner/v1"
 	"gopkg.in/yaml.v3"
 )
 
@@ -183,38 +180,6 @@ func (s *stringList) String() string {
 	return fmt.Sprint([]string(*s))
 }
 
-func extractQueryPlan(b []byte) (*spanner.QueryPlan, error) {
-	var jsonObj map[string]interface{}
-	err := yaml.Unmarshal(b, &jsonObj)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, ok := jsonObj["queryPlan"]; ok {
-		var rss spanner.ResultSetStats
-		err = protoyaml.Unmarshal(b, &rss)
-		if err != nil {
-			return nil, err
-		}
-		return rss.GetQueryPlan(), nil
-	} else if _, ok := jsonObj["planNodes"]; ok {
-		var qp spanner.QueryPlan
-		err = protoyaml.Unmarshal(b, &qp)
-		if err != nil {
-			return nil, err
-		}
-		return &qp, nil
-	} else if _, ok := jsonObj["stats"]; ok {
-		var rs spanner.ResultSet
-		err = protoyaml.Unmarshal(b, &rs)
-		if err != nil {
-			return nil, err
-		}
-		return rs.GetStats().GetQueryPlan(), nil
-	}
-	return nil, errors.New("unknown input format")
-}
-
 func (s *stringList) Set(s2 string) error {
 	*s = append(*s, strings.Split(s2, ",")...)
 	return nil
@@ -245,7 +210,7 @@ func _main() error {
 		return err
 	}
 
-	qp, err := extractQueryPlan(b)
+	stats, _, err := queryplan.ExtractQueryPlan(b)
 	if err != nil {
 		var collapsedStr string
 		if len(b) > jsonSnippetLen {
@@ -254,7 +219,7 @@ func _main() error {
 		return fmt.Errorf("invalid input at protoyaml.Unmarshal:\nerror: %w\ninput: %.*s%s", err, jsonSnippetLen, strings.TrimSpace(string(b)), collapsedStr)
 	}
 
-	rows, err := plantree.ProcessPlan(queryplan.New(qp.GetPlanNodes()))
+	rows, err := plantree.ProcessPlan(queryplan.New(stats.GetQueryPlan().GetPlanNodes()))
 	if err != nil {
 		return err
 	}
