@@ -93,6 +93,28 @@ func (a *Alignment) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func (a *Alignment) UnmarshalYAML(value *yaml.Node) error {
+	var s string
+	err := value.Decode(&s)
+	if err != nil {
+		return err
+	}
+
+	switch strings.TrimPrefix(s, "ALIGN_") {
+	case "RIGHT":
+		*a = tablewriter.ALIGN_RIGHT
+	case "LEFT":
+		*a = tablewriter.ALIGN_LEFT
+	case "CENTER":
+		*a = tablewriter.ALIGN_CENTER
+	case "DEFAULT":
+		*a = tablewriter.ALIGN_DEFAULT
+	default:
+		return fmt.Errorf("unknown Alignment: %s", s)
+	}
+	return nil
+}
+
 type plainColumnRenderDef struct {
 	Template  string    `json:"template"`
 	Name      string    `json:"name"`
