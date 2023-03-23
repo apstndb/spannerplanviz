@@ -9,12 +9,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var jsonpb = protojson.UnmarshalOptions{
+	DiscardUnknown: true,
+}
+
 func Unmarshal(b []byte, result proto.Message) error {
 	j, err := yamlToJSON(b)
 	if err != nil {
 		return err
 	}
-	return protojson.Unmarshal(j, result)
+	return jsonpb.Unmarshal(j, result)
 }
 
 func Marshal(m proto.Message) ([]byte, error) {
