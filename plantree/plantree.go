@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/apstndb/spannerplanviz/queryplan"
@@ -60,7 +59,7 @@ func ProcessPlan(qp *queryplan.QueryPlan) (rows []RowWithPredicates, err error) 
 		}
 
 		node := qp.GetNodeByIndex(link.GetChildIndex())
-		displayName := nodeTitle(node)
+		displayName := queryplan.NodeTitle(node)
 
 		var text string
 		if link.GetType() != "" {
@@ -121,39 +120,6 @@ func renderTree(qp *queryplan.QueryPlan, tree treeprint.Tree, link *spanner.Plan
 	}
 }
 
-func nodeTitle(node *spanner.PlanNode) string {
-	metadataFields := node.GetMetadata().GetFields()
-
-	operator := joinIfNotEmpty(" ",
-		metadataFields["call_type"].GetStringValue(),
-		metadataFields["iterator_type"].GetStringValue(),
-		strings.TrimSuffix(metadataFields["scan_type"].GetStringValue(), "Scan"),
-		node.GetDisplayName(),
-	)
-
-	fields := make([]string, 0)
-	for k, v := range metadataFields {
-		switch k {
-		case "call_type", "iterator_type": // Skip because it is displayed in node title
-			continue
-		case "scan_type": // Skip because it is combined with scan_target
-			continue
-		case "subquery_cluster_node": // Skip because it is useless
-			continue
-		case "scan_target":
-			fields = append(fields, fmt.Sprintf("%s: %s",
-				strings.TrimSuffix(metadataFields["scan_type"].GetStringValue(), "Scan"),
-				v.GetStringValue()))
-		default:
-			fields = append(fields, fmt.Sprintf("%s: %s", k, v.GetStringValue()))
-		}
-	}
-
-	sort.Strings(fields)
-
-	return joinIfNotEmpty(" ", operator, encloseIfNotEmpty("(", strings.Join(fields, ", "), ")"))
-}
-
 func jsonRoundtrip(input interface{}, output interface{}, disallowUnknownFields bool) error {
 	b, err := json.Marshal(input)
 	if err != nil {
@@ -168,21 +134,4 @@ func jsonRoundtrip(input interface{}, output interface{}, disallowUnknownFields 
 		return err
 	}
 	return nil
-}
-
-func encloseIfNotEmpty(open, input, close string) string {
-	if input == "" {
-		return ""
-	}
-	return open + input + close
-}
-
-func joinIfNotEmpty(sep string, input ...string) string {
-	var filtered []string
-	for _, s := range input {
-		if s != "" {
-			filtered = append(filtered, s)
-		}
-	}
-	return strings.Join(filtered, sep)
 }

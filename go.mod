@@ -3,6 +3,7 @@ module github.com/apstndb/spannerplanviz
 go 1.14
 
 require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/goccy/go-graphviz v0.0.9
 	github.com/golang/protobuf v1.5.1 // indirect
 	github.com/kr/pretty v0.1.0 // indirect

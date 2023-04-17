@@ -1,6 +1,8 @@
 package queryplan
 
 import (
+	"fmt"
+	"sort"
 	"strings"
 
 	"google.golang.org/genproto/googleapis/spanner/v1"
@@ -30,6 +32,10 @@ func (qp *QueryPlan) IsPredicate(childLink *spanner.PlanNode_ChildLink) bool {
 	return false
 }
 
+func (qp *QueryPlan) PlanNodes() []*spanner.PlanNode {
+	return qp.planNodes
+}
+
 func (qp *QueryPlan) GetNodeByIndex(id int32) *spanner.PlanNode {
 	return qp.planNodes[id]
 }
@@ -53,4 +59,54 @@ func (qp *QueryPlan) VisibleChildLinks(node *spanner.PlanNode) []*spanner.PlanNo
 // If `link` is nil, return the root node.
 func (qp *QueryPlan) GetNodeByChildLink(link *spanner.PlanNode_ChildLink) *spanner.PlanNode {
 	return qp.planNodes[link.GetChildIndex()]
+}
+
+func NodeTitle(node *spanner.PlanNode) string {
+	metadataFields := node.GetMetadata().GetFields()
+
+	operator := joinIfNotEmpty(" ",
+		metadataFields["call_type"].GetStringValue(),
+		metadataFields["iterator_type"].GetStringValue(),
+		strings.TrimSuffix(metadataFields["scan_type"].GetStringValue(), "Scan"),
+		node.GetDisplayName(),
+	)
+
+	fields := make([]string, 0)
+	for k, v := range metadataFields {
+		switch k {
+		case "call_type", "iterator_type": // Skip because it is displayed in node title
+			continue
+		case "scan_type": // Skip because it is combined with scan_target
+			continue
+		case "subquery_cluster_node": // Skip because it is useless
+			continue
+		case "scan_target":
+			fields = append(fields, fmt.Sprintf("%s: %s",
+				strings.TrimSuffix(metadataFields["scan_type"].GetStringValue(), "Scan"),
+				v.GetStringValue()))
+		default:
+			fields = append(fields, fmt.Sprintf("%s: %s", k, v.GetStringValue()))
+		}
+	}
+
+	sort.Strings(fields)
+
+	return joinIfNotEmpty(" ", operator, encloseIfNotEmpty("(", strings.Join(fields, ", "), ")"))
+}
+
+func encloseIfNotEmpty(open, input, close string) string {
+	if input == "" {
+		return ""
+	}
+	return open + input + close
+}
+
+func joinIfNotEmpty(sep string, input ...string) string {
+	var filtered []string
+	for _, s := range input {
+		if s != "" {
+			filtered = append(filtered, s)
+		}
+	}
+	return strings.Join(filtered, sep)
 }
