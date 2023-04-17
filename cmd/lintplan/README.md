@@ -5,7 +5,7 @@ $ gcloud spanner databases execute-sql $DATABASE_ID --project $PROJECT_ID --inst
   --sql='SELECT s.SongGenre FROM Songs AS s ORDER BY SongGenre' --query-mode=PLAN --format=yaml > tmp_plan.yaml &&
    rendertree < tmp_plan.yaml &&
    echo "---" &&
-   go run ./cmd/lintplan < tmp_plan.yaml
+   lintplan < tmp_plan.yaml
 +----+-----------------------------------------------------------------------------+
 | ID | Operator                                                                    |
 +----+-----------------------------------------------------------------------------+
