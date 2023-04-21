@@ -22,15 +22,9 @@ func main() {
 
 const jsonSnippetLen = 140
 
-type KeySpecElem struct {
-	ColumnName      string
-	IsDesc          bool
-	OrdinalPosition int64
-}
-
 type KeySpec struct {
 	StoredColumns []string
-	Keys          []*KeySpecElem
+	KeyColumns    []*schema.InformationSchemaIndexColumn
 }
 
 type TableSpec struct {
@@ -57,6 +51,7 @@ func run(ctx context.Context) error {
 
 	columnsByTable := schema.BuildColumnsByTableMap(is.Columns)
 
+	tableMap := schema.BuildTableMap(is.Tables)
 	tableKeys := make(map[string]*TableSpec)
 
 	for _, indexColumn := range is.IndexColumns {
@@ -66,7 +61,8 @@ func run(ctx context.Context) error {
 		tableSpec, ok := tableKeys[indexColumn.TableName]
 		if !ok {
 			tableSpec = &TableSpec{
-				SecondaryKeys: make(map[string]*KeySpec),
+				SecondaryKeys:   make(map[string]*KeySpec),
+				ParentTableName: lo.FromPtr(tableMap[indexColumn.TableName].ParentTableName),
 			}
 			tableKeys[indexColumn.TableName] = tableSpec
 		}
@@ -78,12 +74,8 @@ func run(ctx context.Context) error {
 		}
 
 		if indexColumn.OrdinalPosition != nil {
-			keySpecElem := KeySpecElem{
-				IsDesc:          indexColumn.ColumnOrdering != nil && *indexColumn.ColumnOrdering == "DESC",
-				ColumnName:      indexColumn.ColumnName,
-				OrdinalPosition: *indexColumn.OrdinalPosition,
-			}
-			keySpec.Keys = append(keySpec.Keys, &keySpecElem)
+			keySpecElem := indexColumn
+			keySpec.KeyColumns = append(keySpec.KeyColumns, keySpecElem)
 		} else {
 			keySpec.StoredColumns = append(keySpec.StoredColumns, indexColumn.ColumnName)
 		}
@@ -92,8 +84,8 @@ func run(ctx context.Context) error {
 	for _, t := range tableKeys {
 		for _, k := range t.SecondaryKeys {
 			slices.Sort(k.StoredColumns)
-			slices.SortFunc(k.Keys, func(a, b *KeySpecElem) bool {
-				return a.OrdinalPosition < b.OrdinalPosition
+			slices.SortFunc(k.KeyColumns, func(a, b *schema.InformationSchemaIndexColumn) bool {
+				return lo.FromPtr(a.OrdinalPosition) < lo.FromPtr(b.OrdinalPosition)
 			})
 		}
 		t.PrimaryKey = t.SecondaryKeys["PRIMARY_KEY"]
@@ -101,13 +93,10 @@ func run(ctx context.Context) error {
 	}
 
 	indexMap := schema.BuildIndexMap(is.Indexes)
-	tableMap := schema.BuildTableMap(is.Tables)
 
 	for tableName, t := range tableKeys {
 		pk := t.PrimaryKey
-		existsInCurrentPK := SliceToPredicateBy(pk.Keys, func(item *KeySpecElem) string {
-			return item.ColumnName
-		})
+		existsInCurrentPK := SliceToPredicateBy(pk.KeyColumns, indexColumnToColumnName)
 
 		columnNamesNotInPK := lo.FilterMap(columnsByTable[tableName], func(item *schema.InformationSchemaColumn, _ int) (string, bool) {
 			if existsInCurrentPK(item.ColumnName) {
@@ -118,7 +107,7 @@ func run(ctx context.Context) error {
 
 		fmt.Printf("%v PRIMARY KEY (%v)%v\n",
 			tableName,
-			renderKey(tableMap, tableKeys, lo.FromPtr(tableMap[tableName].ParentTableName), pk.Keys),
+			renderKey(tableKeys, lo.FromPtr(tableMap[tableName].ParentTableName), pk.KeyColumns),
 			IfOrEmpty(len(columnNamesNotInPK) > 0,
 				fmt.Sprintf(` STORING (%v)`, strings.Join(columnNamesNotInPK, ", "))))
 
@@ -126,9 +115,7 @@ func run(ctx context.Context) error {
 			storingClauseStrOpt := IfOrEmpty(len(index.StoredColumns) > 0,
 				fmt.Sprintf(` STORING (%v)`, strings.Join(index.StoredColumns, ", ")))
 
-			existsInCurrentKey := SliceToPredicateBy(index.Keys, func(item *KeySpecElem) string {
-				return item.ColumnName
-			})
+			existsInCurrentKey := SliceToPredicateBy(index.KeyColumns, indexColumnToColumnName)
 
 			columnNamesNotStoring := lo.Filter(columnNamesNotInPK, func(columnName string, _ int) bool {
 				return !lo.Contains(index.StoredColumns, columnName) && !existsInCurrentKey(columnName)
@@ -137,14 +124,12 @@ func run(ctx context.Context) error {
 			notStoringClauseStrOpt := IfOrEmpty(len(columnNamesNotStoring) > 0,
 				fmt.Sprintf(` NOT STORING (%v)`, strings.Join(columnNamesNotStoring, ", ")))
 
-			pkPart := lo.Filter(pk.Keys, func(item *KeySpecElem, _ int) bool {
-				return existsInCurrentKey(item.ColumnName)
-			})
+			pkPart := lo.Filter(pk.KeyColumns, IgnoreSecond[*schema.InformationSchemaIndexColumn, int, bool](Compose(existsInCurrentKey, indexColumnToColumnName)))
 
 			implicitPKPartStrOpt := IfOrEmpty(len(pkPart) > 0,
 				fmt.Sprintf("[, %v]", renderKeySpec(pkPart)))
 
-			keyPartStr := renderKey(tableMap, tableKeys, indexMap[indexName].ParentTableName, index.Keys)
+			keyPartStr := renderKey(tableKeys, indexMap[indexName].ParentTableName, index.KeyColumns)
 			fmt.Printf("  %v ON %v (%v%v)%v%v\n",
 				indexName,
 				tableName,
@@ -158,29 +143,29 @@ func run(ctx context.Context) error {
 	return nil
 }
 
-func renderKey(tableMap map[string]*schema.InformationSchemaTable, tableKeys map[string]*TableSpec, parentTableName string, pk []*KeySpecElem) string {
+func renderKey(tableSpecMap map[string]*TableSpec, parentTableName string, columns []*schema.InformationSchemaIndexColumn) string {
 	if parentTableName == "" {
-		return renderKeySpec(pk)
+		return renderKeySpec(columns)
 	}
 
-	parent := tableMap[parentTableName]
-	parentKeys := tableKeys[parentTableName].PrimaryKey.Keys
-	parentPart := renderKey(tableMap, tableKeys, lo.FromPtr(parent.ParentTableName), pk[:len(parentKeys)])
-	parentKeyPart := fmt.Sprintf("%v(%v)", parentTableName, parentPart)
-	childPart := pk[len(parentKeys):]
-	return strings.Join([]string{parentKeyPart, renderKeySpec(childPart)}, ", ")
+	parentTable := tableSpecMap[parentTableName]
+	parentKeyColumns := parentTable.PrimaryKey.KeyColumns
+	return strings.Join([]string{
+		fmt.Sprintf("%v(%v)", parentTableName, renderKey(tableSpecMap, parentTable.ParentTableName, columns[:len(parentKeyColumns)])),
+		renderKeySpec(columns[len(parentKeyColumns):]),
+	}, ", ")
 }
 
-func renderKeySpec(ks []*KeySpecElem) string {
-	return strings.Join(lo.Map(ks, func(item *KeySpecElem, _ int) string {
-		if item.IsDesc {
+func renderKeySpec(ks []*schema.InformationSchemaIndexColumn) string {
+	return strings.Join(lo.Map(ks, func(item *schema.InformationSchemaIndexColumn, _ int) string {
+		if lo.FromPtr(item.ColumnOrdering) == "DESC" {
 			return fmt.Sprintf("%v DESC", item.ColumnName)
 		}
 		return item.ColumnName
 	}), ", ")
 }
 
-func GetIndexColumnColumnName(index *schema.InformationSchemaIndexColumn) string {
+func indexColumnToColumnName(index *schema.InformationSchemaIndexColumn) string {
 	return index.ColumnName
 }
 
