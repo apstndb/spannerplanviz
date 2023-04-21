@@ -20,8 +20,6 @@ func main() {
 	}
 }
 
-const jsonSnippetLen = 140
-
 type KeySpec struct {
 	StoredColumns []string
 	KeyColumns    []*schema.InformationSchemaIndexColumn
@@ -96,14 +94,12 @@ func run(ctx context.Context) error {
 
 	for tableName, t := range tableKeys {
 		pk := t.PrimaryKey
-		existsInCurrentPK := SliceToPredicateBy(pk.KeyColumns, indexColumnToColumnName)
+		notExistsInCurrentPKPred := Not(SliceToPredicateBy(pk.KeyColumns, indexColumnToColumnName))
 
-		columnNamesNotInPK := lo.FilterMap(columnsByTable[tableName], func(item *schema.InformationSchemaColumn, _ int) (string, bool) {
-			if existsInCurrentPK(item.ColumnName) {
-				return "", false
-			}
-			return item.ColumnName, true
+		tableColumnNames := lo.Map(columnsByTable[tableName], func(item *schema.InformationSchemaColumn, _ int) string {
+			return item.ColumnName
 		})
+		columnNamesNotInPK := FilterWithoutIndex(tableColumnNames, notExistsInCurrentPKPred)
 
 		fmt.Printf("%v PRIMARY KEY (%v)%v\n",
 			tableName,
@@ -112,31 +108,33 @@ func run(ctx context.Context) error {
 				fmt.Sprintf(` STORING (%v)`, strings.Join(columnNamesNotInPK, ", "))))
 
 		for indexName, index := range t.SecondaryKeys {
-			storingClauseStrOpt := IfOrEmpty(len(index.StoredColumns) > 0,
-				fmt.Sprintf(` STORING (%v)`, strings.Join(index.StoredColumns, ", ")))
-
-			existsInCurrentKey := SliceToPredicateBy(index.KeyColumns, indexColumnToColumnName)
+			notExistsInCurrentKey := Not(SliceToPredicateBy(index.KeyColumns, indexColumnToColumnName))
 
 			columnNamesNotStoring := lo.Filter(columnNamesNotInPK, func(columnName string, _ int) bool {
-				return !lo.Contains(index.StoredColumns, columnName) && !existsInCurrentKey(columnName)
+				return !lo.Contains(index.StoredColumns, columnName) && notExistsInCurrentKey(columnName)
 			})
 
-			notStoringClauseStrOpt := IfOrEmpty(len(columnNamesNotStoring) > 0,
-				fmt.Sprintf(` NOT STORING (%v)`, strings.Join(columnNamesNotStoring, ", ")))
-
-			pkPart := lo.Filter(pk.KeyColumns, IgnoreSecond[*schema.InformationSchemaIndexColumn, int, bool](Compose(existsInCurrentKey, indexColumnToColumnName)))
+			pkPart := FilterWithoutIndex(pk.KeyColumns, Compose(notExistsInCurrentKey, indexColumnToColumnName))
 
 			implicitPKPartStrOpt := IfOrEmpty(len(pkPart) > 0,
 				fmt.Sprintf("[, %v]", renderKeySpec(pkPart)))
 
-			keyPartStr := renderKey(tableKeys, indexMap[indexName].ParentTableName, index.KeyColumns)
-			fmt.Printf("  %v ON %v (%v%v)%v%v\n",
+			isIndex := indexMap[indexName]
+			keyPartStr := renderKey(tableKeys, isIndex.ParentTableName, index.KeyColumns)
+			fmt.Printf("  %v ON %v (%v%v) %v\n",
 				indexName,
 				tableName,
 				keyPartStr,
 				implicitPKPartStrOpt,
-				storingClauseStrOpt,
-				notStoringClauseStrOpt,
+				strings.Join(lo.WithoutEmpty([]string{
+					IfOrEmpty(len(index.StoredColumns) > 0,
+						fmt.Sprintf(`STORING (%v)`, strings.Join(index.StoredColumns, ", "))),
+					IfOrEmpty(len(columnNamesNotStoring) > 0,
+						fmt.Sprintf(`NOT STORING (%v)`, strings.Join(columnNamesNotStoring, ", "))),
+					IfOrEmpty(isIndex.IsUnique, "UNIQUE"),
+					IfOrEmpty(isIndex.IsNullFiltered, "NULL_FILTERED"),
+				}), " ",
+				),
 			)
 		}
 	}
@@ -166,6 +164,10 @@ func renderKeySpec(ks []*schema.InformationSchemaIndexColumn) string {
 }
 
 func indexColumnToColumnName(index *schema.InformationSchemaIndexColumn) string {
+	return index.ColumnName
+}
+
+func columnToColumnName(index *schema.InformationSchemaIndexColumn) string {
 	return index.ColumnName
 }
 
@@ -216,8 +218,19 @@ func Not[T any](f func(T) bool) func(T) bool {
 	}
 }
 
+func IgnoreIndex[T1, T2, R any](f func(T1) R) func(T1, T2) R {
+	return IgnoreSecond[T1, T2, R](f)
+}
+
 func IgnoreSecond[T1, T2, R any](f func(T1) R) func(T1, T2) R {
 	return func(v T1, _ T2) R {
 		return f(v)
 	}
+}
+
+func FilterWithoutIndex[V any](collection []V, predicate func(item V) bool) []V {
+	return lo.Filter(collection, IgnoreSecond[V, int, bool](predicate))
+}
+func MapWithoutIndex[T, R any](collection []T, iteratee func(item T) R) []R {
+	return lo.Map(collection, IgnoreSecond[T, int, R](iteratee))
 }
