@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"google.golang.org/genproto/googleapis/spanner/v1"
 )
 
@@ -19,13 +20,20 @@ func New(planNodes []*spanner.PlanNode) *QueryPlan {
 	return &QueryPlan{planNodes}
 }
 
-func (qp *QueryPlan) IsPredicate(childLink *spanner.PlanNode_ChildLink) bool {
+func (qp *QueryPlan) IsFunction(childLink *spanner.PlanNode_ChildLink) bool {
 	// Known predicates are Condition(Filter, Hash Join) or Seek Condition(FilterScan) or Residual Condition(FilterScan, Hash Join) or Split Range(Distributed Union).
 	// Agg(Aggregate) is a Function but not a predicate.
 	child := qp.GetNodeByChildLink(childLink)
-	if child.DisplayName != "Function" {
+	return child.DisplayName == "Function"
+}
+
+func (qp *QueryPlan) IsPredicate(childLink *spanner.PlanNode_ChildLink) bool {
+	// Known predicates are Condition(Filter, Hash Join) or Seek Condition(FilterScan) or Residual Condition(FilterScan, Hash Join) or Split Range(Distributed Union).
+	// Agg(Aggregate) is a Function but not a predicate.
+	if !qp.IsFunction(childLink) {
 		return false
 	}
+
 	if strings.HasSuffix(childLink.GetType(), "Condition") || childLink.GetType() == "Split Range" {
 		return true
 	}
@@ -109,4 +117,16 @@ func joinIfNotEmpty(sep string, input ...string) string {
 		}
 	}
 	return strings.Join(filtered, sep)
+}
+
+func (qp *QueryPlan) ResolveChildLink(item *spannerpb.PlanNode_ChildLink) *ResolvedChildLink {
+	return &ResolvedChildLink{
+		ChildLink: item,
+		Child:     qp.GetNodeByChildLink(item),
+	}
+}
+
+type ResolvedChildLink struct {
+	ChildLink *spannerpb.PlanNode_ChildLink
+	Child     *spannerpb.PlanNode
 }

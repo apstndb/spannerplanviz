@@ -1,26 +1,36 @@
 module github.com/apstndb/spannerplanviz
 
-go 1.14
+go 1.18
 
 require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	cloud.google.com/go/spanner v1.44.0
+	github.com/apstndb/lox v0.0.0-20230530141045-98c1efebcde8
+	github.com/davecgh/go-spew v1.1.1
 	github.com/goccy/go-graphviz v0.0.9
-	github.com/golang/protobuf v1.5.1 // indirect
+	github.com/olekukonko/tablewriter v0.0.5
+	github.com/samber/lo v1.38.1
+	github.com/xlab/treeprint v1.1.0
+	google.golang.org/genproto v0.0.0-20230403163135-c38d8f061ccd
+	google.golang.org/protobuf v1.30.0
+	gopkg.in/yaml.v3 v3.0.1
+	sigs.k8s.io/yaml v1.2.0
+)
+
+require (
+	github.com/fogleman/gg v1.3.0 // indirect
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
+	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/mattn/go-runewidth v0.0.10 // indirect
-	github.com/olekukonko/tablewriter v0.0.5
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/xlab/treeprint v1.1.0
-	golang.org/x/image v0.0.0-20210220032944-ac19c3e999fb // indirect
-	golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4 // indirect
-	golang.org/x/sys v0.0.0-20210317225723-c4fcb01b228e // indirect
-	golang.org/x/text v0.3.5 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
-	google.golang.org/genproto v0.0.0-20210317182105-75c7a8546eb9
-	google.golang.org/grpc v1.36.0 // indirect
-	google.golang.org/protobuf v1.26.0
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
+	github.com/stretchr/testify v1.8.1 // indirect
+	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
+	golang.org/x/image v0.0.0-20200119044424-58c23975cae1 // indirect
+	golang.org/x/net v0.9.0 // indirect
+	golang.org/x/sys v0.7.0 // indirect
+	golang.org/x/text v0.9.0 // indirect
+	google.golang.org/grpc v1.54.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
-	sigs.k8s.io/yaml v1.2.0
 )
