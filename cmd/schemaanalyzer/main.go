@@ -37,11 +37,11 @@ func run(ctx context.Context) error {
 
 	var is schema.InformationSchema
 	{
-		schemaB, err := os.ReadFile(*schemaFile)
+		b, err := os.ReadFile(*schemaFile)
 		if err != nil {
 			return err
 		}
-		err = json.Unmarshal(schemaB, &is)
+		err = json.Unmarshal(b, &is)
 		if err != nil {
 			return err
 		}
@@ -50,48 +50,9 @@ func run(ctx context.Context) error {
 	columnsByTable := schema.BuildColumnsByTableMap(is.Columns)
 
 	tableMap := schema.BuildTableMap(is.Tables)
-	tableKeys := make(map[string]*TableSpec)
-
-	for _, indexColumn := range is.IndexColumns {
-		if indexColumn.TableSchema != "" {
-			continue
-		}
-		tableSpec, ok := tableKeys[indexColumn.TableName]
-		if !ok {
-			tableSpec = &TableSpec{
-				SecondaryKeys:   make(map[string]*KeySpec),
-				ParentTableName: lo.FromPtr(tableMap[indexColumn.TableName].ParentTableName),
-			}
-			tableKeys[indexColumn.TableName] = tableSpec
-		}
-
-		keySpec, ok := tableSpec.SecondaryKeys[indexColumn.IndexName]
-		if !ok {
-			keySpec = &KeySpec{}
-			tableSpec.SecondaryKeys[indexColumn.IndexName] = keySpec
-		}
-
-		if indexColumn.OrdinalPosition != nil {
-			keySpecElem := indexColumn
-			keySpec.KeyColumns = append(keySpec.KeyColumns, keySpecElem)
-		} else {
-			keySpec.StoredColumns = append(keySpec.StoredColumns, indexColumn.ColumnName)
-		}
-	}
-
-	for _, t := range tableKeys {
-		for _, k := range t.SecondaryKeys {
-			slices.Sort(k.StoredColumns)
-			slices.SortFunc(k.KeyColumns, func(a, b *schema.InformationSchemaIndexColumn) bool {
-				return lo.FromPtr(a.OrdinalPosition) < lo.FromPtr(b.OrdinalPosition)
-			})
-		}
-		t.PrimaryKey = t.SecondaryKeys["PRIMARY_KEY"]
-		delete(t.SecondaryKeys, "PRIMARY_KEY")
-	}
-
 	indexMap := schema.BuildIndexMap(is.Indexes)
 
+	tableKeys := buildTableSpecs(is, tableMap)
 	for tableName, t := range tableKeys {
 		pk := t.PrimaryKey
 		notExistsInCurrentPKPred := Not(SliceToPredicateBy(pk.KeyColumns, indexColumnToColumnName))
@@ -139,6 +100,49 @@ func run(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func buildTableSpecs(is schema.InformationSchema, tableMap map[string]*schema.InformationSchemaTable) map[string]*TableSpec {
+	tableKeys := make(map[string]*TableSpec)
+
+	for _, indexColumn := range is.IndexColumns {
+		if indexColumn.TableSchema != "" {
+			continue
+		}
+		tableSpec, ok := tableKeys[indexColumn.TableName]
+		if !ok {
+			tableSpec = &TableSpec{
+				SecondaryKeys:   make(map[string]*KeySpec),
+				ParentTableName: lo.FromPtr(tableMap[indexColumn.TableName].ParentTableName),
+			}
+			tableKeys[indexColumn.TableName] = tableSpec
+		}
+
+		keySpec, ok := tableSpec.SecondaryKeys[indexColumn.IndexName]
+		if !ok {
+			keySpec = &KeySpec{}
+			tableSpec.SecondaryKeys[indexColumn.IndexName] = keySpec
+		}
+
+		if indexColumn.OrdinalPosition != nil {
+			keySpecElem := indexColumn
+			keySpec.KeyColumns = append(keySpec.KeyColumns, keySpecElem)
+		} else {
+			keySpec.StoredColumns = append(keySpec.StoredColumns, indexColumn.ColumnName)
+		}
+	}
+
+	for _, t := range tableKeys {
+		for _, k := range t.SecondaryKeys {
+			slices.Sort(k.StoredColumns)
+			slices.SortFunc(k.KeyColumns, func(a, b *schema.InformationSchemaIndexColumn) bool {
+				return lo.FromPtr(a.OrdinalPosition) < lo.FromPtr(b.OrdinalPosition)
+			})
+		}
+		t.PrimaryKey = t.SecondaryKeys["PRIMARY_KEY"]
+		delete(t.SecondaryKeys, "PRIMARY_KEY")
+	}
+	return tableKeys
 }
 
 func renderKey(tableSpecMap map[string]*TableSpec, parentTableName string, columns []*schema.InformationSchemaIndexColumn) string {
