@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/apstndb/spannerplanviz/internal/lox"
 	"github.com/apstndb/spannerplanviz/internal/schema"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
@@ -55,29 +56,29 @@ func run(ctx context.Context) error {
 	tableKeys := buildTableSpecs(is, tableMap)
 	for tableName, t := range tableKeys {
 		pk := t.PrimaryKey
-		notExistsInCurrentPKPred := Not(SliceToPredicateBy(pk.KeyColumns, indexColumnToColumnName))
+		notExistsInCurrentPKPred := lox.Not(lox.SliceToPredicateBy(pk.KeyColumns, indexColumnToColumnName))
 
 		tableColumnNames := lo.Map(columnsByTable[tableName], func(item *schema.InformationSchemaColumn, _ int) string {
 			return item.ColumnName
 		})
-		columnNamesNotInPK := FilterWithoutIndex(tableColumnNames, notExistsInCurrentPKPred)
+		columnNamesNotInPK := lox.FilterWithoutIndex(tableColumnNames, notExistsInCurrentPKPred)
 
 		fmt.Printf("%v PRIMARY KEY (%v)%v\n",
 			tableName,
 			renderKey(tableKeys, lo.FromPtr(tableMap[tableName].ParentTableName), pk.KeyColumns),
-			IfOrEmpty(len(columnNamesNotInPK) > 0,
+			lox.IfOrEmpty(len(columnNamesNotInPK) > 0,
 				fmt.Sprintf(` STORING (%v)`, strings.Join(columnNamesNotInPK, ", "))))
 
 		for indexName, index := range t.SecondaryKeys {
-			notExistsInCurrentKey := Not(SliceToPredicateBy(index.KeyColumns, indexColumnToColumnName))
+			notExistsInCurrentKey := lox.Not(lox.SliceToPredicateBy(index.KeyColumns, indexColumnToColumnName))
 
 			columnNamesNotStoring := lo.Filter(columnNamesNotInPK, func(columnName string, _ int) bool {
 				return !lo.Contains(index.StoredColumns, columnName) && notExistsInCurrentKey(columnName)
 			})
 
-			pkPart := FilterWithoutIndex(pk.KeyColumns, Compose(notExistsInCurrentKey, indexColumnToColumnName))
+			pkPart := lox.FilterWithoutIndex(pk.KeyColumns, lox.Compose(notExistsInCurrentKey, indexColumnToColumnName))
 
-			implicitPKPartStrOpt := IfOrEmpty(len(pkPart) > 0,
+			implicitPKPartStrOpt := lox.IfOrEmpty(len(pkPart) > 0,
 				fmt.Sprintf("[, %v]", renderKeySpec(pkPart)))
 
 			isIndex := indexMap[indexName]
@@ -88,12 +89,12 @@ func run(ctx context.Context) error {
 				keyPartStr,
 				implicitPKPartStrOpt,
 				strings.Join(lo.WithoutEmpty([]string{
-					IfOrEmpty(len(index.StoredColumns) > 0,
+					lox.IfOrEmpty(len(index.StoredColumns) > 0,
 						fmt.Sprintf(`STORING (%v)`, strings.Join(index.StoredColumns, ", "))),
-					IfOrEmpty(len(columnNamesNotStoring) > 0,
+					lox.IfOrEmpty(len(columnNamesNotStoring) > 0,
 						fmt.Sprintf(`NOT STORING (%v)`, strings.Join(columnNamesNotStoring, ", "))),
-					IfOrEmpty(isIndex.IsUnique, "UNIQUE"),
-					IfOrEmpty(isIndex.IsNullFiltered, "NULL_FILTERED"),
+					lox.IfOrEmpty(isIndex.IsUnique, "UNIQUE"),
+					lox.IfOrEmpty(isIndex.IsNullFiltered, "NULL_FILTERED"),
 				}), " ",
 				),
 			)
@@ -103,46 +104,78 @@ func run(ctx context.Context) error {
 }
 
 func buildTableSpecs(is schema.InformationSchema, tableMap map[string]*schema.InformationSchemaTable) map[string]*TableSpec {
-	tableKeys := make(map[string]*TableSpec)
+	keyColumnsInNormalTable := lo.Filter(is.IndexColumns, func(item *schema.InformationSchemaIndexColumn, index int) bool {
+		return item.TableSchema == ""
+	})
+	indexColumnByTableName := lo.GroupBy(keyColumnsInNormalTable, func(item *schema.InformationSchemaIndexColumn) string {
+		return item.TableName
+	})
+	return lo.MapValues(indexColumnByTableName, func(indexColumnsInTable []*schema.InformationSchemaIndexColumn, tableName string) *TableSpec {
+		indexColumnByIndexName := lo.GroupBy(indexColumnsInTable, indexColumnToIndexName)
+		keySpecsByIndexName := lo.MapValues(indexColumnByIndexName, func(indexColumnsInIndex []*schema.InformationSchemaIndexColumn, _ string) *KeySpec {
+			storedColumns := lox.MapWithoutIndex(
+				lox.OnlyEmptyBy(indexColumnsInIndex, indexColumnToOrdinalPosition),
+				indexColumnToColumnName)
+			slices.Sort(storedColumns)
 
-	for _, indexColumn := range is.IndexColumns {
-		if indexColumn.TableSchema != "" {
-			continue
-		}
-		tableSpec, ok := tableKeys[indexColumn.TableName]
-		if !ok {
-			tableSpec = &TableSpec{
-				SecondaryKeys:   make(map[string]*KeySpec),
-				ParentTableName: lo.FromPtr(tableMap[indexColumn.TableName].ParentTableName),
+			keyColumns :=
+				lox.WithoutEmptyBy(indexColumnsInIndex, indexColumnToOrdinalPosition)
+			lox.SortBy(keyColumns, lox.Compose[*schema.InformationSchemaIndexColumn, *int64, int64](lo.FromPtr[int64], indexColumnToOrdinalPosition))
+
+			return &KeySpec{
+				StoredColumns: storedColumns,
+				KeyColumns:    keyColumns,
 			}
-			tableKeys[indexColumn.TableName] = tableSpec
+		})
+		return &TableSpec{
+			PrimaryKey:      keySpecsByIndexName["PRIMARY_KEY"],
+			ParentTableName: lo.FromPtr(tableMap[tableName].ParentTableName),
+			SecondaryKeys:   lo.OmitByKeys(keySpecsByIndexName, []string{"PRIMARY_KEY"}),
+		}
+	})
+
+	/*
+		tableKeys := make(map[string]*TableSpec)
+
+			for _, indexColumn := range is.IndexColumns {
+			if indexColumn.TableSchema != "" {
+				continue
+			}
+			tableSpec, ok := tableKeys[indexColumn.TableName]
+			if !ok {
+				tableSpec = &TableSpec{
+					SecondaryKeys:   make(map[string]*KeySpec),
+					ParentTableName: lo.FromPtr(tableMap[indexColumn.TableName].ParentTableName),
+				}
+				tableKeys[indexColumn.TableName] = tableSpec
+			}
+
+			keySpec, ok := tableSpec.SecondaryKeys[indexColumn.IndexName]
+			if !ok {
+				keySpec = &KeySpec{}
+				tableSpec.SecondaryKeys[indexColumn.IndexName] = keySpec
+			}
+
+			if indexColumn.OrdinalPosition != nil {
+				keySpecElem := indexColumn
+				keySpec.KeyColumns = append(keySpec.KeyColumns, keySpecElem)
+			} else {
+				keySpec.StoredColumns = append(keySpec.StoredColumns, indexColumn.ColumnName)
+			}
 		}
 
-		keySpec, ok := tableSpec.SecondaryKeys[indexColumn.IndexName]
-		if !ok {
-			keySpec = &KeySpec{}
-			tableSpec.SecondaryKeys[indexColumn.IndexName] = keySpec
+		for _, t := range tableKeys {
+			for _, k := range t.SecondaryKeys {
+				slices.Sort(k.StoredColumns)
+				slices.SortFunc(k.KeyColumns, func(a, b *schema.InformationSchemaIndexColumn) bool {
+					return lo.FromPtr(a.OrdinalPosition) < lo.FromPtr(b.OrdinalPosition)
+				})
+			}
+			t.PrimaryKey = t.SecondaryKeys["PRIMARY_KEY"]
+			delete(t.SecondaryKeys, "PRIMARY_KEY")
 		}
-
-		if indexColumn.OrdinalPosition != nil {
-			keySpecElem := indexColumn
-			keySpec.KeyColumns = append(keySpec.KeyColumns, keySpecElem)
-		} else {
-			keySpec.StoredColumns = append(keySpec.StoredColumns, indexColumn.ColumnName)
-		}
-	}
-
-	for _, t := range tableKeys {
-		for _, k := range t.SecondaryKeys {
-			slices.Sort(k.StoredColumns)
-			slices.SortFunc(k.KeyColumns, func(a, b *schema.InformationSchemaIndexColumn) bool {
-				return lo.FromPtr(a.OrdinalPosition) < lo.FromPtr(b.OrdinalPosition)
-			})
-		}
-		t.PrimaryKey = t.SecondaryKeys["PRIMARY_KEY"]
-		delete(t.SecondaryKeys, "PRIMARY_KEY")
-	}
-	return tableKeys
+		return tableKeys
+	*/
 }
 
 func renderKey(tableSpecMap map[string]*TableSpec, parentTableName string, columns []*schema.InformationSchemaIndexColumn) string {
@@ -171,70 +204,10 @@ func indexColumnToColumnName(index *schema.InformationSchemaIndexColumn) string 
 	return index.ColumnName
 }
 
-func columnToColumnName(index *schema.InformationSchemaIndexColumn) string {
-	return index.ColumnName
+func indexColumnToIndexName(index *schema.InformationSchemaIndexColumn) string {
+	return index.IndexName
 }
 
-func MapToPredicate[K comparable, V any](m map[K]V) func(K) bool {
-	return func(v K) bool {
-		_, ok := m[v]
-		return ok
-	}
-}
-func SliceToPredicateBy[K comparable, V any](s []V, f func(V) K) func(K) bool {
-	return MapToPredicate(SliceToSetBy(s, f))
-}
-
-func SliceToPredicate[V comparable](s []V) func(V) bool {
-	return MapToPredicate(SliceToSet(s))
-}
-
-func SliceToSet[V comparable](collection []V) map[V]struct{} {
-	return SliceToSetBy(collection, Identity[V])
-}
-
-func SliceToSetBy[K comparable, V any](collection []V, iteratee func(item V) K) map[K]struct{} {
-	return lo.Associate(collection, func(item V) (K, struct{}) {
-		return iteratee(item), struct{}{}
-	})
-}
-
-func Identity[T any](v T) T {
-	return v
-}
-
-func IfOrEmpty[T any](condition bool, result T) T {
-	return lo.Ternary(condition, result, lo.Empty[T]())
-}
-func IfOrEmptyF[T any](condition bool, f func() T) T {
-	return lo.TernaryF(condition, f, lo.Empty[T])
-}
-
-func Compose[T1, T2, R any](f func(T2) R, g func(T1) T2) func(T1) R {
-	return func(v T1) R {
-		return f(g(v))
-	}
-}
-
-func Not[T any](f func(T) bool) func(T) bool {
-	return func(v T) bool {
-		return !f(v)
-	}
-}
-
-func IgnoreIndex[T1, T2, R any](f func(T1) R) func(T1, T2) R {
-	return IgnoreSecond[T1, T2, R](f)
-}
-
-func IgnoreSecond[T1, T2, R any](f func(T1) R) func(T1, T2) R {
-	return func(v T1, _ T2) R {
-		return f(v)
-	}
-}
-
-func FilterWithoutIndex[V any](collection []V, predicate func(item V) bool) []V {
-	return lo.Filter(collection, IgnoreSecond[V, int, bool](predicate))
-}
-func MapWithoutIndex[T, R any](collection []T, iteratee func(item T) R) []R {
-	return lo.Map(collection, IgnoreSecond[T, int, R](iteratee))
+func indexColumnToOrdinalPosition(index *schema.InformationSchemaIndexColumn) *int64 {
+	return index.OrdinalPosition
 }
