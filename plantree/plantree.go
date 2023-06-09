@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"strings"
 
+	"cloud.google.com/go/spanner/apiv1/spannerpb"
+	"github.com/apstndb/lox"
 	"github.com/apstndb/spannerplanviz/queryplan"
 	"github.com/apstndb/spannerplanviz/stats"
+	"github.com/samber/lo"
 	"github.com/xlab/treeprint"
 	"google.golang.org/genproto/googleapis/spanner/v1"
 )
@@ -26,7 +29,9 @@ type RowWithPredicates struct {
 	TreePart       string
 	NodeText       string
 	Predicates     []string
+	Keys           map[string][]string
 	ExecutionStats stats.ExecutionStats
+	ChildLinks     map[string][]*queryplan.ResolvedChildLink
 }
 
 func (r RowWithPredicates) Text() string {
@@ -76,6 +81,16 @@ func ProcessPlan(qp *queryplan.QueryPlan) (rows []RowWithPredicates, err error) 
 			predicates = append(predicates, fmt.Sprintf("%s: %s", cl.GetType(), qp.GetNodeByChildLink(cl).GetShortRepresentation().GetDescription()))
 		}
 
+		resolvedChildLinks := lox.MapWithoutIndex(node.GetChildLinks(), qp.ResolveChildLink)
+
+		scalarChildLinks := lox.FilterWithoutIndex(node.GetChildLinks(), func(item *spannerpb.PlanNode_ChildLink) bool {
+			return qp.GetNodeByChildLink(item).GetKind() == spannerpb.PlanNode_SCALAR
+		})
+
+		childLinks := lo.GroupBy(resolvedChildLinks, func(item *queryplan.ResolvedChildLink) string {
+			return item.ChildLink.GetType()
+		})
+
 		var executionStats stats.ExecutionStats
 		if err := jsonRoundtrip(node.GetExecutionStats(), &executionStats, true); err != nil {
 			return nil, err
@@ -84,6 +99,7 @@ func ProcessPlan(qp *queryplan.QueryPlan) (rows []RowWithPredicates, err error) 
 		result = append(result, RowWithPredicates{
 			ID:             node.GetIndex(),
 			Predicates:     predicates,
+			ChildLinks:     childLinks,
 			TreePart:       branchText,
 			NodeText:       text,
 			ExecutionStats: executionStats,

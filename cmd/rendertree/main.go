@@ -12,9 +12,11 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/apstndb/lox"
 	"github.com/apstndb/spannerplanviz/plantree"
 	"github.com/apstndb/spannerplanviz/queryplan"
 	"github.com/olekukonko/tablewriter"
+	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 )
 
@@ -209,12 +211,35 @@ func (s *stringList) Set(s2 string) error {
 
 const jsonSnippetLen = 140
 
+type PrintMode int
+
+const (
+	PrintPredicates PrintMode = iota
+	PrintTyped
+	PrintFull
+)
+
+func parsePrintMode(s string) PrintMode {
+	switch strings.ToLower(s) {
+	case "predicates":
+		return PrintPredicates
+	case "typed":
+		return PrintTyped
+	case "full":
+		return PrintFull
+	default:
+		panic(fmt.Sprintf("unknown PrintMode: %s", s))
+	}
+}
 func _main() error {
 	customFile := flag.String("custom-file", "", "")
 	mode := flag.String("mode", "", "PROFILE or PLAN(ignore case)")
+	printModeStr := flag.String("print", "predicates", "print node parameters(EXPERIMENTAL)")
 	var custom stringList
 	flag.Var(&custom, "custom", "")
 	flag.Parse()
+
+	printMode := parsePrintMode(*printModeStr)
 
 	var withStats bool
 	switch strings.ToUpper(*mode) {
@@ -264,7 +289,7 @@ func _main() error {
 	} else {
 		renderDef = withStatsToRenderDefMap[withStats]
 	}
-	return printResult(os.Stdout, renderDef, rows)
+	return printResult(os.Stdout, renderDef, rows, printMode)
 }
 
 func customFileToTableRenderDef(b []byte) (tableRenderDef, error) {
@@ -323,7 +348,7 @@ func customListToTableRenderDef(custom []string) (tableRenderDef, error) {
 	return tableRenderDef{Columns: columns}, nil
 }
 
-func printResult(out io.Writer, renderDef tableRenderDef, rows []plantree.RowWithPredicates) error {
+func printResult(out io.Writer, renderDef tableRenderDef, rows []plantree.RowWithPredicates, printMode PrintMode) error {
 	table := tablewriter.NewWriter(out)
 	table.SetAutoFormatHeaders(false)
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
@@ -350,6 +375,7 @@ func printResult(out io.Writer, renderDef tableRenderDef, rows []plantree.RowWit
 	}
 
 	var predicates []string
+	var parameters []string
 	for _, row := range rows {
 		var prefix string
 		for i, predicate := range row.Predicates {
@@ -360,12 +386,50 @@ func printResult(out io.Writer, renderDef tableRenderDef, rows []plantree.RowWit
 			}
 			predicates = append(predicates, fmt.Sprintf("%s %s", prefix, predicate))
 		}
+
+		i := 0
+		for _, t := range lox.EntriesSortedByKey(row.ChildLinks) {
+			typ, childLinks := t.Key, t.Value
+			if printMode != PrintFull && typ == "" {
+				continue
+			}
+
+			if i == 0 {
+				prefix = fmt.Sprintf("%*d:", maxIDLength, row.ID)
+			} else {
+				prefix = strings.Repeat(" ", maxIDLength+1)
+			}
+
+			join := strings.Join(lo.Map(childLinks, func(item *queryplan.ResolvedChildLink, index int) string {
+				if varName := item.ChildLink.GetVariable(); varName != "" {
+					return fmt.Sprintf("$%s=%s", item.ChildLink.GetVariable(), item.Child.GetShortRepresentation().GetDescription())
+				} else {
+					return fmt.Sprintf("%s", item.Child.GetShortRepresentation().GetDescription())
+				}
+			}), ", ")
+			if join == "" {
+				continue
+			}
+			i++
+			typePartStr := lo.Ternary(typ != "", fmt.Sprintf("%s: ", typ), "")
+			parameters = append(parameters, fmt.Sprintf("%s %s%s", prefix, typePartStr, join))
+		}
 	}
 
-	if len(predicates) > 0 {
-		fmt.Fprintln(out, "Predicates(identified by ID):")
-		for _, s := range predicates {
-			fmt.Fprintf(out, " %s\n", s)
+	switch printMode {
+	case PrintFull, PrintTyped:
+		if len(parameters) > 0 {
+			fmt.Fprintln(out, "Node Parameters(identified by ID):")
+			for _, s := range parameters {
+				fmt.Fprintf(out, " %s\n", s)
+			}
+		}
+	case PrintPredicates:
+		if len(predicates) > 0 {
+			fmt.Fprintln(out, "Predicates(identified by ID):")
+			for _, s := range predicates {
+				fmt.Fprintf(out, " %s\n", s)
+			}
 		}
 	}
 	return nil
