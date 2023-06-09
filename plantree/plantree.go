@@ -83,11 +83,11 @@ func ProcessPlan(qp *queryplan.QueryPlan) (rows []RowWithPredicates, err error) 
 
 		resolvedChildLinks := lox.MapWithoutIndex(node.GetChildLinks(), qp.ResolveChildLink)
 
-		scalarChildLinks := lox.FilterWithoutIndex(node.GetChildLinks(), func(item *spannerpb.PlanNode_ChildLink) bool {
-			return qp.GetNodeByChildLink(item).GetKind() == spannerpb.PlanNode_SCALAR
+		scalarChildLinks := lox.FilterWithoutIndex(resolvedChildLinks, func(item *queryplan.ResolvedChildLink) bool {
+			return item.Child.GetKind() == spannerpb.PlanNode_SCALAR
 		})
 
-		childLinks := lo.GroupBy(resolvedChildLinks, func(item *queryplan.ResolvedChildLink) string {
+		childLinks := lo.GroupBy(scalarChildLinks, func(item *queryplan.ResolvedChildLink) string {
 			return item.ChildLink.GetType()
 		})
 
