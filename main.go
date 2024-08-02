@@ -20,7 +20,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -87,7 +86,7 @@ func _main() error {
 	}
 	defer input.Close()
 
-	b, err := ioutil.ReadAll(input)
+	b, err := io.ReadAll(input)
 	if err != nil {
 		return err
 	}

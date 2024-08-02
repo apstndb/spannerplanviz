@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -252,7 +251,7 @@ func _main() error {
 		os.Exit(1)
 	}
 
-	b, err := ioutil.ReadAll(os.Stdin)
+	b, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return err
 	}
@@ -278,7 +277,7 @@ func _main() error {
 			return err
 		}
 	} else if *customFile != "" {
-		b, err := ioutil.ReadFile(*customFile)
+		b, err := os.ReadFile(*customFile)
 		if err != nil {
 			return err
 		}
