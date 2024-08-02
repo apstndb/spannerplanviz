@@ -12,7 +12,6 @@ import (
 	"github.com/apstndb/spannerplanviz/stats"
 	"github.com/samber/lo"
 	"github.com/xlab/treeprint"
-	"google.golang.org/genproto/googleapis/spanner/v1"
 )
 
 func init() {
@@ -58,7 +57,7 @@ func ProcessPlan(qp *queryplan.QueryPlan) (rows []RowWithPredicates, err error) 
 		split := strings.SplitN(line, "\t", 2)
 		branchText, protojsonText := split[0], split[1]
 
-		var link spanner.PlanNode_ChildLink
+		var link spannerpb.PlanNode_ChildLink
 		if err := json.Unmarshal([]byte(protojsonText), &link); err != nil {
 			return nil, fmt.Errorf("unexpected JSON unmarshal error, tree line = %q", line)
 		}
@@ -108,7 +107,7 @@ func ProcessPlan(qp *queryplan.QueryPlan) (rows []RowWithPredicates, err error) 
 	return result, nil
 }
 
-func renderTree(qp *queryplan.QueryPlan, tree treeprint.Tree, link *spanner.PlanNode_ChildLink) {
+func renderTree(qp *queryplan.QueryPlan, tree treeprint.Tree, link *spannerpb.PlanNode_ChildLink) {
 	if !qp.IsVisible(link) {
 		return
 	}
