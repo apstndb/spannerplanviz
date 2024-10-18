@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/apstndb/spannerplanviz/option"
 	"html"
 	"io"
 	"log"
@@ -22,20 +23,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type VisualizeParam struct {
-	ShowQuery        bool
-	ShowQueryStats   bool
-	NonVariableScala bool
-	VariableScalar   bool
-	Metadata         bool
-	ExecutionStats   bool
-	ExecutionSummary bool
-	SerializeResult  bool
-	HideScanTarget   bool
-	HideMetadata     []string
-}
-
-func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, format graphviz.Format, writer io.Writer, param VisualizeParam) error {
+func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, format graphviz.Format, writer io.Writer, param option.Options) error {
 	g, err := graphviz.New(ctx)
 	if err != nil {
 		return err
@@ -58,13 +46,6 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 		}
 	}()
 
-	defer func() {
-		if err := graph.Close(); err != nil {
-			log.Fatal(err)
-		}
-		g.Close()
-	}()
-
 	err = buildGraphFromQueryPlan(graph, rowType, queryStats, param)
 	if err != nil {
 		return err
@@ -73,7 +54,7 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 	return g.Render(ctx, graph, format, writer)
 }
 
-func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, param VisualizeParam) error {
+func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, param option.Options) error {
 	graph.SetRankDir(cgraph.BTRank)
 
 	qp := queryplan.New(queryStats.GetQueryPlan().GetPlanNodes())
@@ -96,7 +77,7 @@ func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *sppb.StructType, quer
 	return nil
 }
 
-func renderTree(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.PlanNode_ChildLink, qp *queryplan.QueryPlan, param VisualizeParam) (*cgraph.Node, error) {
+func renderTree(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.PlanNode_ChildLink, qp *queryplan.QueryPlan, param option.Options) (*cgraph.Node, error) {
 	node := qp.GetNodeByChildLink(childLink)
 	gvNode, err := renderNode(graph, rowType, childLink, qp, param)
 	if err != nil {
@@ -139,7 +120,7 @@ func isRemoteCall(node *sppb.PlanNode, cl *sppb.PlanNode_ChildLink) bool {
 	return n.GetStringValue() == strconv.Itoa(int(cl.GetChildIndex()))
 }
 
-func renderNode(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.PlanNode_ChildLink, queryPlan *queryplan.QueryPlan, param VisualizeParam) (*cgraph.Node, error) {
+func renderNode(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.PlanNode_ChildLink, queryPlan *queryplan.QueryPlan, param option.Options) (*cgraph.Node, error) {
 	planNode := queryPlan.GetNodeByChildLink(childLink)
 	var labelStr string
 	{
@@ -158,7 +139,7 @@ func renderNode(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.P
 			labelBuf.WriteString(s)
 		}
 
-		if param.NonVariableScala {
+		if param.NonVariableScalar {
 			labelBuf.WriteString(renderChildLinks(childLinks))
 		}
 
@@ -184,7 +165,7 @@ func renderNode(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.P
 	return n, nil
 }
 
-func renderExecutionStatsOfNode(planNode *sppb.PlanNode, param VisualizeParam) string {
+func renderExecutionStatsOfNode(planNode *sppb.PlanNode, param option.Options) string {
 	var statsBuf bytes.Buffer
 
 	executionStatsFields := planNode.GetExecutionStats().GetFields()
@@ -198,7 +179,7 @@ func renderExecutionStatsOfNode(planNode *sppb.PlanNode, param VisualizeParam) s
 	return statsBuf.String()
 }
 
-func setupQueryNode(graph *cgraph.Graph, queryStats *sppb.ResultSetStats, param VisualizeParam) (*cgraph.Node, error) {
+func setupQueryNode(graph *cgraph.Graph, queryStats *sppb.ResultSetStats, param option.Options) (*cgraph.Node, error) {
 	var buf bytes.Buffer
 
 	fmt.Fprintf(&buf, "<b>%s</b>", toLeftAlignedText(queryStats.GetQueryStats().GetFields()["query_text"].GetStringValue()))
@@ -244,7 +225,7 @@ func renderExecutionStatsWithoutSummary(executionStatsFields map[string]*structp
 	return strings.Join(statsStrings, "")
 }
 
-func renderMetadata(metadataFields map[string]*structpb.Value, param VisualizeParam) string {
+func renderMetadata(metadataFields map[string]*structpb.Value, param option.Options) string {
 	var metadataBuf bytes.Buffer
 	for k, v := range metadataFields {
 		switch {

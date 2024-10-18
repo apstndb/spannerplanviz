@@ -18,8 +18,9 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
+	"github.com/apstndb/spannerplanviz/option"
+	"github.com/jessevdk/go-flags"
 	"io"
 	"log"
 	"os"
@@ -47,43 +48,32 @@ func (cs *commaSeparated) String() string {
 }
 
 func run(ctx context.Context) error {
-	var (
-		typeFlag          = flag.String("type", "", "output type [svg, dot]")
-		filename          = flag.String("output", "", "")
-		nonVariableScalar = flag.Bool("non-variable-scalar", false, "")
-		variableScalar    = flag.Bool("variable-scalar", false, "")
-		metadata          = flag.Bool("metadata", false, "")
-		executionStats    = flag.Bool("execution-stats", false, "")
-		executionSummary  = flag.Bool("execution-summary", false, "")
-		serializeResult   = flag.Bool("serialize-result", false, "")
-		hideScanTarget    = flag.Bool("hide-scan-target", false, "")
-		showQuery         = flag.Bool("show-query", false, "")
-		showQueryStats    = flag.Bool("show-query-stats", false, "")
-		full              = flag.Bool("full", false, "full output")
-		hideMetadata      commaSeparated
-	)
+	var opts option.Options
+	p := flags.NewParser(&opts, flags.Default)
+	args, err := p.Parse()
+	if err != nil {
+		return err
+	}
 
-	flag.Var(&hideMetadata, "hide-metadata", "")
-	flag.Parse()
+	if len(args) > 0 {
+		p.WriteHelp(os.Stderr)
+		os.Exit(1)
+	}
 
 	var input io.ReadCloser
-	if flag.NArg() > 1 {
-		flag.Usage()
-		os.Exit(1)
-	} else if flag.NArg() == 1 {
-		if file, err := os.Open(flag.Arg(0)); err != nil {
+	if opts.Positional.Input != "" {
+		if file, err := os.Open(opts.Positional.Input); err != nil {
 			return err
 		} else {
 			input = file
 		}
 	} else {
 		stat, _ := os.Stdin.Stat()
-		if (stat.Mode() & os.ModeCharDevice) == 0 {
-			input = os.Stdin
-		} else {
-			flag.Usage()
+		if (stat.Mode() & os.ModeCharDevice) != 0 {
+			p.WriteHelp(os.Stderr)
 			os.Exit(1)
 		}
+		input = os.Stdin
 	}
 	defer input.Close()
 
@@ -98,46 +88,27 @@ func run(ctx context.Context) error {
 	}
 
 	var writer io.WriteCloser
-	if *filename == "" {
+	if opts.Filename == "" {
 		writer = os.Stdout
-	} else if file, err := os.Create(*filename); err == nil {
-		writer = file
-
-	} else {
+	} else if file, err := os.Create(opts.Filename); err != nil {
 		return err
+	} else {
+		writer = file
 	}
 	defer writer.Close()
 
-	var param visualize.VisualizeParam
-	if *full {
-		param = visualize.VisualizeParam{
-			ShowQuery:        *showQuery,
-			ShowQueryStats:   *showQueryStats,
-			NonVariableScala: true,
-			VariableScalar:   true,
-			Metadata:         true,
-			ExecutionStats:   true,
-			ExecutionSummary: true,
-			SerializeResult:  true,
-			HideMetadata:     hideMetadata,
-		}
-	} else {
-		param = visualize.VisualizeParam{
-			ShowQuery:        *showQuery,
-			ShowQueryStats:   *showQueryStats,
-			NonVariableScala: *nonVariableScalar,
-			VariableScalar:   *variableScalar,
-			Metadata:         *metadata,
-			ExecutionStats:   *executionStats,
-			ExecutionSummary: *executionSummary,
-			SerializeResult:  *serializeResult,
-			HideScanTarget:   *hideScanTarget,
-			HideMetadata:     hideMetadata,
-		}
+	if opts.Full {
+		opts.NonVariableScalar = true
+		opts.VariableScalar = true
+		opts.Metadata = true
+		opts.ExecutionStats = true
+		opts.ExecutionSummary = true
+		opts.SerializeResult = true
 	}
-	err = visualize.RenderImage(ctx, rowType, queryStats, graphviz.Format(*typeFlag), writer, param)
+
+	err = visualize.RenderImage(ctx, rowType, queryStats, graphviz.Format(opts.TypeFlag), writer, opts)
 	if err != nil {
-		os.Remove(*filename)
+		os.Remove(opts.Filename)
 	}
 	return err
 }
