@@ -8,6 +8,7 @@ require (
 	cloud.google.com/go/spanner v1.45.0
 	github.com/apstndb/lox v0.0.0-20230530141045-98c1efebcde8
 	github.com/goccy/go-graphviz v0.2.0
+	github.com/jessevdk/go-flags v1.6.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/samber/lo v1.38.1
 	github.com/xlab/treeprint v1.1.0
@@ -28,7 +29,7 @@ require (
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/image v0.21.0 // indirect
 	golang.org/x/net v0.23.0 // indirect
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/sys v0.21.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	google.golang.org/grpc v1.56.3 // indirect
