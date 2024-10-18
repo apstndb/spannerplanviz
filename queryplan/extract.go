@@ -1,14 +1,13 @@
 package queryplan
 
 import (
+	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"errors"
-
 	"github.com/apstndb/spannerplanviz/protoyaml"
-	"google.golang.org/genproto/googleapis/spanner/v1"
 	"gopkg.in/yaml.v3"
 )
 
-func ExtractQueryPlan(b []byte) (*spanner.ResultSetStats, *spanner.StructType, error) {
+func ExtractQueryPlan(b []byte) (*sppb.ResultSetStats, *sppb.StructType, error) {
 	var jsonObj map[string]interface{}
 	err := yaml.Unmarshal(b, &jsonObj)
 	if err != nil {
@@ -16,21 +15,21 @@ func ExtractQueryPlan(b []byte) (*spanner.ResultSetStats, *spanner.StructType, e
 	}
 
 	if _, ok := jsonObj["queryPlan"]; ok {
-		var rss spanner.ResultSetStats
+		var rss sppb.ResultSetStats
 		err = protoyaml.Unmarshal(b, &rss)
 		if err != nil {
 			return nil, nil, err
 		}
 		return &rss, nil, nil
 	} else if _, ok := jsonObj["planNodes"]; ok {
-		var qp spanner.QueryPlan
+		var qp sppb.QueryPlan
 		err = protoyaml.Unmarshal(b, &qp)
 		if err != nil {
 			return nil, nil, err
 		}
-		return &spanner.ResultSetStats{QueryPlan: &qp}, nil, nil
+		return &sppb.ResultSetStats{QueryPlan: &qp}, nil, nil
 	} else if _, ok := jsonObj["stats"]; ok {
-		var rs spanner.ResultSet
+		var rs sppb.ResultSet
 		err = protoyaml.Unmarshal(b, &rs)
 		if err != nil {
 			return nil, nil, err

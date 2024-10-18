@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -23,7 +23,7 @@ const jsonSnippetLen = 140
 func run(ctx context.Context) error {
 	flag.Parse()
 
-	b, err := ioutil.ReadAll(os.Stdin)
+	b, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return err
 	}

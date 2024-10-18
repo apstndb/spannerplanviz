@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"strings"
 
-	"cloud.google.com/go/spanner/apiv1/spannerpb"
+	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/apstndb/lox"
 	"github.com/apstndb/spannerplanviz/queryplan"
 	"github.com/apstndb/spannerplanviz/stats"
 	"github.com/samber/lo"
 	"github.com/xlab/treeprint"
-	"google.golang.org/genproto/googleapis/spanner/v1"
 )
 
 func init() {
@@ -58,7 +57,7 @@ func ProcessPlan(qp *queryplan.QueryPlan) (rows []RowWithPredicates, err error) 
 		split := strings.SplitN(line, "\t", 2)
 		branchText, protojsonText := split[0], split[1]
 
-		var link spanner.PlanNode_ChildLink
+		var link sppb.PlanNode_ChildLink
 		if err := json.Unmarshal([]byte(protojsonText), &link); err != nil {
 			return nil, fmt.Errorf("unexpected JSON unmarshal error, tree line = %q", line)
 		}
@@ -84,7 +83,7 @@ func ProcessPlan(qp *queryplan.QueryPlan) (rows []RowWithPredicates, err error) 
 		resolvedChildLinks := lox.MapWithoutIndex(node.GetChildLinks(), qp.ResolveChildLink)
 
 		scalarChildLinks := lox.FilterWithoutIndex(resolvedChildLinks, func(item *queryplan.ResolvedChildLink) bool {
-			return item.Child.GetKind() == spannerpb.PlanNode_SCALAR
+			return item.Child.GetKind() == sppb.PlanNode_SCALAR
 		})
 
 		childLinks := lo.GroupBy(scalarChildLinks, func(item *queryplan.ResolvedChildLink) string {
@@ -108,7 +107,7 @@ func ProcessPlan(qp *queryplan.QueryPlan) (rows []RowWithPredicates, err error) 
 	return result, nil
 }
 
-func renderTree(qp *queryplan.QueryPlan, tree treeprint.Tree, link *spanner.PlanNode_ChildLink) {
+func renderTree(qp *queryplan.QueryPlan, tree treeprint.Tree, link *sppb.PlanNode_ChildLink) {
 	if !qp.IsVisible(link) {
 		return
 	}
