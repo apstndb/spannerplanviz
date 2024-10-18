@@ -10,7 +10,7 @@ require (
 	github.com/goccy/go-graphviz v0.2.0
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/samber/lo v1.38.1
+	github.com/samber/lo v1.47.0
 	github.com/xlab/treeprint v1.1.0
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/yaml.v3 v3.0.1

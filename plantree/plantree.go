@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
@@ -38,10 +39,7 @@ func (r RowWithPredicates) Text() string {
 }
 
 func (r RowWithPredicates) FormatID() string {
-	if len(r.Predicates) == 0 {
-		return fmt.Sprint(r.ID)
-	}
-	return fmt.Sprintf("*%d", r.ID)
+	return lox.IfOrEmpty(len(r.Predicates) != 0, "*") + strconv.Itoa(int(r.ID))
 }
 
 func ProcessPlan(qp *queryplan.QueryPlan) (rows []RowWithPredicates, err error) {
@@ -77,7 +75,9 @@ func ProcessPlan(qp *queryplan.QueryPlan) (rows []RowWithPredicates, err error) 
 			if !qp.IsPredicate(cl) {
 				continue
 			}
-			predicates = append(predicates, fmt.Sprintf("%s: %s", cl.GetType(), qp.GetNodeByChildLink(cl).GetShortRepresentation().GetDescription()))
+			predicates = append(predicates, fmt.Sprintf("%s: %s",
+				cl.GetType(),
+				qp.GetNodeByChildLink(cl).GetShortRepresentation().GetDescription()))
 		}
 
 		resolvedChildLinks := lox.MapWithoutIndex(node.GetChildLinks(), qp.ResolveChildLink)
@@ -121,12 +121,13 @@ func renderTree(qp *queryplan.QueryPlan, tree treeprint.Tree, link *sppb.PlanNod
 
 	var branch treeprint.Tree
 
-	if node.GetIndex() == 0 {
+	switch {
+	case node.GetIndex() == 0:
 		tree.SetValue(str)
 		branch = tree
-	} else if len(visibleChildLinks) > 0 {
+	case len(visibleChildLinks) > 0:
 		branch = tree.AddBranch(str)
-	} else {
+	default:
 		branch = tree.AddNode(str)
 	}
 
