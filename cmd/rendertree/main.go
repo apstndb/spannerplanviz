@@ -20,7 +20,7 @@ import (
 )
 
 func main() {
-	if err := _main(); err != nil {
+	if err := run(); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -230,7 +230,8 @@ func parsePrintMode(s string) PrintMode {
 		panic(fmt.Sprintf("unknown PrintMode: %s", s))
 	}
 }
-func _main() error {
+
+func run() error {
 	customFile := flag.String("custom-file", "", "")
 	mode := flag.String("mode", "", "PROFILE or PLAN(ignore case)")
 	printModeStr := flag.String("print", "predicates", "print node parameters(EXPERIMENTAL)")
@@ -288,7 +289,13 @@ func _main() error {
 	} else {
 		renderDef = withStatsToRenderDefMap[withStats]
 	}
-	return printResult(os.Stdout, renderDef, rows, printMode)
+	s, err := printResult(renderDef, rows, printMode)
+	if err != nil {
+		return err
+	}
+
+	_, err = os.Stdout.WriteString(s)
+	return err
 }
 
 func customFileToTableRenderDef(b []byte) (tableRenderDef, error) {
@@ -297,6 +304,7 @@ func customFileToTableRenderDef(b []byte) (tableRenderDef, error) {
 	if err != nil {
 		return tableRenderDef{}, err
 	}
+
 	var tdef tableRenderDef
 	for _, def := range defs {
 		mapFunc, err := templateMapFunc(def.Name, def.Template)
@@ -347,8 +355,9 @@ func customListToTableRenderDef(custom []string) (tableRenderDef, error) {
 	return tableRenderDef{Columns: columns}, nil
 }
 
-func printResult(out io.Writer, renderDef tableRenderDef, rows []plantree.RowWithPredicates, printMode PrintMode) error {
-	table := tablewriter.NewWriter(out)
+func printResult(renderDef tableRenderDef, rows []plantree.RowWithPredicates, printMode PrintMode) (string, error) {
+	var b strings.Builder
+	table := tablewriter.NewWriter(&b)
 	table.SetAutoFormatHeaders(false)
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.SetColumnAlignment(renderDef.ColumnAlignments())
@@ -357,7 +366,7 @@ func printResult(out io.Writer, renderDef tableRenderDef, rows []plantree.RowWit
 	for _, row := range rows {
 		values, err := renderDef.ColumnMapFunc(row)
 		if err != nil {
-			return err
+			return "", err
 		}
 		table.Append(values)
 	}
@@ -403,14 +412,14 @@ func printResult(out io.Writer, renderDef tableRenderDef, rows []plantree.RowWit
 				if varName := item.ChildLink.GetVariable(); varName != "" {
 					return fmt.Sprintf("$%s=%s", item.ChildLink.GetVariable(), item.Child.GetShortRepresentation().GetDescription())
 				} else {
-					return fmt.Sprintf("%s", item.Child.GetShortRepresentation().GetDescription())
+					return item.Child.GetShortRepresentation().GetDescription()
 				}
 			}), ", ")
 			if join == "" {
 				continue
 			}
 			i++
-			typePartStr := lo.Ternary(typ != "", fmt.Sprintf("%s: ", typ), "")
+			typePartStr := lo.Ternary(typ != "", typ+": ", "")
 			parameters = append(parameters, fmt.Sprintf("%s %s%s", prefix, typePartStr, join))
 		}
 	}
@@ -418,18 +427,18 @@ func printResult(out io.Writer, renderDef tableRenderDef, rows []plantree.RowWit
 	switch printMode {
 	case PrintFull, PrintTyped:
 		if len(parameters) > 0 {
-			fmt.Fprintln(out, "Node Parameters(identified by ID):")
+			b.WriteString("Node Parameters(identified by ID):")
 			for _, s := range parameters {
-				fmt.Fprintf(out, " %s\n", s)
+				b.WriteString(fmt.Sprintf(" %s\n", s))
 			}
 		}
 	case PrintPredicates:
 		if len(predicates) > 0 {
-			fmt.Fprintln(out, "Predicates(identified by ID):")
+			b.WriteString("Predicates(identified by ID):")
 			for _, s := range predicates {
-				fmt.Fprintf(out, " %s\n", s)
+				b.WriteString(fmt.Sprintf(" %s\n", s))
 			}
 		}
 	}
-	return nil
+	return b.String(), nil
 }

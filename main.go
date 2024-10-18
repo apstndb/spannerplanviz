@@ -18,33 +18,21 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"github.com/apstndb/spannerplanviz/option"
+	"github.com/apstndb/spannerplanviz/queryplan"
+	"github.com/apstndb/spannerplanviz/visualize"
+	"github.com/goccy/go-graphviz"
 	"github.com/jessevdk/go-flags"
 	"io"
 	"log"
 	"os"
-	"strings"
-
-	"github.com/apstndb/spannerplanviz/queryplan"
-	"github.com/apstndb/spannerplanviz/visualize"
-	"github.com/goccy/go-graphviz"
 )
 
 func main() {
 	if err := run(context.Background()); err != nil {
 		log.Fatalln(err)
 	}
-}
-
-type commaSeparated []string
-
-func (cs *commaSeparated) Set(s string) error {
-	*cs = append(*cs, strings.Split(s, ",")...)
-	return nil
-}
-func (cs *commaSeparated) String() string {
-	return fmt.Sprint([]string(*cs))
 }
 
 func run(ctx context.Context) error {
@@ -62,11 +50,11 @@ func run(ctx context.Context) error {
 
 	var input io.ReadCloser
 	if opts.Positional.Input != "" {
-		if file, err := os.Open(opts.Positional.Input); err != nil {
+		file, err := os.Open(opts.Positional.Input)
+		if err != nil {
 			return err
-		} else {
-			input = file
 		}
+		input = file
 	} else {
 		stat, _ := os.Stdin.Stat()
 		if (stat.Mode() & os.ModeCharDevice) != 0 {
@@ -75,7 +63,9 @@ func run(ctx context.Context) error {
 		}
 		input = os.Stdin
 	}
-	defer input.Close()
+	defer func() {
+		_ = input.Close()
+	}()
 
 	b, err := io.ReadAll(input)
 	if err != nil {
@@ -95,7 +85,7 @@ func run(ctx context.Context) error {
 	} else {
 		writer = file
 	}
-	defer writer.Close()
+	defer func() { _ = writer.Close() }()
 
 	if opts.Full {
 		opts.NonVariableScalar = true
@@ -108,7 +98,10 @@ func run(ctx context.Context) error {
 
 	err = visualize.RenderImage(ctx, rowType, queryStats, graphviz.Format(opts.TypeFlag), writer, opts)
 	if err != nil {
-		os.Remove(opts.Filename)
+		innerErr := os.Remove(opts.Filename)
+		if innerErr != nil {
+			return errors.Join(err, innerErr)
+		}
 	}
 	return err
 }

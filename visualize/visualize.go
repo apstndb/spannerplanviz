@@ -195,7 +195,7 @@ func setupQueryNode(graph *cgraph.Graph, queryStats *sppb.ResultSetStats, param 
 	}
 
 	sort.Strings(stats)
-	fmt.Fprintf(&buf, encloseIfNotEmpty("<i>", toLeftAlignedText(strings.Join(stats, "\n")), "</i>"))
+	fmt.Fprint(&buf, encloseIfNotEmpty("<i>", toLeftAlignedText(strings.Join(stats, "\n")), "</i>"))
 
 	n, err := graph.CreateNodeByName("query")
 	if err != nil {
@@ -339,10 +339,6 @@ func getNodeTitle(planNode *sppb.PlanNode) string {
 		strings.TrimSuffix(fields["scan_type"].GetStringValue(), "Scan"),
 		planNode.GetDisplayName(),
 	), " ")
-}
-
-func isInlined(nodes []*sppb.PlanNode, node *sppb.PlanNode) bool {
-	return node.GetKind() == sppb.PlanNode_SCALAR && (len(node.GetChildLinks()) == 0 || nodes[node.GetChildLinks()[0].GetChildIndex()].GetKind() != sppb.PlanNode_RELATIONAL)
 }
 
 func renderSerializeResult(rowType *sppb.StructType, childLinks []*childLinkGroup) string {
