@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -30,7 +31,7 @@ import (
 )
 
 func main() {
-	if err := _main(); err != nil {
+	if err := run(context.Background()); err != nil {
 		log.Fatalln(err)
 	}
 }
@@ -45,7 +46,7 @@ func (cs *commaSeparated) String() string {
 	return fmt.Sprint([]string(*cs))
 }
 
-func _main() error {
+func run(ctx context.Context) error {
 	var (
 		typeFlag          = flag.String("type", "", "output type [svg, dot]")
 		filename          = flag.String("output", "", "")
@@ -134,7 +135,7 @@ func _main() error {
 			HideMetadata:     hideMetadata,
 		}
 	}
-	err = visualize.RenderImage(rowType, queryStats, graphviz.Format(*typeFlag), writer, param)
+	err = visualize.RenderImage(ctx, rowType, queryStats, graphviz.Format(*typeFlag), writer, param)
 	if err != nil {
 		os.Remove(*filename)
 	}
