@@ -5,28 +5,28 @@ import (
 	"sort"
 	"strings"
 
-	"cloud.google.com/go/spanner/apiv1/spannerpb"
+	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 )
 
 type QueryPlan struct {
-	planNodes []*spannerpb.PlanNode
+	planNodes []*sppb.PlanNode
 }
 
-func New(planNodes []*spannerpb.PlanNode) *QueryPlan {
+func New(planNodes []*sppb.PlanNode) *QueryPlan {
 	if len(planNodes) == 0 {
 		panic("planNodes is empty")
 	}
 	return &QueryPlan{planNodes}
 }
 
-func (qp *QueryPlan) IsFunction(childLink *spannerpb.PlanNode_ChildLink) bool {
+func (qp *QueryPlan) IsFunction(childLink *sppb.PlanNode_ChildLink) bool {
 	// Known predicates are Condition(Filter, Hash Join) or Seek Condition(FilterScan) or Residual Condition(FilterScan, Hash Join) or Split Range(Distributed Union).
 	// Agg(Aggregate) is a Function but not a predicate.
 	child := qp.GetNodeByChildLink(childLink)
 	return child.DisplayName == "Function"
 }
 
-func (qp *QueryPlan) IsPredicate(childLink *spannerpb.PlanNode_ChildLink) bool {
+func (qp *QueryPlan) IsPredicate(childLink *sppb.PlanNode_ChildLink) bool {
 	// Known predicates are Condition(Filter, Hash Join) or Seek Condition(FilterScan) or Residual Condition(FilterScan, Hash Join) or Split Range(Distributed Union).
 	// Agg(Aggregate) is a Function but not a predicate.
 	if !qp.IsFunction(childLink) {
@@ -39,20 +39,20 @@ func (qp *QueryPlan) IsPredicate(childLink *spannerpb.PlanNode_ChildLink) bool {
 	return false
 }
 
-func (qp *QueryPlan) PlanNodes() []*spannerpb.PlanNode {
+func (qp *QueryPlan) PlanNodes() []*sppb.PlanNode {
 	return qp.planNodes
 }
 
-func (qp *QueryPlan) GetNodeByIndex(id int32) *spannerpb.PlanNode {
+func (qp *QueryPlan) GetNodeByIndex(id int32) *sppb.PlanNode {
 	return qp.planNodes[id]
 }
 
-func (qp *QueryPlan) IsVisible(link *spannerpb.PlanNode_ChildLink) bool {
-	return qp.GetNodeByChildLink(link).GetKind() == spannerpb.PlanNode_RELATIONAL || link.GetType() == "Scalar"
+func (qp *QueryPlan) IsVisible(link *sppb.PlanNode_ChildLink) bool {
+	return qp.GetNodeByChildLink(link).GetKind() == sppb.PlanNode_RELATIONAL || link.GetType() == "Scalar"
 }
 
-func (qp *QueryPlan) VisibleChildLinks(node *spannerpb.PlanNode) []*spannerpb.PlanNode_ChildLink {
-	var links []*spannerpb.PlanNode_ChildLink
+func (qp *QueryPlan) VisibleChildLinks(node *sppb.PlanNode) []*sppb.PlanNode_ChildLink {
+	var links []*sppb.PlanNode_ChildLink
 	for _, link := range node.GetChildLinks() {
 		if !qp.IsVisible(link) {
 			continue
@@ -64,11 +64,11 @@ func (qp *QueryPlan) VisibleChildLinks(node *spannerpb.PlanNode) []*spannerpb.Pl
 
 // GetNodeByChildLink returns PlanNode indicated by `link`.
 // If `link` is nil, return the root node.
-func (qp *QueryPlan) GetNodeByChildLink(link *spannerpb.PlanNode_ChildLink) *spannerpb.PlanNode {
+func (qp *QueryPlan) GetNodeByChildLink(link *sppb.PlanNode_ChildLink) *sppb.PlanNode {
 	return qp.planNodes[link.GetChildIndex()]
 }
 
-func NodeTitle(node *spannerpb.PlanNode) string {
+func NodeTitle(node *sppb.PlanNode) string {
 	metadataFields := node.GetMetadata().GetFields()
 
 	operator := joinIfNotEmpty(" ",
@@ -118,7 +118,7 @@ func joinIfNotEmpty(sep string, input ...string) string {
 	return strings.Join(filtered, sep)
 }
 
-func (qp *QueryPlan) ResolveChildLink(item *spannerpb.PlanNode_ChildLink) *ResolvedChildLink {
+func (qp *QueryPlan) ResolveChildLink(item *sppb.PlanNode_ChildLink) *ResolvedChildLink {
 	return &ResolvedChildLink{
 		ChildLink: item,
 		Child:     qp.GetNodeByChildLink(item),
@@ -126,6 +126,6 @@ func (qp *QueryPlan) ResolveChildLink(item *spannerpb.PlanNode_ChildLink) *Resol
 }
 
 type ResolvedChildLink struct {
-	ChildLink *spannerpb.PlanNode_ChildLink
-	Child     *spannerpb.PlanNode
+	ChildLink *sppb.PlanNode_ChildLink
+	Child     *sppb.PlanNode
 }
