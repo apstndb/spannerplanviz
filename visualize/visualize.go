@@ -2,6 +2,7 @@ package visualize
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"html"
 	"io"
@@ -34,12 +35,29 @@ type VisualizeParam struct {
 	HideMetadata     []string
 }
 
-func RenderImage(rowType *sppb.StructType, queryStats *sppb.ResultSetStats, format graphviz.Format, writer io.Writer, param VisualizeParam) error {
-	g := graphviz.New()
+func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, format graphviz.Format, writer io.Writer, param VisualizeParam) error {
+	g, err := graphviz.New(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err := g.Close(); err != nil {
+			log.Print(err)
+		}
+	}()
+
 	graph, err := g.Graph()
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		if err := graph.Close(); err != nil {
+			log.Print(err)
+		}
+	}()
+
 	defer func() {
 		if err := graph.Close(); err != nil {
 			log.Fatal(err)
@@ -52,7 +70,7 @@ func RenderImage(rowType *sppb.StructType, queryStats *sppb.ResultSetStats, form
 		return err
 	}
 
-	return g.Render(graph, format, writer)
+	return g.Render(ctx, graph, format, writer)
 }
 
 func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, param VisualizeParam) error {
@@ -70,7 +88,7 @@ func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *sppb.StructType, quer
 		if err != nil {
 			return err
 		}
-		_, err = graph.CreateEdge("", gvRootNode, n)
+		_, err = graph.CreateEdgeByName("", gvRootNode, n)
 		if err != nil {
 			return err
 		}
@@ -88,7 +106,7 @@ func renderTree(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.P
 		if gvChildNode, err := renderTree(graph, rowType, cl, qp, param); err != nil {
 			return gvNode, err
 		} else {
-			ed, err := graph.CreateEdge("", gvChildNode, gvNode)
+			ed, err := graph.CreateEdgeByName("", gvChildNode, gvNode)
 			if err != nil {
 				return gvNode, err
 			}
@@ -198,11 +216,15 @@ func setupQueryNode(graph *cgraph.Graph, queryStats *sppb.ResultSetStats, param 
 	sort.Strings(stats)
 	fmt.Fprintf(&buf, encloseIfNotEmpty("<i>", toLeftAlignedText(strings.Join(stats, "\n")), "</i>"))
 
-	n, err := graph.CreateNode("query")
+	n, err := graph.CreateNodeByName("query")
 	if err != nil {
 		return nil, err
 	}
-	n.SetLabel(graph.StrdupHTML(buf.String()))
+	s, err := graph.StrdupHTML(buf.String())
+	if err != nil {
+		return nil, err
+	}
+	n.SetLabel(s)
 	n.SetShape(cgraph.BoxShape)
 	n.SetStyle(cgraph.RoundedNodeStyle)
 
@@ -287,7 +309,7 @@ func tryToTimestampStr(s string) string {
 }
 
 func setupGvNode(graph *cgraph.Graph, planNode *sppb.PlanNode, nodeTitle string, metadataStr string) (*cgraph.Node, error) {
-	n, err := graph.CreateNode(fmt.Sprintf("node%d", planNode.GetIndex()))
+	n, err := graph.CreateNodeByName(fmt.Sprintf("node%d", planNode.GetIndex()))
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +322,12 @@ func setupGvNode(graph *cgraph.Graph, planNode *sppb.PlanNode, nodeTitle string,
 	}
 	n.SetTooltip(string(b))
 
-	n.SetLabel(graph.StrdupHTML(fmt.Sprintf(`<b>%s</b><br align="CENTER" />%s`, nodeTitle, metadataStr)))
+	nodeHTML, err := graph.StrdupHTML(fmt.Sprintf(`<b>%s</b><br align="CENTER" />%s`, nodeTitle, metadataStr))
+	if err != nil {
+		return nil, err
+	}
+
+	n.SetLabel(nodeHTML)
 	return n, nil
 }
 
