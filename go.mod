@@ -7,7 +7,7 @@ toolchain go1.22.8
 require (
 	cloud.google.com/go/spanner v1.45.0
 	github.com/apstndb/lox v0.0.0-20230530141045-98c1efebcde8
-	github.com/goccy/go-graphviz v0.2.0
+	github.com/goccy/go-graphviz v0.2.2
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/samber/lo v1.47.0
@@ -18,6 +18,7 @@ require (
 )
 
 require (
+	github.com/flopp/go-findfont v0.1.0 // indirect
 	github.com/fogleman/gg v1.3.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
