@@ -45,6 +45,7 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 			log.Print(err)
 		}
 	}()
+	graph.SetFontName("Times New Roman:style=Bold")
 
 	err = buildGraphFromQueryPlan(graph, rowType, queryStats, param)
 	if err != nil {
