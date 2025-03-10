@@ -44,27 +44,18 @@ func (r RowWithPredicates) FormatID() string {
 }
 
 type options struct{ disallowUnknownStats bool }
-type Option func(*options) error
+type Option func(*options)
 
 func DisallowUnknownStats() Option {
-	return func(o *options) error {
+	return func(o *options) {
 		o.disallowUnknownStats = true
-		return nil
 	}
 }
-func AllowUnknownStats() Option { // Consider removing this function for simplicity
-	return func(o *options) error {
-		o.disallowUnknownStats = false
-		return nil
-	}
-}
-}
+
 func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredicates, err error) {
 	o := options{}
 	for _, opt := range opts {
-		if err := opt(&o); err != nil {
-			return nil, err
-		}
+		opt(&o)
 	}
 
 	tree := treeprint.New()
