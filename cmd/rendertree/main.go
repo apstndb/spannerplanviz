@@ -12,11 +12,12 @@ import (
 	"text/template"
 
 	"github.com/apstndb/lox"
-	"github.com/apstndb/spannerplanviz/plantree"
-	"github.com/apstndb/spannerplanviz/queryplan"
 	"github.com/olekukonko/tablewriter"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
+
+	"github.com/apstndb/spannerplanviz/plantree"
+	"github.com/apstndb/spannerplanviz/queryplan"
 )
 
 func main() {
@@ -235,6 +236,8 @@ func run() error {
 	customFile := flag.String("custom-file", "", "")
 	mode := flag.String("mode", "", "PROFILE or PLAN(ignore case)")
 	printModeStr := flag.String("print", "predicates", "print node parameters(EXPERIMENTAL)")
+	disallowUnknownStats := flag.Bool("disallow-unknown-stats", false, "error on unknown stats field")
+
 	var custom stringList
 	flag.Var(&custom, "custom", "")
 	flag.Parse()
@@ -266,7 +269,12 @@ func run() error {
 		return fmt.Errorf("invalid input at protoyaml.Unmarshal:\nerror: %w\ninput: %.*s%s", err, jsonSnippetLen, strings.TrimSpace(string(b)), collapsedStr)
 	}
 
-	rows, err := plantree.ProcessPlan(queryplan.New(stats.GetQueryPlan().GetPlanNodes()))
+	var opts []plantree.Option
+	if *disallowUnknownStats {
+		opts = append(opts, plantree.DisallowUnknownStats())
+	}
+
+	rows, err := plantree.ProcessPlan(queryplan.New(stats.GetQueryPlan().GetPlanNodes()), opts...)
 	if err != nil {
 		return err
 	}

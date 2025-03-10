@@ -37,17 +37,18 @@ type ExecutionStatsSummary struct {
 }
 
 type ExecutionStats struct {
-	DiskUsageKBytes        ExecutionStatsValue   `json:"Disk Usage (KBytes)"`
-	DiskWriteLatencyMsecs  ExecutionStatsValue   `json:"Disk Write Latency (msecs)"`
-	PeakMemoryUsageKBytes  ExecutionStatsValue   `json:"Peak Memory Usage (KBytes)"`
-	RowsSpooled            ExecutionStatsValue   `json:"Rows Spooled"`
-	Rows                   ExecutionStatsValue   `json:"rows"`
-	Latency                ExecutionStatsValue   `json:"latency"`
-	CpuTime                ExecutionStatsValue   `json:"cpu_time"`
-	DeletedRows            ExecutionStatsValue   `json:"deleted_rows"`
-	FilesystemDelaySeconds ExecutionStatsValue   `json:"filesystem_delay_seconds"`
-	FilteredRows           ExecutionStatsValue   `json:"filtered_rows"`
-	RemoteCalls            ExecutionStatsValue   `json:"remote_calls"`
-	ScannedRows            ExecutionStatsValue   `json:"scanned_rows"`
-	ExecutionSummary       ExecutionStatsSummary `json:"execution_summary"`
+	DiskUsageKBytes                ExecutionStatsValue   `json:"Disk Usage (KBytes)"`
+	DiskWriteLatencyMsecs          ExecutionStatsValue   `json:"Disk Write Latency (msecs)"`
+	PeekBufferingMemoryUsageKBytes ExecutionStatsValue   `json:"Peak Buffering Memory Usage (KBytes)"`
+	PeakMemoryUsageKBytes          ExecutionStatsValue   `json:"Peak Memory Usage (KBytes)"`
+	RowsSpooled                    ExecutionStatsValue   `json:"Rows Spooled"`
+	Rows                           ExecutionStatsValue   `json:"rows"`
+	Latency                        ExecutionStatsValue   `json:"latency"`
+	CpuTime                        ExecutionStatsValue   `json:"cpu_time"`
+	DeletedRows                    ExecutionStatsValue   `json:"deleted_rows"`
+	FilesystemDelaySeconds         ExecutionStatsValue   `json:"filesystem_delay_seconds"`
+	FilteredRows                   ExecutionStatsValue   `json:"filtered_rows"`
+	RemoteCalls                    ExecutionStatsValue   `json:"remote_calls"`
+	ScannedRows                    ExecutionStatsValue   `json:"scanned_rows"`
+	ExecutionSummary               ExecutionStatsSummary `json:"execution_summary"`
 }

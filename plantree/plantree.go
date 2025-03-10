@@ -9,10 +9,11 @@ import (
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/apstndb/lox"
-	"github.com/apstndb/spannerplanviz/queryplan"
-	"github.com/apstndb/spannerplanviz/stats"
 	"github.com/samber/lo"
 	"github.com/xlab/treeprint"
+
+	"github.com/apstndb/spannerplanviz/queryplan"
+	"github.com/apstndb/spannerplanviz/stats"
 )
 
 func init() {
@@ -42,7 +43,21 @@ func (r RowWithPredicates) FormatID() string {
 	return lox.IfOrEmpty(len(r.Predicates) != 0, "*") + strconv.Itoa(int(r.ID))
 }
 
-func ProcessPlan(qp *queryplan.QueryPlan) (rows []RowWithPredicates, err error) {
+type options struct{ disallowUnknownStats bool }
+type Option func(*options)
+
+func DisallowUnknownStats() Option {
+	return func(o *options) {
+		o.disallowUnknownStats = true
+	}
+}
+
+func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredicates, err error) {
+	o := options{}
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	tree := treeprint.New()
 
 	renderTree(qp, tree, nil)
@@ -91,7 +106,7 @@ func ProcessPlan(qp *queryplan.QueryPlan) (rows []RowWithPredicates, err error) 
 		})
 
 		var executionStats stats.ExecutionStats
-		if err := jsonRoundtrip(node.GetExecutionStats(), &executionStats, true); err != nil {
+		if err := jsonRoundtrip(node.GetExecutionStats(), &executionStats, o.disallowUnknownStats); err != nil {
 			return nil, err
 		}
 

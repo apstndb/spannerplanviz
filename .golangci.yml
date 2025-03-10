@@ -2,7 +2,8 @@ run:
   tests: true
 
 output:
-  formats: colored-line-number
+  formats:
+    - format: colored-line-number
   print-issued-lines: false
 
 issues:
