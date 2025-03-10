@@ -43,18 +43,18 @@ func (r RowWithPredicates) FormatID() string {
 	return lox.IfOrEmpty(len(r.Predicates) != 0, "*") + strconv.Itoa(int(r.ID))
 }
 
-type options struct{ disallowUnknownField bool }
+type options struct{ disallowUnknownStats bool }
 type Option func(*options) error
 
-func DisallowUnknownField() Option {
+func DisallowUnknownStats() Option {
 	return func(o *options) error {
-		o.disallowUnknownField = true
+		o.disallowUnknownStats = true
 		return nil
 	}
 }
-func AllowUnknownField() Option {
+func AllowUnknownStats() Option {
 	return func(o *options) error {
-		o.disallowUnknownField = false
+		o.disallowUnknownStats = false
 		return nil
 	}
 }
@@ -114,7 +114,7 @@ func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredica
 		})
 
 		var executionStats stats.ExecutionStats
-		if err := jsonRoundtrip(node.GetExecutionStats(), &executionStats, o.disallowUnknownField); err != nil {
+		if err := jsonRoundtrip(node.GetExecutionStats(), &executionStats, o.disallowUnknownStats); err != nil {
 			return nil, err
 		}
 

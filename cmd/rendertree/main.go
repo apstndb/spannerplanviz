@@ -271,7 +271,7 @@ func run() error {
 
 	var opts []plantree.Option
 	if *disallowUnknownStats {
-		opts = append(opts, plantree.DisallowUnknownField())
+		opts = append(opts, plantree.DisallowUnknownStats())
 	}
 
 	rows, err := plantree.ProcessPlan(queryplan.New(stats.GetQueryPlan().GetPlanNodes()), opts...)
