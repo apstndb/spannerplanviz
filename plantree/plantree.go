@@ -52,11 +52,12 @@ func DisallowUnknownStats() Option {
 		return nil
 	}
 }
-func AllowUnknownStats() Option {
+func AllowUnknownStats() Option { // Consider removing this function for simplicity
 	return func(o *options) error {
 		o.disallowUnknownStats = false
 		return nil
 	}
+}
 }
 func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredicates, err error) {
 	o := options{}
