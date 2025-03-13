@@ -1,8 +1,7 @@
 module github.com/apstndb/spannerplanviz
 
 go 1.22.0
-
-toolchain go1.22.8
+toolchain go1.23.7
 
 require (
 	cloud.google.com/go/spanner v1.45.0
@@ -29,9 +28,9 @@ require (
 	github.com/tetratelabs/wazero v1.8.1 // indirect
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/image v0.21.0 // indirect
-	golang.org/x/net v0.33.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/text v0.22.0 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	google.golang.org/grpc v1.56.3 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
