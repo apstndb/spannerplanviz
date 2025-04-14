@@ -43,12 +43,22 @@ func (r RowWithPredicates) FormatID() string {
 	return lox.IfOrEmpty(len(r.Predicates) != 0, "*") + strconv.Itoa(int(r.ID))
 }
 
-type options struct{ disallowUnknownStats bool }
+type options struct {
+	disallowUnknownStats bool
+	queryplanOptions     []queryplan.Option
+}
+
 type Option func(*options)
 
 func DisallowUnknownStats() Option {
 	return func(o *options) {
 		o.disallowUnknownStats = true
+	}
+}
+
+func WithQueryPlanOptions(opts ...queryplan.Option) Option {
+	return func(o *options) {
+		o.queryplanOptions = append(o.queryplanOptions, opts...)
 	}
 }
 
@@ -76,7 +86,7 @@ func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredica
 		}
 
 		node := qp.GetNodeByIndex(link.GetChildIndex())
-		displayName := queryplan.NodeTitle(node)
+		displayName := queryplan.NodeTitle(node, o.queryplanOptions...)
 
 		var text string
 		if link.GetType() != "" {
