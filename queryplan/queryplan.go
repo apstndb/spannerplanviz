@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
+	"github.com/samber/lo"
 )
 
 type QueryPlan struct {
@@ -68,14 +69,45 @@ func (qp *QueryPlan) GetNodeByChildLink(link *sppb.PlanNode_ChildLink) *sppb.Pla
 	return qp.planNodes[link.GetChildIndex()]
 }
 
-func NodeTitle(node *sppb.PlanNode) string {
+type option struct {
+	executionMethodFormat ExecutionMethodFormat
+}
+
+type Option func(o *option)
+
+type ExecutionMethodFormat int64
+
+const (
+	// ExecutionMethodFormatRaw prints execution_method metadata as is.
+	ExecutionMethodFormatRaw ExecutionMethodFormat = iota
+
+	// ExecutionMethodFormatAngle prints execution_method metadata after display_name with angle bracket like `Scan <Row>`.
+	ExecutionMethodFormatAngle
+)
+
+func WithExecutionMethodFormat(fmt ExecutionMethodFormat) Option {
+	return func(o *option) {
+		o.executionMethodFormat = fmt
+	}
+}
+
+func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
+	var o option
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	metadataFields := node.GetMetadata().GetFields()
+
+	executionMethod := metadataFields["execution_method"].GetStringValue()
 
 	operator := joinIfNotEmpty(" ",
 		metadataFields["call_type"].GetStringValue(),
 		metadataFields["iterator_type"].GetStringValue(),
 		strings.TrimSuffix(metadataFields["scan_type"].GetStringValue(), "Scan"),
 		node.GetDisplayName(),
+		lo.Ternary(o.executionMethodFormat == ExecutionMethodFormatAngle && len(executionMethod) > 0,
+			"<"+executionMethod+">", ""),
 	)
 
 	fields := make([]string, 0)
@@ -91,9 +123,13 @@ func NodeTitle(node *sppb.PlanNode) string {
 			fields = append(fields, fmt.Sprintf("%s: %s",
 				strings.TrimSuffix(metadataFields["scan_type"].GetStringValue(), "Scan"),
 				v.GetStringValue()))
-		default:
-			fields = append(fields, fmt.Sprintf("%s: %s", k, v.GetStringValue()))
+			continue
+		case "execution_method":
+			if o.executionMethodFormat != ExecutionMethodFormatRaw {
+				continue
+			}
 		}
+		fields = append(fields, fmt.Sprintf("%s: %s", k, v.GetStringValue()))
 	}
 
 	sort.Strings(fields)

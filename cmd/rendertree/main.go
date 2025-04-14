@@ -237,6 +237,7 @@ func run() error {
 	mode := flag.String("mode", "", "PROFILE or PLAN(ignore case)")
 	printModeStr := flag.String("print", "predicates", "print node parameters(EXPERIMENTAL)")
 	disallowUnknownStats := flag.Bool("disallow-unknown-stats", false, "error on unknown stats field")
+	executionMethod := flag.String("execution-method", "angle", "raw or angle(default)")
 
 	var custom stringList
 	flag.Var(&custom, "custom", "")
@@ -255,6 +256,21 @@ func run() error {
 		os.Exit(1)
 	}
 
+	var opts []plantree.Option
+	if *disallowUnknownStats {
+		opts = append(opts, plantree.DisallowUnknownStats())
+	}
+
+	switch strings.ToUpper(*executionMethod) {
+	case "", "ANGLE":
+		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithExecutionMethodFormat(queryplan.ExecutionMethodFormatAngle)))
+	case "RAW":
+		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithExecutionMethodFormat(queryplan.ExecutionMethodFormatRaw)))
+	default:
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	b, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return err
@@ -267,11 +283,6 @@ func run() error {
 			collapsedStr = "(collapsed)"
 		}
 		return fmt.Errorf("invalid input at protoyaml.Unmarshal:\nerror: %w\ninput: %.*s%s", err, jsonSnippetLen, strings.TrimSpace(string(b)), collapsedStr)
-	}
-
-	var opts []plantree.Option
-	if *disallowUnknownStats {
-		opts = append(opts, plantree.DisallowUnknownStats())
 	}
 
 	rows, err := plantree.ProcessPlan(queryplan.New(stats.GetQueryPlan().GetPlanNodes()), opts...)
