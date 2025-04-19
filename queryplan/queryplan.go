@@ -73,6 +73,7 @@ func (qp *QueryPlan) GetNodeByChildLink(link *sppb.PlanNode_ChildLink) *sppb.Pla
 type option struct {
 	executionMethodFormat ExecutionMethodFormat
 	targetMetadataFormat  TargetMetadataFormat
+	fullScanFormat        FullScanFormat
 }
 
 type Option func(o *option)
@@ -97,6 +98,16 @@ const (
 	TargetMetadataFormatOn
 )
 
+type FullScanFormat int64
+
+const (
+	// FullScanFormatRaw prints Full scan metadata as is.
+	FullScanFormatRaw FullScanFormat = iota
+
+	// FullScanFormatLabel prints Full scan metadata as "Full scan" without value.
+	FullScanFormatLabel
+)
+
 func WithExecutionMethodFormat(fmt ExecutionMethodFormat) Option {
 	return func(o *option) {
 		o.executionMethodFormat = fmt
@@ -106,6 +117,12 @@ func WithExecutionMethodFormat(fmt ExecutionMethodFormat) Option {
 func WithTargetMetadataFormat(fmt TargetMetadataFormat) Option {
 	return func(o *option) {
 		o.targetMetadataFormat = fmt
+	}
+}
+
+func WithFullScanFormat(fmt FullScanFormat) Option {
+	return func(o *option) {
+		o.fullScanFormat = fmt
 	}
 }
 
@@ -131,6 +148,7 @@ func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 			"<"+executionMethod+">", ""),
 	)
 
+	var needFullscanToFront bool
 	fields := make([]string, 0)
 	for k, v := range metadataFields {
 		switch k {
@@ -157,11 +175,19 @@ func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 			if o.targetMetadataFormat != TargetMetadataFormatRaw {
 				continue
 			}
+		case "Full scan":
+			if o.fullScanFormat != FullScanFormatRaw && v.GetStringValue() == "true" {
+				needFullscanToFront = true
+				continue
+			}
 		}
 		fields = append(fields, fmt.Sprintf("%s: %s", k, v.GetStringValue()))
 	}
 
 	sort.Strings(fields)
+	if needFullscanToFront {
+		fields = append([]string{"Full scan"}, fields...)
+	}
 
 	return joinIfNotEmpty(" ", operator, encloseIfNotEmpty("(", strings.Join(fields, ", "), ")"))
 }

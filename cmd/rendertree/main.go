@@ -239,6 +239,7 @@ func run() error {
 	disallowUnknownStats := flag.Bool("disallow-unknown-stats", false, "error on unknown stats field")
 	executionMethod := flag.String("execution-method", "angle", "Format execution method metadata: 'angle' or 'raw' (default: angle)")
 	targetMetadata := flag.String("target-metadata", "on", "Format target metadata: 'on' or 'raw' (default: on)")
+	fullscan := flag.String("full-scan", "label", "Format full scan: 'label' or 'raw' (default: label)")
 
 	var custom stringList
 	flag.Var(&custom, "custom", "")
@@ -268,7 +269,7 @@ func run() error {
 	case "RAW":
 		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithExecutionMethodFormat(queryplan.ExecutionMethodFormatRaw)))
 	default:
-		fmt.Fprintf(os.Stderr, "\nInvalid value for -execution-method flag: %s.  Must be 'angle' or 'raw'.\n", *targetMetadata)
+		fmt.Fprintf(os.Stderr, "Invalid value for -execution-method flag: %s.  Must be 'angle' or 'raw'.\n", *executionMethod)
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -279,7 +280,18 @@ func run() error {
 	case "RAW":
 		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithTargetMetadataFormat(queryplan.TargetMetadataFormatRaw)))
 	default:
-		fmt.Fprintf(os.Stderr, "\nInvalid value for -target-metadata flag: %s.  Must be 'on' or 'raw'.\n", *targetMetadata)
+		fmt.Fprintf(os.Stderr, "Invalid value for -target-metadata flag: %s.  Must be 'on' or 'raw'.\n", *targetMetadata)
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	switch strings.ToUpper(*fullscan) {
+	case "", "LABEL":
+		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithFullScanFormat(queryplan.FullScanFormatLabel)))
+	case "RAW":
+		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithFullScanFormat(queryplan.FullScanFormatRaw)))
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid value for -full-scan flag: %s.  Must be 'label' or 'raw'.\n", *fullscan)
 		flag.Usage()
 		os.Exit(1)
 	}
