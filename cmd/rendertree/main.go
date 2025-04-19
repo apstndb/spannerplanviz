@@ -237,7 +237,8 @@ func run() error {
 	mode := flag.String("mode", "", "PROFILE or PLAN(ignore case)")
 	printModeStr := flag.String("print", "predicates", "print node parameters(EXPERIMENTAL)")
 	disallowUnknownStats := flag.Bool("disallow-unknown-stats", false, "error on unknown stats field")
-	executionMethod := flag.String("execution-method", "angle", "raw or angle(default)")
+	executionMethod := flag.String("execution-method", "angle", "Format execution method metadata: 'angle' or 'raw' (default: angle)")
+	targetMetadata := flag.String("target-metadata", "on", "Format target metadata: 'on' or 'raw' (default: on)")
 
 	var custom stringList
 	flag.Var(&custom, "custom", "")
@@ -267,6 +268,18 @@ func run() error {
 	case "RAW":
 		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithExecutionMethodFormat(queryplan.ExecutionMethodFormatRaw)))
 	default:
+		fmt.Fprintf(os.Stderr, "\nInvalid value for -execution-method flag: %s.  Must be 'angle' or 'raw'.\n", *targetMetadata)
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	switch strings.ToUpper(*targetMetadata) {
+	case "", "ON":
+		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithTargetMetadataFormat(queryplan.TargetMetadataFormatOn)))
+	case "RAW":
+		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithTargetMetadataFormat(queryplan.TargetMetadataFormatRaw)))
+	default:
+		fmt.Fprintf(os.Stderr, "\nInvalid value for -target-metadata flag: %s.  Must be 'on' or 'raw'.\n", *targetMetadata)
 		flag.Usage()
 		os.Exit(1)
 	}
