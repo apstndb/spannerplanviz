@@ -459,16 +459,16 @@ func printResult(renderDef tableRenderDef, rows []plantree.RowWithPredicates, pr
 	switch printMode {
 	case PrintFull, PrintTyped:
 		if len(parameters) > 0 {
-			b.WriteString("Node Parameters(identified by ID):")
+			fmt.Fprintln(&b, "Node Parameters(identified by ID):")
 			for _, s := range parameters {
-				b.WriteString(fmt.Sprintf(" %s\n", s))
+				fmt.Fprintf(&b, " %s\n", s)
 			}
 		}
 	case PrintPredicates:
 		if len(predicates) > 0 {
-			b.WriteString("Predicates(identified by ID):")
+			fmt.Fprintln(&b, "Predicates(identified by ID):")
 			for _, s := range predicates {
-				b.WriteString(fmt.Sprintf(" %s\n", s))
+				fmt.Fprintf(&b, " %s\n", s)
 			}
 		}
 	}
