@@ -238,6 +238,7 @@ func run() error {
 	printModeStr := flag.String("print", "predicates", "print node parameters(EXPERIMENTAL)")
 	disallowUnknownStats := flag.Bool("disallow-unknown-stats", false, "error on unknown stats field")
 	executionMethod := flag.String("execution-method", "angle", "raw or angle(default)")
+	targetMetadata := flag.String("target-metadata", "on", "raw or on(default)")
 
 	var custom stringList
 	flag.Var(&custom, "custom", "")
@@ -266,6 +267,16 @@ func run() error {
 		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithExecutionMethodFormat(queryplan.ExecutionMethodFormatAngle)))
 	case "RAW":
 		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithExecutionMethodFormat(queryplan.ExecutionMethodFormatRaw)))
+	default:
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	switch strings.ToUpper(*targetMetadata) {
+	case "", "ON":
+		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithTargetMetadataFormat(queryplan.TargetMetadataFormatOn)))
+	case "RAW":
+		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithTargetMetadataFormat(queryplan.TargetMetadataFormatRaw)))
 	default:
 		flag.Usage()
 		os.Exit(1)

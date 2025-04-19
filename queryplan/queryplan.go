@@ -1,6 +1,7 @@
 package queryplan
 
 import (
+	"cmp"
 	"fmt"
 	"sort"
 	"strings"
@@ -71,6 +72,7 @@ func (qp *QueryPlan) GetNodeByChildLink(link *sppb.PlanNode_ChildLink) *sppb.Pla
 
 type option struct {
 	executionMethodFormat ExecutionMethodFormat
+	targetMetadataFormat  TargetMetadataFormat
 }
 
 type Option func(o *option)
@@ -85,9 +87,25 @@ const (
 	ExecutionMethodFormatAngle
 )
 
+type TargetMetadataFormat int64
+
+const (
+	// TargetMetadataFormatRaw prints scan_target and distribution_table metadata as is.
+	TargetMetadataFormatRaw TargetMetadataFormat = iota
+
+	// TargetMetadataFormatOn prints scan_target and distribution_table metadata as `on <target>`.
+	TargetMetadataFormatOn
+)
+
 func WithExecutionMethodFormat(fmt ExecutionMethodFormat) Option {
 	return func(o *option) {
 		o.executionMethodFormat = fmt
+	}
+}
+
+func WithTargetMetadataFormat(fmt TargetMetadataFormat) Option {
+	return func(o *option) {
+		o.targetMetadataFormat = fmt
 	}
 }
 
@@ -100,12 +118,15 @@ func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 	metadataFields := node.GetMetadata().GetFields()
 
 	executionMethod := metadataFields["execution_method"].GetStringValue()
+	target := cmp.Or(metadataFields["scan_target"].GetStringValue(), metadataFields["distribution_table"].GetStringValue())
 
 	operator := joinIfNotEmpty(" ",
 		metadataFields["call_type"].GetStringValue(),
 		metadataFields["iterator_type"].GetStringValue(),
 		strings.TrimSuffix(metadataFields["scan_type"].GetStringValue(), "Scan"),
 		node.GetDisplayName(),
+		lo.Ternary(o.targetMetadataFormat == TargetMetadataFormatOn && len(target) > 0,
+			"on "+target, ""),
 		lo.Ternary(o.executionMethodFormat == ExecutionMethodFormatAngle && len(executionMethod) > 0,
 			"<"+executionMethod+">", ""),
 	)
@@ -120,12 +141,20 @@ func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 		case "subquery_cluster_node": // Skip because it is useless
 			continue
 		case "scan_target":
+			if o.targetMetadataFormat != TargetMetadataFormatRaw {
+				continue
+			}
+
 			fields = append(fields, fmt.Sprintf("%s: %s",
 				strings.TrimSuffix(metadataFields["scan_type"].GetStringValue(), "Scan"),
 				v.GetStringValue()))
 			continue
 		case "execution_method":
 			if o.executionMethodFormat != ExecutionMethodFormatRaw {
+				continue
+			}
+		case "distribution_table":
+			if o.targetMetadataFormat != TargetMetadataFormatRaw {
 				continue
 			}
 		}
