@@ -12,13 +12,22 @@ import (
 
 type QueryPlan struct {
 	planNodes []*sppb.PlanNode
+	parentMap map[int32]int32
 }
 
 func New(planNodes []*sppb.PlanNode) *QueryPlan {
 	if len(planNodes) == 0 {
 		panic("planNodes is empty")
 	}
-	return &QueryPlan{planNodes}
+
+	parentMap := make(map[int32]int32)
+	for _, planNode := range planNodes {
+		for _, childLink := range planNode.GetChildLinks() {
+			parentMap[childLink.GetChildIndex()] = planNode.GetIndex()
+		}
+	}
+
+	return &QueryPlan{planNodes, parentMap}
 }
 
 func (qp *QueryPlan) IsFunction(childLink *sppb.PlanNode_ChildLink) bool {
@@ -68,6 +77,14 @@ func (qp *QueryPlan) VisibleChildLinks(node *sppb.PlanNode) []*sppb.PlanNode_Chi
 // If `link` is nil, return the root node.
 func (qp *QueryPlan) GetNodeByChildLink(link *sppb.PlanNode_ChildLink) *sppb.PlanNode {
 	return qp.planNodes[link.GetChildIndex()]
+}
+
+func (qp *QueryPlan) GetParentNodeByChildIndex(index int32) *sppb.PlanNode {
+	return qp.planNodes[qp.parentMap[index]]
+}
+
+func (qp *QueryPlan) GetParentNodeByChildLink(link *sppb.PlanNode_ChildLink) *sppb.PlanNode {
+	return qp.GetParentNodeByChildIndex(link.GetChildIndex())
 }
 
 type option struct {

@@ -86,11 +86,17 @@ func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredica
 		}
 
 		node := qp.GetNodeByIndex(link.GetChildIndex())
+		parent := qp.GetParentNodeByChildLink(&link)
+
 		displayName := queryplan.NodeTitle(node, o.queryplanOptions...)
 
 		var text string
 		if link.GetType() != "" {
 			text = fmt.Sprintf("[%s] %s", link.GetType(), displayName)
+
+			// Workaround to treat the first child of Cross Apply as Input
+		} else if parent != nil && strings.HasSuffix(parent.GetDisplayName(), "Apply") && parent.GetChildLinks()[0].GetChildIndex() == link.GetChildIndex() {
+			text = fmt.Sprintf("[%s] %s", "Input", displayName)
 		} else {
 			text = displayName
 		}
