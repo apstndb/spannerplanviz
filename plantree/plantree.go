@@ -77,37 +77,38 @@ func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredica
 			continue
 		}
 
-		split := strings.SplitN(line, "\t", 2)
-		branchText, protojsonText := split[0], split[1]
+		branchText, protojsonText, found := strings.Cut(line, "\t")
+		if !found {
+			// Handle the case where the separator is not found
+			return nil, fmt.Errorf("unexpected format, tree line = %q", line)
+		}
 
 		var link sppb.PlanNode_ChildLink
 		if err := json.Unmarshal([]byte(protojsonText), &link); err != nil {
 			return nil, fmt.Errorf("unexpected JSON unmarshal error, tree line = %q", line)
 		}
 
-		node := qp.GetNodeByIndex(link.GetChildIndex())
-		parent := qp.GetParentNodeByChildLink(&link)
-
-		displayName := queryplan.NodeTitle(node, o.queryplanOptions...)
-
-		var text string
+		var linkType string
 		if link.GetType() != "" {
-			text = fmt.Sprintf("[%s] %s", link.GetType(), displayName)
+			linkType = link.GetType()
 
 			// Workaround to treat the first child of Apply as Input.
 			// This is necessary because it is more consistent with the official query plan operator docs.
 			// Note: Apply variants are Cross Apply, Anti Semi Apply, Semi Apply, Outer Apply, and their Distributed variants.
-		} else if parent != nil && strings.HasSuffix(parent.GetDisplayName(), "Apply") && parent.GetChildLinks()[0].GetChildIndex() == link.GetChildIndex() {
-			text = fmt.Sprintf("[%s] %s", "Input", displayName)
-		} else {
-			text = displayName
+		} else if parent := qp.GetParentNodeByChildLink(&link); parent != nil &&
+			strings.HasSuffix(parent.GetDisplayName(), "Apply") &&
+			len(parent.GetChildLinks()) > 0 && parent.GetChildLinks()[0].GetChildIndex() == link.GetChildIndex() {
+			linkType = "Input"
 		}
+
+		node := qp.GetNodeByIndex(link.GetChildIndex())
 
 		var predicates []string
 		for _, cl := range node.GetChildLinks() {
 			if !qp.IsPredicate(cl) {
 				continue
 			}
+
 			predicates = append(predicates, fmt.Sprintf("%s: %s",
 				cl.GetType(),
 				qp.GetNodeByChildLink(cl).GetShortRepresentation().GetDescription()))
@@ -133,7 +134,7 @@ func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredica
 			Predicates:     predicates,
 			ChildLinks:     childLinks,
 			TreePart:       branchText,
-			NodeText:       text,
+			NodeText:       lox.IfOrEmpty(linkType != "", "["+linkType+"] ") + queryplan.NodeTitle(node, o.queryplanOptions...),
 			ExecutionStats: executionStats,
 		})
 	}
