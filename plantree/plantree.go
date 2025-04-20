@@ -94,7 +94,9 @@ func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredica
 		if link.GetType() != "" {
 			text = fmt.Sprintf("[%s] %s", link.GetType(), displayName)
 
-			// Workaround to treat the first child of Cross Apply as Input
+			// Workaround to treat the first child of Apply as Input.
+			// This is necessary because it is more consistent with the official query plan operator docs.
+			// Note: Apply variants are Cross Apply, Anti Semi Apply, Semi Apply, Outer Apply, and their Distributed variants.
 		} else if parent != nil && strings.HasSuffix(parent.GetDisplayName(), "Apply") && parent.GetChildLinks()[0].GetChildIndex() == link.GetChildIndex() {
 			text = fmt.Sprintf("[%s] %s", "Input", displayName)
 		} else {
