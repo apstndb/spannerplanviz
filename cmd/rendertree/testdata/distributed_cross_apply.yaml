@@ -1,0 +1,232 @@
+metadata:
+    rowType:
+        fields:
+            - name: albumtitle
+              type:
+                code: STRING
+    transaction:
+        readTimestamp: "2025-04-20T03:15:18.412872Z"
+    undeclaredParameters: {}
+stats:
+    queryPlan:
+        planNodes:
+            - childLinks:
+                - childIndex: 1
+                - childIndex: 28
+                  type: Split Range
+              displayName: Distributed Union
+              kind: RELATIONAL
+              metadata:
+                distribution_table: AlbumsByAlbumTitle
+                execution_method: Row
+                split_ranges_aligned: "false"
+                subquery_cluster_node: "1"
+            - childLinks:
+                - childIndex: 2
+                - childIndex: 11
+                  type: Map
+                - childIndex: 25
+                  type: Split Range
+              displayName: Distributed Cross Apply
+              index: 1
+              kind: RELATIONAL
+              metadata:
+                execution_method: Row
+                subquery_cluster_node: "11"
+            - childLinks:
+                - childIndex: 3
+                - childIndex: 10
+                  variable: v2.Batch
+              displayName: Create Batch
+              index: 2
+              kind: RELATIONAL
+              metadata:
+                execution_method: Row
+            - childLinks:
+                - childIndex: 4
+              displayName: Distributed Union
+              index: 3
+              kind: RELATIONAL
+              metadata:
+                call_type: Local
+                execution_method: Row
+                subquery_cluster_node: "4"
+            - childLinks:
+                - childIndex: 5
+                - childIndex: 8
+                  variable: v1.AlbumId_1
+                - childIndex: 9
+                  variable: v1.AlbumTitle
+              displayName: Compute Struct
+              index: 4
+              kind: RELATIONAL
+              metadata:
+                execution_method: Row
+            - childLinks:
+                - childIndex: 6
+                  variable: AlbumId_1
+                - childIndex: 7
+                  variable: AlbumTitle
+              displayName: Scan
+              index: 5
+              kind: RELATIONAL
+              metadata:
+                Full scan: "true"
+                execution_method: Row
+                scan_method: Automatic
+                scan_target: AlbumsByAlbumTitle
+                scan_type: IndexScan
+            - displayName: Reference
+              index: 6
+              kind: SCALAR
+              shortRepresentation:
+                description: AlbumId
+            - displayName: Reference
+              index: 7
+              kind: SCALAR
+              shortRepresentation:
+                description: AlbumTitle
+            - displayName: Reference
+              index: 8
+              kind: SCALAR
+              shortRepresentation:
+                description: $AlbumId_1
+            - displayName: Reference
+              index: 9
+              kind: SCALAR
+              shortRepresentation:
+                description: $AlbumTitle
+            - displayName: Reference
+              index: 10
+              kind: SCALAR
+              shortRepresentation:
+                description: $v1
+            - childLinks:
+                - childIndex: 12
+                - childIndex: 24
+              displayName: Serialize Result
+              index: 11
+              kind: RELATIONAL
+              metadata:
+                execution_method: Row
+            - childLinks:
+                - childIndex: 13
+                - childIndex: 16
+                  type: Map
+              displayName: Cross Apply
+              index: 12
+              kind: RELATIONAL
+              metadata:
+                execution_method: Row
+            - childLinks:
+                - childIndex: 14
+                  variable: batched_AlbumId_1
+                - childIndex: 15
+                  variable: batched_AlbumTitle
+              displayName: Scan
+              index: 13
+              kind: RELATIONAL
+              metadata:
+                execution_method: Row
+                scan_method: Row
+                scan_target: $v2
+                scan_type: BatchScan
+            - displayName: Reference
+              index: 14
+              kind: SCALAR
+              shortRepresentation:
+                description: AlbumId_1
+            - displayName: Reference
+              index: 15
+              kind: SCALAR
+              shortRepresentation:
+                description: AlbumTitle
+            - childLinks:
+                - childIndex: 17
+              displayName: Distributed Union
+              index: 16
+              kind: RELATIONAL
+              metadata:
+                call_type: Local
+                execution_method: Row
+                subquery_cluster_node: "17"
+            - childLinks:
+                - childIndex: 18
+                - childIndex: 23
+                  type: Residual Condition
+              displayName: Filter Scan
+              index: 17
+              kind: RELATIONAL
+              metadata:
+                execution_method: Row
+                seekable_key_size: "0"
+            - childLinks:
+                - childIndex: 19
+                  variable: AlbumId
+              displayName: Scan
+              index: 18
+              kind: RELATIONAL
+              metadata:
+                Full scan: "true"
+                execution_method: Row
+                scan_method: Row
+                scan_target: SongsBySongGenre
+                scan_type: IndexScan
+            - displayName: Reference
+              index: 19
+              kind: SCALAR
+              shortRepresentation:
+                description: AlbumId
+            - childLinks:
+                - childIndex: 21
+                - childIndex: 22
+              displayName: Function
+              index: 20
+              kind: SCALAR
+              shortRepresentation:
+                description: ($AlbumId = $batched_AlbumId_1)
+            - displayName: Reference
+              index: 21
+              kind: SCALAR
+              shortRepresentation:
+                description: $AlbumId
+            - displayName: Reference
+              index: 22
+              kind: SCALAR
+              shortRepresentation:
+                description: $batched_AlbumId_1
+            - childLinks:
+                - childIndex: 20
+              displayName: Function
+              index: 23
+              kind: SCALAR
+              shortRepresentation:
+                description: ($AlbumId = $batched_AlbumId_1)
+            - displayName: Reference
+              index: 24
+              kind: SCALAR
+              shortRepresentation:
+                description: $batched_AlbumTitle
+            - childLinks:
+                - childIndex: 26
+                - childIndex: 27
+              displayName: Function
+              index: 25
+              kind: SCALAR
+              shortRepresentation:
+                description: ($AlbumId = $AlbumId_1)
+            - displayName: Reference
+              index: 26
+              kind: SCALAR
+              shortRepresentation:
+                description: $AlbumId
+            - displayName: Reference
+              index: 27
+              kind: SCALAR
+              shortRepresentation:
+                description: $AlbumId_1
+            - displayName: Constant
+              index: 28
+              kind: SCALAR
+              shortRepresentation:
+                description: "true"
