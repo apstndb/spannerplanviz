@@ -77,7 +77,11 @@ func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredica
 			continue
 		}
 
-		branchText, protojsonText, _ := strings.Cut(line, "\t")
+		branchText, protojsonText, found := strings.Cut(line, "\t")
+		if !found {
+			// Handle the case where the separator is not found
+			return nil, fmt.Errorf("unexpected format, tree line = %q", line)
+		}
 
 		var link sppb.PlanNode_ChildLink
 		if err := json.Unmarshal([]byte(protojsonText), &link); err != nil {
