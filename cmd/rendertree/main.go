@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -146,16 +145,14 @@ func templateMapFunc(tmplName, tmplText string) (func(row plantree.RowWithPredic
 	if err != nil {
 		return nil, err
 	}
+
 	return func(row plantree.RowWithPredicates) (string, error) {
-		var buf bytes.Buffer
-		if err != nil {
+		var sb strings.Builder
+		if err = tmpl.Execute(&sb, row); err != nil {
 			return "", err
 		}
-		err = tmpl.Execute(&buf, row)
-		if err != nil {
-			return "", err
-		}
-		return buf.String(), nil
+
+		return sb.String(), nil
 	}, nil
 }
 
