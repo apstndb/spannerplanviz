@@ -379,22 +379,29 @@ func customListToTableRenderDef(custom []string) (tableRenderDef, error) {
 		split := strings.SplitN(s, ":", 3)
 
 		var align int
-		if len(split) <= 2 {
+		switch len(split) {
+		case 2:
 			align = tablewriter.ALIGN_DEFAULT
-		} else {
+		case 3:
+			alignStr := split[2]
 			var err error
-			align, err = parseAlignment(split[2])
+			align, err = parseAlignment(alignStr)
 			if err != nil {
-				log.Fatal("Unknown alignment", split[2])
+				return tableRenderDef{}, fmt.Errorf("failed to parseAlignment(): %w", err)
 			}
+		default:
+			return tableRenderDef{}, fmt.Errorf(`invalid format: must be "<name>:<template>[:<alignment>]",  but: %v`, s)
 		}
-		mapFunc, err := templateMapFunc(split[0], split[1])
+
+		name, templateStr := split[0], split[1]
+		mapFunc, err := templateMapFunc(name, templateStr)
 		if err != nil {
 			return tableRenderDef{}, err
 		}
+
 		columns = append(columns, columnRenderDef{
 			MapFunc:   mapFunc,
-			Name:      split[0],
+			Name:      name,
 			Alignment: align,
 		})
 	}
