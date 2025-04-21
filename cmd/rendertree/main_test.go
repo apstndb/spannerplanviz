@@ -2,7 +2,6 @@ package main
 
 import (
 	_ "embed"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -35,28 +34,21 @@ func Test_customFileToTableRenderDef(t *testing.T) {
 //go:embed testdata/distributed_cross_apply.yaml
 var dcaYAML []byte
 
+//go:embed testdata/distributed_cross_apply_profile.yaml
+var dcaProfileYAML []byte
+
 func TestRenderTree(t *testing.T) {
-	stats, _, err := queryplan.ExtractQueryPlan([]byte(dcaYAML))
-	if err != nil {
-		var collapsedStr string
-		if len(dcaYAML) > jsonSnippetLen {
-			collapsedStr = "(collapsed)"
-		}
-		t.Fatalf("invalid input at protoyaml.Unmarshal:\nerror: %v\ninput: %.*s%s", err, jsonSnippetLen, strings.TrimSpace(string(dcaYAML)), collapsedStr)
-	}
-
-	rows, err := plantree.ProcessPlan(queryplan.New(stats.GetQueryPlan().GetPlanNodes()), plantree.WithQueryPlanOptions(
-		queryplan.WithTargetMetadataFormat(queryplan.TargetMetadataFormatOn),
-		queryplan.WithExecutionMethodFormat(queryplan.ExecutionMethodFormatAngle),
-		queryplan.WithFullScanFormat(queryplan.FullScanFormatLabel),
-	))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	renderDef := withStatsToRenderDefMap[false]
-
-	want := `+-----+-------------------------------------------------------------------------------------------+
+	tests := []struct {
+		desc      string
+		input     []byte
+		renderDef tableRenderDef
+		want      string
+	}{
+		{
+			"PLAN",
+			dcaYAML,
+			withStatsToRenderDefMap[false],
+			`+-----+-------------------------------------------------------------------------------------------+
 | ID  | Operator                                                                                  |
 +-----+-------------------------------------------------------------------------------------------+
 |   0 | Distributed Union on AlbumsByAlbumTitle <Row> (split_ranges_aligned: false)               |
@@ -75,43 +67,13 @@ func TestRenderTree(t *testing.T) {
 Predicates(identified by ID):
   1: Split Range: ($AlbumId = $AlbumId_1)
  17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
-`
-	s, err := printResult(renderDef, rows, PrintPredicates)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if diff := cmp.Diff(want, s); diff != "" {
-		t.Errorf("mismatch (-want +got):\n%s", diff)
-	}
-}
-
-//go:embed testdata/distributed_cross_apply_profile.yaml
-var dcaProfileYAML []byte
-
-func TestRenderTreeProfile(t *testing.T) {
-	y := dcaProfileYAML
-	stats, _, err := queryplan.ExtractQueryPlan([]byte(y))
-	if err != nil {
-		var collapsedStr string
-		if len(y) > jsonSnippetLen {
-			collapsedStr = "(collapsed)"
-		}
-		t.Fatalf("invalid input at protoyaml.Unmarshal:\nerror: %v\ninput: %.*s%s", err, jsonSnippetLen, strings.TrimSpace(string(y)), collapsedStr)
-	}
-
-	rows, err := plantree.ProcessPlan(queryplan.New(stats.GetQueryPlan().GetPlanNodes()), plantree.WithQueryPlanOptions(
-		queryplan.WithTargetMetadataFormat(queryplan.TargetMetadataFormatOn),
-		queryplan.WithExecutionMethodFormat(queryplan.ExecutionMethodFormatAngle),
-		queryplan.WithFullScanFormat(queryplan.FullScanFormatLabel),
-	))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	renderDef := withStatsToRenderDefMap[true]
-
-	want := `+-----+-------------------------------------------------------------------------------------------+------+-------+------------+
+`,
+		},
+		{
+			"PROFILE",
+			dcaProfileYAML,
+			withStatsToRenderDefMap[true],
+			`+-----+-------------------------------------------------------------------------------------------+------+-------+------------+
 | ID  | Operator                                                                                  | Rows | Exec. | Latency    |
 +-----+-------------------------------------------------------------------------------------------+------+-------+------------+
 |   0 | Distributed Union on AlbumsByAlbumTitle <Row> (split_ranges_aligned: false)               |   33 |     1 | 1.92 msecs |
@@ -130,13 +92,32 @@ func TestRenderTreeProfile(t *testing.T) {
 Predicates(identified by ID):
   1: Split Range: ($AlbumId = $AlbumId_1)
  17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
-`
-	s, err := printResult(renderDef, rows, PrintPredicates)
-	if err != nil {
-		t.Fatal(err)
+`,
+		},
 	}
 
-	if diff := cmp.Diff(want, s); diff != "" {
-		t.Errorf("mismatch (-want +got):\n%s", diff)
+	for _, tcase := range tests {
+		stats, _, err := queryplan.ExtractQueryPlan(tcase.input)
+		if err != nil {
+			t.Fatalf("invalid input at protoyaml.Unmarshal:\nerror: %v", err)
+		}
+
+		rows, err := plantree.ProcessPlan(queryplan.New(stats.GetQueryPlan().GetPlanNodes()), plantree.WithQueryPlanOptions(
+			queryplan.WithTargetMetadataFormat(queryplan.TargetMetadataFormatOn),
+			queryplan.WithExecutionMethodFormat(queryplan.ExecutionMethodFormatAngle),
+			queryplan.WithFullScanFormat(queryplan.FullScanFormatLabel),
+		))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		got, err := printResult(tcase.renderDef, rows, PrintPredicates)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if diff := cmp.Diff(tcase.want, got); diff != "" {
+			t.Errorf("mismatch (-want +got):\n%s", diff)
+		}
 	}
 }
