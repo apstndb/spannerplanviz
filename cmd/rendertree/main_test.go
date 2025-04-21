@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/olekukonko/tablewriter"
+	"github.com/samber/lo"
 
 	"github.com/apstndb/spannerplanviz/plantree"
 	"github.com/apstndb/spannerplanviz/queryplan"
@@ -89,6 +90,47 @@ Predicates(identified by ID):
 | *17 |             +- Filter Scan <Row> (seekable_key_size: 0)                                   |      |       |            |
 |  18 |                +- Index Scan on SongsBySongGenre <Row> (Full scan, scan_method: Row)      |   33 |     7 | 0.84 msecs |
 +-----+-------------------------------------------------------------------------------------------+------+-------+------------+
+Predicates(identified by ID):
+  1: Split Range: ($AlbumId = $AlbumId_1)
+ 17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
+`,
+		},
+		{
+			"PROFILE with custom",
+			dcaProfileYAML,
+			lo.Must(customFileToTableRenderDef([]byte(`
+- name: ID
+  template: '{{.FormatID}}'
+  alignment: RIGHT
+- name: Operator
+  template: '{{.Text}}'
+  alignment: LEFT
+- name: Rows
+  template: '{{.ExecutionStats.Rows.Total}}'
+  alignment: RIGHT
+- name: Scanned
+  template: '{{.ExecutionStats.ScannedRows.Total}}'
+  alignment: RIGHT
+- name: Filtered
+  template: '{{.ExecutionStats.FilteredRows.Total}}'
+  alignment: RIGHT
+`))),
+			`+-----+-------------------------------------------------------------------------------------------+------+---------+----------+
+| ID  | Operator                                                                                  | Rows | Scanned | Filtered |
++-----+-------------------------------------------------------------------------------------------+------+---------+----------+
+|   0 | Distributed Union on AlbumsByAlbumTitle <Row> (split_ranges_aligned: false)               |   33 |         |          |
+|  *1 | +- Distributed Cross Apply <Row>                                                          |   33 |         |          |
+|   2 |    +- [Input] Create Batch <Row>                                                          |      |         |          |
+|   3 |    |  +- Local Distributed Union <Row>                                                    |    7 |         |          |
+|   4 |    |     +- Compute Struct <Row>                                                          |    7 |         |          |
+|   5 |    |        +- Index Scan on AlbumsByAlbumTitle <Row> (Full scan, scan_method: Automatic) |    7 |       7 |        0 |
+|  11 |    +- [Map] Serialize Result <Row>                                                        |   33 |         |          |
+|  12 |       +- Cross Apply <Row>                                                                |   33 |         |          |
+|  13 |          +- [Input] Batch Scan on $v2 <Row> (scan_method: Row)                            |    7 |         |          |
+|  16 |          +- [Map] Local Distributed Union <Row>                                           |   33 |         |          |
+| *17 |             +- Filter Scan <Row> (seekable_key_size: 0)                                   |      |         |          |
+|  18 |                +- Index Scan on SongsBySongGenre <Row> (Full scan, scan_method: Row)      |   33 |      63 |       30 |
++-----+-------------------------------------------------------------------------------------------+------+---------+----------+
 Predicates(identified by ID):
   1: Split Range: ($AlbumId = $AlbumId_1)
  17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
