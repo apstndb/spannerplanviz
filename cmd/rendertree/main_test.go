@@ -136,6 +136,37 @@ Predicates(identified by ID):
  17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
 `,
 		},
+		{
+			"PROFILE with custom list",
+			dcaProfileYAML,
+			lo.Must(customListToTableRenderDef([]string{
+				`ID:{{.FormatID}}:RIGHT`,
+				`Operator:{{.Text}}`,
+				`Rows:{{.ExecutionStats.Rows.Total}}:RIGHT`,
+				`Scanned:{{.ExecutionStats.ScannedRows.Total}}:RIGHT`,
+				`Filtered:{{.ExecutionStats.FilteredRows.Total}}:RIGHT`,
+			})),
+			`+-----+-------------------------------------------------------------------------------------------+------+---------+----------+
+| ID  | Operator                                                                                  | Rows | Scanned | Filtered |
++-----+-------------------------------------------------------------------------------------------+------+---------+----------+
+|   0 | Distributed Union on AlbumsByAlbumTitle <Row> (split_ranges_aligned: false)               |   33 |         |          |
+|  *1 | +- Distributed Cross Apply <Row>                                                          |   33 |         |          |
+|   2 |    +- [Input] Create Batch <Row>                                                          |      |         |          |
+|   3 |    |  +- Local Distributed Union <Row>                                                    |    7 |         |          |
+|   4 |    |     +- Compute Struct <Row>                                                          |    7 |         |          |
+|   5 |    |        +- Index Scan on AlbumsByAlbumTitle <Row> (Full scan, scan_method: Automatic) |    7 |       7 |        0 |
+|  11 |    +- [Map] Serialize Result <Row>                                                        |   33 |         |          |
+|  12 |       +- Cross Apply <Row>                                                                |   33 |         |          |
+|  13 |          +- [Input] Batch Scan on $v2 <Row> (scan_method: Row)                            |    7 |         |          |
+|  16 |          +- [Map] Local Distributed Union <Row>                                           |   33 |         |          |
+| *17 |             +- Filter Scan <Row> (seekable_key_size: 0)                                   |      |         |          |
+|  18 |                +- Index Scan on SongsBySongGenre <Row> (Full scan, scan_method: Row)      |   33 |      63 |       30 |
++-----+-------------------------------------------------------------------------------------------+------+---------+----------+
+Predicates(identified by ID):
+  1: Split Range: ($AlbumId = $AlbumId_1)
+ 17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
+`,
+		},
 	}
 
 	for _, tcase := range tests {
