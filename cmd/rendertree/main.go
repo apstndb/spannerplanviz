@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -61,17 +60,25 @@ func (tdef tableRenderDef) ColumnMapFunc(row plantree.RowWithPredicates) ([]stri
 type Alignment int
 
 func (a *Alignment) MarshalJSON() ([]byte, error) {
-	switch *a {
+	s, err := formatAlignment(int(*a))
+	if err != nil {
+		return nil, err
+	}
+	return []byte(`"` + s + `""`), nil
+}
+
+func formatAlignment(align int) (string, error) {
+	switch align {
 	case tablewriter.ALIGN_RIGHT:
-		return []byte(`"RIGHT"`), nil
+		return "RIGHT", nil
 	case tablewriter.ALIGN_LEFT:
-		return []byte(`"LEFT"`), nil
+		return "LEFT", nil
 	case tablewriter.ALIGN_DEFAULT:
-		return []byte(`"DEFAULT"`), nil
+		return "DEFAULT", nil
 	case tablewriter.ALIGN_CENTER:
-		return []byte(`"CENTER"`), nil
+		return "CENTER", nil
 	default:
-		return nil, fmt.Errorf("unknown Alignment: %d", int32(*a))
+		return "", fmt.Errorf("unknown Alignment: %d", align)
 	}
 }
 
@@ -80,18 +87,13 @@ func (a *Alignment) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	switch strings.TrimPrefix(s, "ALIGN_") {
-	case "RIGHT":
-		*a = tablewriter.ALIGN_RIGHT
-	case "LEFT":
-		*a = tablewriter.ALIGN_LEFT
-	case "CENTER":
-		*a = tablewriter.ALIGN_CENTER
-	case "DEFAULT":
-		*a = tablewriter.ALIGN_DEFAULT
-	default:
-		return fmt.Errorf("unknown Alignment: %s", s)
+
+	align, err := parseAlignment(s)
+	if err != nil {
+		return err
 	}
+
+	*a = Alignment(align)
 	return nil
 }
 
@@ -102,19 +104,28 @@ func (a *Alignment) UnmarshalYAML(value *yaml.Node) error {
 		return err
 	}
 
+	align, err := parseAlignment(s)
+	if err != nil {
+		return err
+	}
+
+	*a = Alignment(align)
+	return nil
+}
+
+func parseAlignment(s string) (int, error) {
 	switch strings.TrimPrefix(s, "ALIGN_") {
 	case "RIGHT":
-		*a = tablewriter.ALIGN_RIGHT
+		return tablewriter.ALIGN_RIGHT, nil
 	case "LEFT":
-		*a = tablewriter.ALIGN_LEFT
+		return tablewriter.ALIGN_LEFT, nil
 	case "CENTER":
-		*a = tablewriter.ALIGN_CENTER
+		return tablewriter.ALIGN_CENTER, nil
 	case "DEFAULT":
-		*a = tablewriter.ALIGN_DEFAULT
+		return tablewriter.ALIGN_DEFAULT, nil
 	default:
-		return fmt.Errorf("unknown Alignment: %s", s)
+		return 0, fmt.Errorf("unknown Alignment: %s", s)
 	}
-	return nil
 }
 
 type plainColumnRenderDef struct {
@@ -134,16 +145,14 @@ func templateMapFunc(tmplName, tmplText string) (func(row plantree.RowWithPredic
 	if err != nil {
 		return nil, err
 	}
+
 	return func(row plantree.RowWithPredicates) (string, error) {
-		var buf bytes.Buffer
-		if err != nil {
+		var sb strings.Builder
+		if err = tmpl.Execute(&sb, row); err != nil {
 			return "", err
 		}
-		err = tmpl.Execute(&buf, row)
-		if err != nil {
-			return "", err
-		}
-		return buf.String(), nil
+
+		return sb.String(), nil
 	}, nil
 }
 
@@ -370,29 +379,29 @@ func customListToTableRenderDef(custom []string) (tableRenderDef, error) {
 		split := strings.SplitN(s, ":", 3)
 
 		var align int
-		if len(split) <= 2 {
+		switch len(split) {
+		case 2:
 			align = tablewriter.ALIGN_DEFAULT
-		} else {
-			switch strings.TrimPrefix(split[2], "ALIGN_") {
-			case "LEFT":
-				align = tablewriter.ALIGN_LEFT
-			case "RIGHT":
-				align = tablewriter.ALIGN_RIGHT
-			case "DEFAULT":
-				align = tablewriter.ALIGN_DEFAULT
-			case "CENTER":
-				align = tablewriter.ALIGN_CENTER
-			default:
-				log.Fatal("Unknown alignment", split[2])
+		case 3:
+			alignStr := split[2]
+			var err error
+			align, err = parseAlignment(alignStr)
+			if err != nil {
+				return tableRenderDef{}, fmt.Errorf("failed to parseAlignment(): %w", err)
 			}
+		default:
+			return tableRenderDef{}, fmt.Errorf(`invalid format: must be "<name>:<template>[:<alignment>]", but: %v`, s)
 		}
-		mapFunc, err := templateMapFunc(split[0], split[1])
+
+		name, templateStr := split[0], split[1]
+		mapFunc, err := templateMapFunc(name, templateStr)
 		if err != nil {
 			return tableRenderDef{}, err
 		}
+
 		columns = append(columns, columnRenderDef{
 			MapFunc:   mapFunc,
-			Name:      split[0],
+			Name:      name,
 			Alignment: align,
 		})
 	}
