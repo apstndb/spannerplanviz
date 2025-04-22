@@ -51,4 +51,5 @@ type ExecutionStats struct {
 	RemoteCalls                    ExecutionStatsValue   `json:"remote_calls"`
 	ScannedRows                    ExecutionStatsValue   `json:"scanned_rows"`
 	ExecutionSummary               ExecutionStatsSummary `json:"execution_summary"`
+	NumberOfBatches                ExecutionStatsValue   `json:"Number of Batches"`
 }
