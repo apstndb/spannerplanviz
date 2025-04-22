@@ -390,7 +390,7 @@ func customListToTableRenderDef(custom []string) (tableRenderDef, error) {
 				return tableRenderDef{}, fmt.Errorf("failed to parseAlignment(): %w", err)
 			}
 		default:
-			return tableRenderDef{}, fmt.Errorf(`invalid format: must be "<name>:<template>[:<alignment>]",  but: %v`, s)
+			return tableRenderDef{}, fmt.Errorf(`invalid format: must be "<name>:<template>[:<alignment>]", but: %v`, s)
 		}
 
 		name, templateStr := split[0], split[1]
