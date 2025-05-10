@@ -11,11 +11,11 @@ import (
 	"text/template"
 
 	"github.com/apstndb/lox"
+	"github.com/goccy/go-yaml"
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/renderer"
 	"github.com/olekukonko/tablewriter/tw"
 	"github.com/samber/lo"
-	"gopkg.in/yaml.v3"
 
 	"github.com/apstndb/spannerplanviz/plantree"
 	"github.com/apstndb/spannerplanviz/queryplan"
@@ -61,47 +61,8 @@ func (tdef tableRenderDef) ColumnMapFunc(row plantree.RowWithPredicates) ([]stri
 
 type Alignment tw.Align
 
-func (a *Alignment) MarshalJSON() ([]byte, error) {
-	s, err := formatAlignment(tw.Align(*a))
-	if err != nil {
-		return nil, err
-	}
-	return []byte(`"` + s + `""`), nil
-}
-
-func formatAlignment(align tw.Align) (string, error) {
-	switch align {
-	case tw.AlignRight:
-		return "RIGHT", nil
-	case tw.AlignLeft:
-		return "LEFT", nil
-	case tw.AlignNone:
-		return "DEFAULT", nil
-	case tw.AlignCenter:
-		return "CENTER", nil
-	default:
-		return "", fmt.Errorf("unknown Alignment: %v", align)
-	}
-}
-
 func (a *Alignment) UnmarshalJSON(b []byte) error {
 	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-
-	align, err := parseAlignment(s)
-	if err != nil {
-		return err
-	}
-
-	*a = Alignment(align)
-	return nil
-}
-
-func (a *Alignment) UnmarshalYAML(value *yaml.Node) error {
-	var s string
-	err := value.Decode(&s)
 	if err != nil {
 		return err
 	}
@@ -123,7 +84,9 @@ func parseAlignment(s string) (tw.Align, error) {
 		return tw.AlignLeft, nil
 	case "CENTER":
 		return tw.AlignCenter, nil
-	case "DEFAULT", "NONE":
+	case "DEFAULT":
+		return tw.AlignDefault, nil
+	case "NONE":
 		return tw.AlignNone, nil
 	default:
 		return tw.AlignNone, fmt.Errorf("unknown Alignment: %s", s)
@@ -355,7 +318,7 @@ func run() error {
 
 func customFileToTableRenderDef(b []byte) (tableRenderDef, error) {
 	var defs []plainColumnRenderDef
-	err := yaml.Unmarshal(b, &defs)
+	err := yaml.UnmarshalWithOptions(b, &defs, yaml.UseJSONUnmarshaler())
 	if err != nil {
 		return tableRenderDef{}, err
 	}

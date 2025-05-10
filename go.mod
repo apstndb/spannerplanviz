@@ -8,6 +8,7 @@ require (
 	cloud.google.com/go/spanner v1.48.0
 	github.com/apstndb/lox v0.0.0-20230530141045-98c1efebcde8
 	github.com/goccy/go-graphviz v0.2.2
+	github.com/goccy/go-yaml v1.17.1
 	github.com/google/go-cmp v0.5.9
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/olekukonko/tablewriter v1.0.1-0.20250510180013-bf0ab52ebec8
