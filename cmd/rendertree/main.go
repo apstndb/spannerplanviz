@@ -12,6 +12,8 @@ import (
 
 	"github.com/apstndb/lox"
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/renderer"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 
@@ -37,8 +39,8 @@ func (tdef tableRenderDef) ColumnNames() []string {
 	return columnNames
 }
 
-func (tdef tableRenderDef) ColumnAlignments() []int {
-	var alignments []int
+func (tdef tableRenderDef) ColumnAlignments() []tw.Align {
+	var alignments []tw.Align
 	for _, s := range tdef.Columns {
 		alignments = append(alignments, s.Alignment)
 	}
@@ -57,28 +59,28 @@ func (tdef tableRenderDef) ColumnMapFunc(row plantree.RowWithPredicates) ([]stri
 	return columns, nil
 }
 
-type Alignment int
+type Alignment tw.Align
 
 func (a *Alignment) MarshalJSON() ([]byte, error) {
-	s, err := formatAlignment(int(*a))
+	s, err := formatAlignment(tw.Align(*a))
 	if err != nil {
 		return nil, err
 	}
 	return []byte(`"` + s + `""`), nil
 }
 
-func formatAlignment(align int) (string, error) {
+func formatAlignment(align tw.Align) (string, error) {
 	switch align {
-	case tablewriter.ALIGN_RIGHT:
+	case tw.AlignRight:
 		return "RIGHT", nil
-	case tablewriter.ALIGN_LEFT:
+	case tw.AlignLeft:
 		return "LEFT", nil
-	case tablewriter.ALIGN_DEFAULT:
+	case tw.AlignNone:
 		return "DEFAULT", nil
-	case tablewriter.ALIGN_CENTER:
+	case tw.AlignCenter:
 		return "CENTER", nil
 	default:
-		return "", fmt.Errorf("unknown Alignment: %d", align)
+		return "", fmt.Errorf("unknown Alignment: %v", align)
 	}
 }
 
@@ -113,18 +115,18 @@ func (a *Alignment) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-func parseAlignment(s string) (int, error) {
+func parseAlignment(s string) (tw.Align, error) {
 	switch strings.TrimPrefix(s, "ALIGN_") {
 	case "RIGHT":
-		return tablewriter.ALIGN_RIGHT, nil
+		return tw.AlignRight, nil
 	case "LEFT":
-		return tablewriter.ALIGN_LEFT, nil
+		return tw.AlignLeft, nil
 	case "CENTER":
-		return tablewriter.ALIGN_CENTER, nil
-	case "DEFAULT":
-		return tablewriter.ALIGN_DEFAULT, nil
+		return tw.AlignCenter, nil
+	case "DEFAULT", "NONE":
+		return tw.AlignNone, nil
 	default:
-		return 0, fmt.Errorf("unknown Alignment: %s", s)
+		return tw.AlignNone, fmt.Errorf("unknown Alignment: %s", s)
 	}
 }
 
@@ -137,7 +139,7 @@ type plainColumnRenderDef struct {
 type columnRenderDef struct {
 	MapFunc   func(row plantree.RowWithPredicates) (string, error)
 	Name      string
-	Alignment int
+	Alignment tw.Align
 }
 
 func templateMapFunc(tmplName, tmplText string) (func(row plantree.RowWithPredicates) (string, error), error) {
@@ -159,14 +161,14 @@ func templateMapFunc(tmplName, tmplText string) (func(row plantree.RowWithPredic
 var (
 	idRenderDef = columnRenderDef{
 		Name:      "ID",
-		Alignment: tablewriter.ALIGN_RIGHT,
+		Alignment: tw.AlignRight,
 		MapFunc: func(row plantree.RowWithPredicates) (string, error) {
 			return row.FormatID(), nil
 		},
 	}
 	operatorRenderDef = columnRenderDef{
 		Name:      "Operator",
-		Alignment: tablewriter.ALIGN_LEFT,
+		Alignment: tw.AlignLeft,
 		MapFunc: func(row plantree.RowWithPredicates) (string, error) {
 			return row.Text(), nil
 		},
@@ -186,21 +188,21 @@ var (
 						return row.ExecutionStats.Rows.Total, nil
 					},
 					Name:      "Rows",
-					Alignment: tablewriter.ALIGN_RIGHT,
+					Alignment: tw.AlignRight,
 				},
 				{
 					MapFunc: func(row plantree.RowWithPredicates) (string, error) {
 						return row.ExecutionStats.ExecutionSummary.NumExecutions, nil
 					},
 					Name:      "Exec.",
-					Alignment: tablewriter.ALIGN_RIGHT,
+					Alignment: tw.AlignRight,
 				},
 				{
 					MapFunc: func(row plantree.RowWithPredicates) (string, error) {
 						return row.ExecutionStats.Latency.String(), nil
 					},
 					Name:      "Latency",
-					Alignment: tablewriter.ALIGN_RIGHT,
+					Alignment: tw.AlignRight,
 				},
 			},
 		},
@@ -367,7 +369,7 @@ func customFileToTableRenderDef(b []byte) (tableRenderDef, error) {
 		tdef.Columns = append(tdef.Columns, columnRenderDef{
 			MapFunc:   mapFunc,
 			Name:      def.Name,
-			Alignment: int(def.Alignment),
+			Alignment: tw.Align(def.Alignment),
 		})
 	}
 	return tdef, nil
@@ -378,10 +380,10 @@ func customListToTableRenderDef(custom []string) (tableRenderDef, error) {
 	for _, s := range custom {
 		split := strings.SplitN(s, ":", 3)
 
-		var align int
+		var align tw.Align
 		switch len(split) {
 		case 2:
-			align = tablewriter.ALIGN_DEFAULT
+			align = tw.AlignNone
 		case 3:
 			alignStr := split[2]
 			var err error
@@ -410,11 +412,28 @@ func customListToTableRenderDef(custom []string) (tableRenderDef, error) {
 
 func printResult(renderDef tableRenderDef, rows []plantree.RowWithPredicates, printMode PrintMode) (string, error) {
 	var b strings.Builder
-	table := tablewriter.NewWriter(&b)
-	table.SetAutoFormatHeaders(false)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetColumnAlignment(renderDef.ColumnAlignments())
-	table.SetAutoWrapText(false)
+	cb := tablewriter.NewConfigBuilder().
+		WithHeaderAutoFormat(false).
+		WithRowAutoFormat(false).
+		WithHeaderAlignment(tw.AlignLeft).
+		WithRowAutoWrap(tw.WrapNone).
+		WithTrimSpace(tw.Off)
+
+	var columnAlignments []tw.Align
+	for _, align := range renderDef.ColumnAlignments() {
+		columnAlignments = append(columnAlignments, align)
+	}
+
+	table := tablewriter.NewTable(&b,
+		tablewriter.WithRenderer(renderer.NewBlueprint(tw.Rendition{Symbols: tw.NewSymbols(tw.StyleASCII)})),
+		tablewriter.WithConfig(cb.Build()),
+	)
+
+	// Some config can't be correctly configured by ConfigBuilder.
+	table.Configure(func(config *tablewriter.Config) {
+		config.Row.ColumnAligns = renderDef.ColumnAlignments()
+		config.Header.Formatting.AutoFormat = false
+	})
 
 	for _, row := range rows {
 		values, err := renderDef.ColumnMapFunc(row)
@@ -423,7 +442,8 @@ func printResult(renderDef tableRenderDef, rows []plantree.RowWithPredicates, pr
 		}
 		table.Append(values)
 	}
-	table.SetHeader(renderDef.ColumnNames())
+
+	table.Header(renderDef.ColumnNames())
 	if len(rows) > 0 {
 		table.Render()
 	}
