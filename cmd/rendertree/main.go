@@ -382,11 +382,6 @@ func printResult(renderDef tableRenderDef, rows []plantree.RowWithPredicates, pr
 		WithRowAutoWrap(tw.WrapNone).
 		WithTrimSpace(tw.Off)
 
-	var columnAlignments []tw.Align
-	for _, align := range renderDef.ColumnAlignments() {
-		columnAlignments = append(columnAlignments, align)
-	}
-
 	table := tablewriter.NewTable(&b,
 		tablewriter.WithRenderer(renderer.NewBlueprint(tw.Rendition{Symbols: tw.NewSymbols(tw.StyleASCII)})),
 		tablewriter.WithConfig(cb.Build()),
@@ -403,12 +398,16 @@ func printResult(renderDef tableRenderDef, rows []plantree.RowWithPredicates, pr
 		if err != nil {
 			return "", err
 		}
-		table.Append(values)
+		if err = table.Append(values); err != nil {
+			return "", err
+		}
 	}
 
 	table.Header(renderDef.ColumnNames())
 	if len(rows) > 0 {
-		table.Render()
+		if err := table.Render(); err != nil {
+			return "", err
+		}
 	}
 
 	var maxIDLength int
