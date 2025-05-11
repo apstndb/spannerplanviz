@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"text/template"
 
@@ -59,23 +58,6 @@ func (tdef tableRenderDef) ColumnMapFunc(row plantree.RowWithPredicates) ([]stri
 	return columns, nil
 }
 
-type Alignment tw.Align
-
-func (a *Alignment) UnmarshalJSON(b []byte) error {
-	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-
-	align, err := parseAlignment(s)
-	if err != nil {
-		return err
-	}
-
-	*a = Alignment(align)
-	return nil
-}
-
 func parseAlignment(s string) (tw.Align, error) {
 	switch strings.TrimPrefix(s, "ALIGN_") {
 	case "RIGHT":
@@ -94,9 +76,9 @@ func parseAlignment(s string) (tw.Align, error) {
 }
 
 type plainColumnRenderDef struct {
-	Template  string    `json:"template"`
-	Name      string    `json:"name"`
-	Alignment Alignment `json:"alignment"`
+	Template  string   `json:"template"`
+	Name      string   `json:"name"`
+	Alignment tw.Align `json:"alignment"`
 }
 
 type columnRenderDef struct {
@@ -307,6 +289,7 @@ func run() error {
 	} else {
 		renderDef = withStatsToRenderDefMap[withStats]
 	}
+
 	s, err := printResult(renderDef, rows, printMode)
 	if err != nil {
 		return err
@@ -316,10 +299,26 @@ func run() error {
 	return err
 }
 
-func customFileToTableRenderDef(b []byte) (tableRenderDef, error) {
-	var defs []plainColumnRenderDef
-	err := yaml.UnmarshalWithOptions(b, &defs, yaml.UseJSONUnmarshaler())
+func unmarshalAlign(t *tw.Align, bytes []byte) error {
+	var s string
+	if err := yaml.Unmarshal(bytes, &s); err != nil {
+		return err
+	}
+
+	align, err := parseAlignment(s)
 	if err != nil {
+		return err
+	}
+
+	*t = align
+	return nil
+}
+
+func customFileToTableRenderDef(b []byte) (tableRenderDef, error) {
+	decodeOpts := []yaml.DecodeOption{yaml.CustomUnmarshaler(unmarshalAlign)}
+
+	var defs []plainColumnRenderDef
+	if err := yaml.UnmarshalWithOptions(b, &defs, decodeOpts...); err != nil {
 		return tableRenderDef{}, err
 	}
 
@@ -332,7 +331,7 @@ func customFileToTableRenderDef(b []byte) (tableRenderDef, error) {
 		tdef.Columns = append(tdef.Columns, columnRenderDef{
 			MapFunc:   mapFunc,
 			Name:      def.Name,
-			Alignment: tw.Align(def.Alignment),
+			Alignment: def.Alignment,
 		})
 	}
 	return tdef, nil
@@ -375,23 +374,21 @@ func customListToTableRenderDef(custom []string) (tableRenderDef, error) {
 
 func printResult(renderDef tableRenderDef, rows []plantree.RowWithPredicates, printMode PrintMode) (string, error) {
 	var b strings.Builder
-	cb := tablewriter.NewConfigBuilder().
-		WithHeaderAutoFormat(false).
-		WithRowAutoFormat(false).
-		WithHeaderAlignment(tw.AlignLeft).
-		WithRowAutoWrap(tw.WrapNone).
-		WithTrimSpace(tw.Off)
-
 	table := tablewriter.NewTable(&b,
-		tablewriter.WithRenderer(renderer.NewBlueprint(tw.Rendition{Symbols: tw.NewSymbols(tw.StyleASCII)})),
-		tablewriter.WithConfig(cb.Build()),
+		tablewriter.WithRenderer(
+			renderer.NewBlueprint(tw.Rendition{Symbols: tw.NewSymbols(tw.StyleASCII)})),
+		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+		tablewriter.WithTrimSpace(tw.Off),
 	)
 
-	// Some config can't be correctly configured by ConfigBuilder.
+	// Some config can't be correctly configured by tablewriter.Option.
 	table.Configure(func(config *tablewriter.Config) {
 		config.Row.ColumnAligns = renderDef.ColumnAlignments()
+		config.Row.Formatting.AutoWrap = tw.WrapNone
 		config.Header.Formatting.AutoFormat = false
 	})
+
+	table.Header(renderDef.ColumnNames())
 
 	for _, row := range rows {
 		values, err := renderDef.ColumnMapFunc(row)
@@ -403,7 +400,6 @@ func printResult(renderDef tableRenderDef, rows []plantree.RowWithPredicates, pr
 		}
 	}
 
-	table.Header(renderDef.ColumnNames())
 	if len(rows) > 0 {
 		if err := table.Render(); err != nil {
 			return "", err
