@@ -1,12 +1,25 @@
+version: "2"
 run:
   tests: true
-
 output:
   formats:
-    - format: colored-line-number
-  print-issued-lines: false
-
+    text:
+      path: stdout
+      print-issued-lines: false
+linters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-use-default: false
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

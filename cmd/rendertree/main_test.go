@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/samber/lo"
 
 	"github.com/apstndb/spannerplanviz/plantree"
@@ -27,7 +27,7 @@ func Test_customFileToTableRenderDef(t *testing.T) {
 	if v := len(trd.Columns); v != 1 {
 		t.Fatalf("unexpected value: %v", v)
 	}
-	if v := trd.Columns[0]; v.Alignment != tablewriter.ALIGN_RIGHT {
+	if v := trd.Columns[0]; v.Alignment != tw.AlignRight {
 		t.Fatalf("unexpected value: %v", v)
 	}
 }

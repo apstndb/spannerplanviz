@@ -1,10 +1,12 @@
 package queryplan
 
 import (
-	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"errors"
+
+	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
+	"github.com/goccy/go-yaml"
+
 	"github.com/apstndb/spannerplanviz/protoyaml"
-	"gopkg.in/yaml.v3"
 )
 
 func ExtractQueryPlan(b []byte) (*sppb.ResultSetStats, *sppb.StructType, error) {
