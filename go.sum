@@ -45,8 +45,14 @@ github.com/olekukonko/errors v0.0.0-20250405072817-4e6d85265da6 h1:r3FaAI0NZK3hS
 github.com/olekukonko/errors v0.0.0-20250405072817-4e6d85265da6/go.mod h1:ppzxA5jBKcO1vIpCXQ9ZqgDh8iwODz6OXIGKU8r5m4Y=
 github.com/olekukonko/ll v0.0.0-20250510164409-ceb6a13d91b7 h1:N4G1sMmKuHIZ6aZEhjosieSKhOUvKUN2xdotI+wqoVU=
 github.com/olekukonko/ll v0.0.0-20250510164409-ceb6a13d91b7/go.mod h1:En+sEW0JNETl26+K8eZ6/W4UQ7CYSrrgg/EdIYT2H8g=
+github.com/olekukonko/ll v0.0.6-0.20250511102614-9564773e9d27 h1:LgDwLQDELPB6wMOx1x4DSXnH2pjQNDKFgqv2inJuiAU=
+github.com/olekukonko/ll v0.0.6-0.20250511102614-9564773e9d27/go.mod h1:En+sEW0JNETl26+K8eZ6/W4UQ7CYSrrgg/EdIYT2H8g=
+github.com/olekukonko/tablewriter v1.0.0 h1:WHgrshVkRhxxTAVetUh3m4WjBwyOitmUXztaXp3P08g=
+github.com/olekukonko/tablewriter v1.0.0/go.mod h1:xmnTFhuRZ6FbtSSkjRw3qDa/TB237m7SlzsC8WaBLUo=
 github.com/olekukonko/tablewriter v1.0.1-0.20250510180013-bf0ab52ebec8 h1:IBZs8I0FvJTAqr8hXyPJA//tC4hylXzV5CxLAgcmvmQ=
 github.com/olekukonko/tablewriter v1.0.1-0.20250510180013-bf0ab52ebec8/go.mod h1:IBb0SFJhjAoR1oJzqoCN/HTo0yxUG5BUSQ+AjTES1u4=
+github.com/olekukonko/tablewriter v1.0.1 h1:8Q9cO/98GpqZDPjmOmxFBIvgn4u935JOw2GG2KH0L88=
+github.com/olekukonko/tablewriter v1.0.1/go.mod h1:eUa4ArVhHJYomS27xrJB/GyLtnzKKVkZeLM6/MNO+pA=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rivo/uniseg v0.2.0 h1:S1pD9weZBuJdFmowNwbpi7BJ8TNftyUImj/0WQi72jY=
