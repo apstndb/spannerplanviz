@@ -216,12 +216,8 @@ func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 			if o.targetMetadataFormat != TargetMetadataFormatRaw {
 				continue
 			}
-		case "Full scan":
-			if o.knownFlagFormat != KnownFlagFormatRaw && v.GetStringValue() == "true" {
-				labels = append(labels, k)
-				continue
-			}
 		}
+
 		if o.knownFlagFormat != KnownFlagFormatRaw && slices.Contains([]string{"Full scan", "split_ranges_aligned"}, k) {
 			if v.GetStringValue() == "true" {
 				labels = append(labels, k)
