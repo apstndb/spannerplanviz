@@ -262,7 +262,7 @@ func run() error {
 	case "RAW":
 		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithKnownFlagFormat(queryplan.KnownFlagFormatRaw)))
 	default:
-		fmt.Fprintf(os.Stderr, "Invalid value for -full-scan flag: %s.  Must be 'label' or 'raw'.\n", *fullscan)
+		fmt.Fprintf(os.Stderr, "Invalid value for -known-flag flag: %s.  Must be 'label' or 'raw'.\n", *knownFlag)
 		flag.Usage()
 		os.Exit(1)
 	}
