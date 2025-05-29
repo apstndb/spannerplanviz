@@ -3,6 +3,7 @@ package queryplan
 import (
 	"cmp"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -91,7 +92,7 @@ func (qp *QueryPlan) GetParentNodeByChildLink(link *sppb.PlanNode_ChildLink) *sp
 type option struct {
 	executionMethodFormat ExecutionMethodFormat
 	targetMetadataFormat  TargetMetadataFormat
-	fullScanFormat        FullScanFormat
+	knownFlagFormat       KnownFlagFormat
 	compact               bool
 }
 
@@ -117,14 +118,21 @@ const (
 	TargetMetadataFormatOn
 )
 
-type FullScanFormat int64
+type KnownFlagFormat int64
+type FullScanFormat = KnownFlagFormat
 
 const (
-	// FullScanFormatRaw prints Full scan metadata as is.
-	FullScanFormatRaw FullScanFormat = iota
+	// KnownFlagFormatRaw prints known boolean flag metadata as is.
+	KnownFlagFormatRaw KnownFlagFormat = iota
 
-	// FullScanFormatLabel prints Full scan metadata as "Full scan" without value.
-	FullScanFormatLabel
+	// KnownFlagFormatLabel prints known boolean flag metadata without value if true or omits if false.
+	KnownFlagFormatLabel
+
+	// Deprecated: FullScanFormatRaw is an alias of KnownFlagFormatRaw. (Deprecated)
+	FullScanFormatRaw = KnownFlagFormatRaw
+
+	// Deprecated: FullScanFormatLabel is an alias of KnownFlagFormatLabel. (Deprecated)
+	FullScanFormatLabel = KnownFlagFormatLabel
 )
 
 func WithExecutionMethodFormat(fmt ExecutionMethodFormat) Option {
@@ -139,10 +147,15 @@ func WithTargetMetadataFormat(fmt TargetMetadataFormat) Option {
 	}
 }
 
-func WithFullScanFormat(fmt FullScanFormat) Option {
+func WithKnownFlagFormat(fmt KnownFlagFormat) Option {
 	return func(o *option) {
-		o.fullScanFormat = fmt
+		o.knownFlagFormat = fmt
 	}
+}
+
+// Deprecated: WithFullScanFormat is an alias of WithKnownFlagFormat.
+func WithFullScanFormat(fmt FullScanFormat) Option {
+	return WithKnownFlagFormat(fmt)
 }
 
 func EnableCompact() Option {
@@ -150,6 +163,8 @@ func EnableCompact() Option {
 		o.compact = true
 	}
 }
+
+var knownBooleanFlagKeys = []string{"Full scan", "split_ranges_aligned"}
 
 func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 	var o option
@@ -176,8 +191,8 @@ func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 	executionMethodPart := lox.IfOrEmpty(o.executionMethodFormat == ExecutionMethodFormatAngle && len(executionMethod) > 0,
 		"<"+executionMethod+">")
 
-	var needFullscanToFront bool
-	fields := make([]string, 0)
+	var labels []string
+	var fields []string
 	for k, v := range metadataFields {
 		switch k {
 		case "call_type", "iterator_type": // Skip because it is displayed in node title
@@ -203,21 +218,21 @@ func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 			if o.targetMetadataFormat != TargetMetadataFormatRaw {
 				continue
 			}
-		case "Full scan":
-			if o.fullScanFormat != FullScanFormatRaw && v.GetStringValue() == "true" {
-				needFullscanToFront = true
-				continue
+		}
+
+		if o.knownFlagFormat != KnownFlagFormatRaw && slices.Contains(knownBooleanFlagKeys, k) {
+			if v.GetStringValue() == "true" {
+				labels = append(labels, k)
 			}
+			continue
 		}
 		fields = append(fields, fmt.Sprintf("%s:%s%s", k, sep, v.GetStringValue()))
 	}
 
+	sort.Strings(labels)
 	sort.Strings(fields)
-	if needFullscanToFront {
-		fields = append([]string{"Full scan"}, fields...)
-	}
 
-	return joinIfNotEmpty(sep, operator, executionMethodPart, encloseIfNotEmpty("(", strings.Join(fields, ","+sep), ")"))
+	return joinIfNotEmpty(sep, operator, executionMethodPart, encloseIfNotEmpty("(", strings.Join(slices.Concat(labels, fields), ","+sep), ")"))
 }
 
 func encloseIfNotEmpty(open, input, close string) string {

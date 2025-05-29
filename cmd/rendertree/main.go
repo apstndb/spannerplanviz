@@ -195,12 +195,25 @@ func run() error {
 	disallowUnknownStats := flag.Bool("disallow-unknown-stats", false, "error on unknown stats field")
 	executionMethod := flag.String("execution-method", "angle", "Format execution method metadata: 'angle' or 'raw' (default: angle)")
 	targetMetadata := flag.String("target-metadata", "on", "Format target metadata: 'on' or 'raw' (default: on)")
-	fullscan := flag.String("full-scan", "label", "Format full scan: 'label' or 'raw' (default: label)")
+	fullscan := flag.String("full-scan", "", "Deprecated alias for --known-flag.")
+	knownFlag := flag.String("known-flag", "", "Format known flags: 'label' or 'raw' (default: label)")
 	compact := flag.Bool("compact", false, "Enable compact format")
 
 	var custom stringList
 	flag.Var(&custom, "custom", "")
 	flag.Parse()
+
+	if *fullscan != "" {
+		if *knownFlag != "" {
+			fmt.Fprintln(os.Stderr, "--full-scan and --known-flag are mutually exclusive.")
+			flag.Usage()
+			os.Exit(1)
+		}
+
+		fmt.Fprintln(os.Stderr, "--full-scan is deprecated. you must migrate to --known-flag.")
+
+		*knownFlag = *fullscan
+	}
 
 	printMode := parsePrintMode(*printModeStr)
 
@@ -246,13 +259,13 @@ func run() error {
 		os.Exit(1)
 	}
 
-	switch strings.ToUpper(*fullscan) {
+	switch strings.ToUpper(*knownFlag) {
 	case "", "LABEL":
-		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithFullScanFormat(queryplan.FullScanFormatLabel)))
+		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithKnownFlagFormat(queryplan.KnownFlagFormatLabel)))
 	case "RAW":
-		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithFullScanFormat(queryplan.FullScanFormatRaw)))
+		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithKnownFlagFormat(queryplan.KnownFlagFormatRaw)))
 	default:
-		fmt.Fprintf(os.Stderr, "Invalid value for -full-scan flag: %s.  Must be 'label' or 'raw'.\n", *fullscan)
+		fmt.Fprintf(os.Stderr, "Invalid value for -known-flag flag: %s.  Must be 'label' or 'raw'.\n", *knownFlag)
 		flag.Usage()
 		os.Exit(1)
 	}

@@ -9,8 +9,8 @@ import (
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/apstndb/lox"
-	"github.com/samber/lo"
 	"github.com/apstndb/treeprint"
+	"github.com/samber/lo"
 
 	"github.com/apstndb/spannerplanviz/queryplan"
 	"github.com/apstndb/spannerplanviz/stats"
