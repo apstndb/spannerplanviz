@@ -195,17 +195,22 @@ func run() error {
 	disallowUnknownStats := flag.Bool("disallow-unknown-stats", false, "error on unknown stats field")
 	executionMethod := flag.String("execution-method", "angle", "Format execution method metadata: 'angle' or 'raw' (default: angle)")
 	targetMetadata := flag.String("target-metadata", "on", "Format target metadata: 'on' or 'raw' (default: on)")
-	fullscan := flag.String("full-scan", "", "Alias of --known-flag")
-	knownFlag := flag.String("known-flag", "label", "Format known flags: 'label' or 'raw' (default: label)")
+	fullscan := flag.String("full-scan", "", "Deprecated alias for --known-flag.")
+	knownFlag := flag.String("known-flag", "", "Format known flags: 'label' or 'raw' (default: label)")
 	compact := flag.Bool("compact", false, "Enable compact format")
-
-	if *fullscan != "" {
-		*knownFlag = *fullscan
-	}
 
 	var custom stringList
 	flag.Var(&custom, "custom", "")
 	flag.Parse()
+
+	if *fullscan != "" {
+		if *knownFlag != "" {
+			fmt.Fprintln(os.Stderr, "--full-scan and --known-flag are mutually exclusive.")
+			flag.Usage()
+			os.Exit(1)
+		}
+		*knownFlag = *fullscan
+	}
 
 	printMode := parsePrintMode(*printModeStr)
 
