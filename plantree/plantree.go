@@ -16,15 +16,6 @@ import (
 	"github.com/apstndb/spannerplanviz/stats"
 )
 
-func init() {
-	// Use only ascii characters to mitigate ambiguous width problem
-	treeprint.EdgeTypeLink = "|"
-	treeprint.EdgeTypeMid = "+"
-	treeprint.EdgeTypeEnd = "+"
-
-	treeprint.IndentSize = 0
-}
-
 type RowWithPredicates struct {
 	ID             int32
 	TreePart       string
