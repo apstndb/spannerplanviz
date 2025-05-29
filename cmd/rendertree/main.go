@@ -209,6 +209,9 @@ func run() error {
 			flag.Usage()
 			os.Exit(1)
 		}
+
+		fmt.Fprintln(os.Stderr, "--full-scan is deprecated. you must migrate to --known-flag.")
+
 		*knownFlag = *fullscan
 	}
 
