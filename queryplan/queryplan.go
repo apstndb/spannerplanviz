@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
+	"github.com/apstndb/lox"
 	"github.com/samber/lo"
 )
 
@@ -91,6 +92,7 @@ type option struct {
 	executionMethodFormat ExecutionMethodFormat
 	targetMetadataFormat  TargetMetadataFormat
 	fullScanFormat        FullScanFormat
+	compact               bool
 }
 
 type Option func(o *option)
@@ -143,11 +145,19 @@ func WithFullScanFormat(fmt FullScanFormat) Option {
 	}
 }
 
+func EnableCompact() Option {
+	return func(o *option) {
+		o.compact = true
+	}
+}
+
 func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 	var o option
 	for _, opt := range opts {
 		opt(&o)
 	}
+
+	sep := lox.IfOrEmpty(!o.compact, " ")
 
 	metadataFields := node.GetMetadata().GetFields()
 
@@ -161,9 +171,10 @@ func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 		node.GetDisplayName(),
 		lo.Ternary(o.targetMetadataFormat == TargetMetadataFormatOn && len(target) > 0,
 			"on "+target, ""),
-		lo.Ternary(o.executionMethodFormat == ExecutionMethodFormatAngle && len(executionMethod) > 0,
-			"<"+executionMethod+">", ""),
 	)
+
+	executionMethodPart := lox.IfOrEmpty(o.executionMethodFormat == ExecutionMethodFormatAngle && len(executionMethod) > 0,
+		"<"+executionMethod+">")
 
 	var needFullscanToFront bool
 	fields := make([]string, 0)
@@ -198,7 +209,7 @@ func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 				continue
 			}
 		}
-		fields = append(fields, fmt.Sprintf("%s: %s", k, v.GetStringValue()))
+		fields = append(fields, fmt.Sprintf("%s:%s%s", k, sep, v.GetStringValue()))
 	}
 
 	sort.Strings(fields)
@@ -206,7 +217,7 @@ func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 		fields = append([]string{"Full scan"}, fields...)
 	}
 
-	return joinIfNotEmpty(" ", operator, encloseIfNotEmpty("(", strings.Join(fields, ", "), ")"))
+	return joinIfNotEmpty(sep, operator, executionMethodPart, encloseIfNotEmpty("(", strings.Join(fields, ","+sep), ")"))
 }
 
 func encloseIfNotEmpty(open, input, close string) string {
