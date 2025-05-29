@@ -7,18 +7,19 @@ toolchain go1.24.0
 require (
 	cloud.google.com/go/spanner v1.48.0
 	github.com/apstndb/lox v0.0.0-20230530141045-98c1efebcde8
-	github.com/goccy/go-graphviz v0.2.2
+	github.com/apstndb/treeprint v0.0.0-20250529153958-e82576b37da6
+	github.com/goccy/go-graphviz v0.2.9
 	github.com/goccy/go-yaml v1.17.1
 	github.com/google/go-cmp v0.5.9
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/olekukonko/tablewriter v1.0.1
 	github.com/samber/lo v1.47.0
-	github.com/xlab/treeprint v1.1.0
 	google.golang.org/protobuf v1.33.0
 	sigs.k8s.io/yaml v1.2.0
 )
 
 require (
+	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/flopp/go-findfont v0.1.0 // indirect
 	github.com/fogleman/gg v1.3.0 // indirect
@@ -45,3 +46,5 @@ require (
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+replace github.com/xlab/treeprint => ../../xlab/treeprint

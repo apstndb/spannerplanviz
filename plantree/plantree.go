@@ -10,7 +10,7 @@ import (
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/apstndb/lox"
 	"github.com/samber/lo"
-	"github.com/xlab/treeprint"
+	"github.com/apstndb/treeprint"
 
 	"github.com/apstndb/spannerplanviz/queryplan"
 	"github.com/apstndb/spannerplanviz/stats"
@@ -19,10 +19,10 @@ import (
 func init() {
 	// Use only ascii characters to mitigate ambiguous width problem
 	treeprint.EdgeTypeLink = "|"
-	treeprint.EdgeTypeMid = "+-"
-	treeprint.EdgeTypeEnd = "+-"
+	treeprint.EdgeTypeMid = "+"
+	treeprint.EdgeTypeEnd = "+"
 
-	treeprint.IndentSize = 2
+	treeprint.IndentSize = 0
 }
 
 type RowWithPredicates struct {
@@ -46,6 +46,8 @@ func (r RowWithPredicates) FormatID() string {
 type options struct {
 	disallowUnknownStats bool
 	queryplanOptions     []queryplan.Option
+	treeprintOptions     []treeprint.Option
+	compact              bool
 }
 
 type Option func(*options)
@@ -62,17 +64,47 @@ func WithQueryPlanOptions(opts ...queryplan.Option) Option {
 	}
 }
 
+func WithTreeprintOptions(opts ...treeprint.Option) Option {
+	return func(o *options) {
+		o.treeprintOptions = append(o.treeprintOptions, opts...)
+	}
+}
+
+func EnableCompact() Option {
+	return func(o *options) {
+		o.compact = true
+		o.queryplanOptions = append(o.queryplanOptions, queryplan.EnableCompact())
+		o.treeprintOptions = append(
+			o.treeprintOptions,
+			treeprint.WithEdgeTypeLink("|"),
+			treeprint.WithEdgeTypeMid("+"),
+			treeprint.WithEdgeTypeEnd("+"),
+			treeprint.WithIndentSize(0),
+			treeprint.WithEdgeSeparator(""),
+		)
+	}
+}
+
 func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredicates, err error) {
-	o := options{}
+	o := options{
+		// default values to be override
+		treeprintOptions: []treeprint.Option{
+			treeprint.WithEdgeTypeLink("|"),
+			treeprint.WithEdgeTypeMid("+-"),
+			treeprint.WithEdgeTypeEnd("+-"),
+			treeprint.WithIndentSize(2),
+		},
+	}
 	for _, opt := range opts {
 		opt(&o)
 	}
 
+	sep := lo.Ternary(!o.compact, " ", "")
 	tree := treeprint.New()
 
 	renderTree(qp, tree, nil)
 	var result []RowWithPredicates
-	for _, line := range strings.Split(tree.String(), "\n") {
+	for _, line := range strings.Split(tree.StringWithOptions(o.treeprintOptions...), "\n") {
 		if line == "" {
 			continue
 		}
@@ -134,7 +166,7 @@ func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredica
 			Predicates:     predicates,
 			ChildLinks:     childLinks,
 			TreePart:       branchText,
-			NodeText:       lox.IfOrEmpty(linkType != "", "["+linkType+"] ") + queryplan.NodeTitle(node, o.queryplanOptions...),
+			NodeText:       lox.IfOrEmpty(linkType != "", "["+linkType+"]"+sep) + queryplan.NodeTitle(node, o.queryplanOptions...),
 			ExecutionStats: executionStats,
 		})
 	}

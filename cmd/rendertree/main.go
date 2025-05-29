@@ -196,6 +196,7 @@ func run() error {
 	executionMethod := flag.String("execution-method", "angle", "Format execution method metadata: 'angle' or 'raw' (default: angle)")
 	targetMetadata := flag.String("target-metadata", "on", "Format target metadata: 'on' or 'raw' (default: on)")
 	fullscan := flag.String("full-scan", "label", "Format full scan: 'label' or 'raw' (default: label)")
+	compact := flag.Bool("compact", false, "Enable compact format")
 
 	var custom stringList
 	flag.Var(&custom, "custom", "")
@@ -217,6 +218,10 @@ func run() error {
 	var opts []plantree.Option
 	if *disallowUnknownStats {
 		opts = append(opts, plantree.DisallowUnknownStats())
+	}
+
+	if *compact {
+		opts = append(opts, plantree.EnableCompact())
 	}
 
 	switch strings.ToUpper(*executionMethod) {

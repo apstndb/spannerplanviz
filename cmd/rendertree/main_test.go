@@ -43,12 +43,14 @@ func TestRenderTree(t *testing.T) {
 		desc      string
 		input     []byte
 		renderDef tableRenderDef
+		compact   bool
 		want      string
 	}{
 		{
 			"PLAN",
 			dcaYAML,
 			withStatsToRenderDefMap[false],
+			false,
 			`+-----+-------------------------------------------------------------------------------------------+
 | ID  | Operator                                                                                  |
 +-----+-------------------------------------------------------------------------------------------+
@@ -71,9 +73,36 @@ Predicates(identified by ID):
 `,
 		},
 		{
+			"compact PLAN",
+			dcaYAML,
+			withStatsToRenderDefMap[false],
+			true,
+			`+-----+-----------------------------------------------------------------------------+
+| ID  | Operator                                                                    |
++-----+-----------------------------------------------------------------------------+
+|   0 | Distributed Union on AlbumsByAlbumTitle<Row>(split_ranges_aligned:false)    |
+|  *1 | +Distributed Cross Apply<Row>                                               |
+|   2 |  +[Input]Create Batch<Row>                                                  |
+|   3 |  |+Local Distributed Union<Row>                                             |
+|   4 |  | +Compute Struct<Row>                                                     |
+|   5 |  |  +Index Scan on AlbumsByAlbumTitle<Row>(Full scan,scan_method:Automatic) |
+|  11 |  +[Map]Serialize Result<Row>                                                |
+|  12 |   +Cross Apply<Row>                                                         |
+|  13 |    +[Input]Batch Scan on $v2<Row>(scan_method:Row)                          |
+|  16 |    +[Map]Local Distributed Union<Row>                                       |
+| *17 |     +Filter Scan<Row>(seekable_key_size:0)                                  |
+|  18 |      +Index Scan on SongsBySongGenre<Row>(Full scan,scan_method:Row)        |
++-----+-----------------------------------------------------------------------------+
+Predicates(identified by ID):
+  1: Split Range: ($AlbumId = $AlbumId_1)
+ 17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
+`,
+		},
+		{
 			"PROFILE",
 			dcaProfileYAML,
 			withStatsToRenderDefMap[true],
+			false,
 			`+-----+-------------------------------------------------------------------------------------------+------+-------+------------+
 | ID  | Operator                                                                                  | Rows | Exec. | Latency    |
 +-----+-------------------------------------------------------------------------------------------+------+-------+------------+
@@ -115,6 +144,7 @@ Predicates(identified by ID):
   template: '{{.ExecutionStats.FilteredRows.Total}}'
   alignment: RIGHT
 `))),
+			false,
 			`+-----+-------------------------------------------------------------------------------------------+------+---------+----------+
 | ID  | Operator                                                                                  | Rows | Scanned | Filtered |
 +-----+-------------------------------------------------------------------------------------------+------+---------+----------+
@@ -146,6 +176,7 @@ Predicates(identified by ID):
 				`Scanned:{{.ExecutionStats.ScannedRows.Total}}:RIGHT`,
 				`Filtered:{{.ExecutionStats.FilteredRows.Total}}:RIGHT`,
 			})),
+			false,
 			`+-----+-------------------------------------------------------------------------------------------+------+---------+----------+
 | ID  | Operator                                                                                  | Rows | Scanned | Filtered |
 +-----+-------------------------------------------------------------------------------------------+------+---------+----------+
@@ -175,11 +206,17 @@ Predicates(identified by ID):
 			t.Fatalf("invalid input at protoyaml.Unmarshal:\nerror: %v", err)
 		}
 
-		rows, err := plantree.ProcessPlan(queryplan.New(stats.GetQueryPlan().GetPlanNodes()), plantree.WithQueryPlanOptions(
+		opts := []plantree.Option{plantree.WithQueryPlanOptions(
 			queryplan.WithTargetMetadataFormat(queryplan.TargetMetadataFormatOn),
 			queryplan.WithExecutionMethodFormat(queryplan.ExecutionMethodFormatAngle),
 			queryplan.WithFullScanFormat(queryplan.FullScanFormatLabel),
-		))
+		)}
+
+		if tcase.compact {
+			opts = append(opts, plantree.EnableCompact())
+		}
+
+		rows, err := plantree.ProcessPlan(queryplan.New(stats.GetQueryPlan().GetPlanNodes()), opts...)
 		if err != nil {
 			t.Fatal(err)
 		}
