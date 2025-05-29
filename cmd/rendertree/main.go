@@ -195,8 +195,13 @@ func run() error {
 	disallowUnknownStats := flag.Bool("disallow-unknown-stats", false, "error on unknown stats field")
 	executionMethod := flag.String("execution-method", "angle", "Format execution method metadata: 'angle' or 'raw' (default: angle)")
 	targetMetadata := flag.String("target-metadata", "on", "Format target metadata: 'on' or 'raw' (default: on)")
-	fullscan := flag.String("full-scan", "label", "Format full scan: 'label' or 'raw' (default: label)")
+	fullscan := flag.String("full-scan", "", "Alias of --known-flag")
+	knownFlag := flag.String("known-flag", "label", "Format known flags: 'label' or 'raw' (default: label)")
 	compact := flag.Bool("compact", false, "Enable compact format")
+
+	if *fullscan != "" {
+		*knownFlag = *fullscan
+	}
 
 	var custom stringList
 	flag.Var(&custom, "custom", "")
@@ -246,11 +251,11 @@ func run() error {
 		os.Exit(1)
 	}
 
-	switch strings.ToUpper(*fullscan) {
+	switch strings.ToUpper(*knownFlag) {
 	case "", "LABEL":
-		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithFullScanFormat(queryplan.FullScanFormatLabel)))
+		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithKnownFlagFormat(queryplan.KnownFlagFormatLabel)))
 	case "RAW":
-		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithFullScanFormat(queryplan.FullScanFormatRaw)))
+		opts = append(opts, plantree.WithQueryPlanOptions(queryplan.WithKnownFlagFormat(queryplan.KnownFlagFormatRaw)))
 	default:
 		fmt.Fprintf(os.Stderr, "Invalid value for -full-scan flag: %s.  Must be 'label' or 'raw'.\n", *fullscan)
 		flag.Usage()

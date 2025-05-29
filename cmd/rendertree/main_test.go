@@ -54,7 +54,7 @@ func TestRenderTree(t *testing.T) {
 			`+-----+-------------------------------------------------------------------------------------------+
 | ID  | Operator                                                                                  |
 +-----+-------------------------------------------------------------------------------------------+
-|   0 | Distributed Union on AlbumsByAlbumTitle <Row> (split_ranges_aligned: false)               |
+|   0 | Distributed Union on AlbumsByAlbumTitle <Row>                                             |
 |  *1 | +- Distributed Cross Apply <Row>                                                          |
 |   2 |    +- [Input] Create Batch <Row>                                                          |
 |   3 |    |  +- Local Distributed Union <Row>                                                    |
@@ -80,7 +80,7 @@ Predicates(identified by ID):
 			`+-----+-----------------------------------------------------------------------------+
 | ID  | Operator                                                                    |
 +-----+-----------------------------------------------------------------------------+
-|   0 | Distributed Union on AlbumsByAlbumTitle<Row>(split_ranges_aligned:false)    |
+|   0 | Distributed Union on AlbumsByAlbumTitle<Row>                                |
 |  *1 | +Distributed Cross Apply<Row>                                               |
 |   2 |  +[Input]Create Batch<Row>                                                  |
 |   3 |  |+Local Distributed Union<Row>                                             |
@@ -106,7 +106,7 @@ Predicates(identified by ID):
 			`+-----+-------------------------------------------------------------------------------------------+------+-------+------------+
 | ID  | Operator                                                                                  | Rows | Exec. | Latency    |
 +-----+-------------------------------------------------------------------------------------------+------+-------+------------+
-|   0 | Distributed Union on AlbumsByAlbumTitle <Row> (split_ranges_aligned: false)               |   33 |     1 | 1.92 msecs |
+|   0 | Distributed Union on AlbumsByAlbumTitle <Row>                                             |   33 |     1 | 1.92 msecs |
 |  *1 | +- Distributed Cross Apply <Row>                                                          |   33 |     1 |  1.9 msecs |
 |   2 |    +- [Input] Create Batch <Row>                                                          |      |       |            |
 |   3 |    |  +- Local Distributed Union <Row>                                                    |    7 |     1 | 0.95 msecs |
@@ -148,7 +148,7 @@ Predicates(identified by ID):
 			`+-----+-------------------------------------------------------------------------------------------+------+---------+----------+
 | ID  | Operator                                                                                  | Rows | Scanned | Filtered |
 +-----+-------------------------------------------------------------------------------------------+------+---------+----------+
-|   0 | Distributed Union on AlbumsByAlbumTitle <Row> (split_ranges_aligned: false)               |   33 |         |          |
+|   0 | Distributed Union on AlbumsByAlbumTitle <Row>                                             |   33 |         |          |
 |  *1 | +- Distributed Cross Apply <Row>                                                          |   33 |         |          |
 |   2 |    +- [Input] Create Batch <Row>                                                          |      |         |          |
 |   3 |    |  +- Local Distributed Union <Row>                                                    |    7 |         |          |
@@ -180,7 +180,7 @@ Predicates(identified by ID):
 			`+-----+-------------------------------------------------------------------------------------------+------+---------+----------+
 | ID  | Operator                                                                                  | Rows | Scanned | Filtered |
 +-----+-------------------------------------------------------------------------------------------+------+---------+----------+
-|   0 | Distributed Union on AlbumsByAlbumTitle <Row> (split_ranges_aligned: false)               |   33 |         |          |
+|   0 | Distributed Union on AlbumsByAlbumTitle <Row>                                             |   33 |         |          |
 |  *1 | +- Distributed Cross Apply <Row>                                                          |   33 |         |          |
 |   2 |    +- [Input] Create Batch <Row>                                                          |      |         |          |
 |   3 |    |  +- Local Distributed Union <Row>                                                    |    7 |         |          |
@@ -209,7 +209,7 @@ Predicates(identified by ID):
 		opts := []plantree.Option{plantree.WithQueryPlanOptions(
 			queryplan.WithTargetMetadataFormat(queryplan.TargetMetadataFormatOn),
 			queryplan.WithExecutionMethodFormat(queryplan.ExecutionMethodFormatAngle),
-			queryplan.WithFullScanFormat(queryplan.FullScanFormatLabel),
+			queryplan.WithKnownFlagFormat(queryplan.KnownFlagFormatLabel),
 		)}
 
 		if tcase.compact {
