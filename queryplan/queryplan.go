@@ -164,6 +164,8 @@ func EnableCompact() Option {
 	}
 }
 
+var knownBooleanFlagKeys = []string{"Full scan", "split_ranges_aligned"}
+
 func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 	var o option
 	for _, opt := range opts {
@@ -218,7 +220,7 @@ func NodeTitle(node *sppb.PlanNode, opts ...Option) string {
 			}
 		}
 
-		if o.knownFlagFormat != KnownFlagFormatRaw && slices.Contains([]string{"Full scan", "split_ranges_aligned"}, k) {
+		if o.knownFlagFormat != KnownFlagFormatRaw && slices.Contains(knownBooleanFlagKeys, k) {
 			if v.GetStringValue() == "true" {
 				labels = append(labels, k)
 			}
