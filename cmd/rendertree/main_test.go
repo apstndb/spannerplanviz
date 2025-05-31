@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"testing"
 
+	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/google/go-cmp/cmp"
 	"github.com/olekukonko/tablewriter/tw"
 	"github.com/samber/lo"
@@ -12,6 +13,9 @@ import (
 	"github.com/apstndb/spannerplanviz/queryplan"
 )
 
+func sliceOf[T any](vs ...T) []T {
+	return vs
+}
 func Test_customFileToTableRenderDef(t *testing.T) {
 	yamlContent := `
 - name: ID
@@ -43,15 +47,16 @@ func TestRenderTree(t *testing.T) {
 		desc      string
 		input     []byte
 		renderDef tableRenderDef
-		compact   bool
+		opts      []plantree.Option
 		want      string
 	}{
 		{
 			"PLAN",
 			dcaYAML,
 			withStatsToRenderDefMap[false],
-			false,
-			`+-----+-------------------------------------------------------------------------------------------+
+			nil,
+			heredoc.Doc(`
++-----+-------------------------------------------------------------------------------------------+
 | ID  | Operator                                                                                  |
 +-----+-------------------------------------------------------------------------------------------+
 |   0 | Distributed Union on AlbumsByAlbumTitle <Row>                                             |
@@ -70,14 +75,15 @@ func TestRenderTree(t *testing.T) {
 Predicates(identified by ID):
   1: Split Range: ($AlbumId = $AlbumId_1)
  17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
-`,
+`),
 		},
 		{
 			"compact PLAN",
 			dcaYAML,
 			withStatsToRenderDefMap[false],
-			true,
-			`+-----+-----------------------------------------------------------------------------+
+			sliceOf(plantree.EnableCompact()),
+			heredoc.Doc(`
++-----+-----------------------------------------------------------------------------+
 | ID  | Operator                                                                    |
 +-----+-----------------------------------------------------------------------------+
 |   0 | Distributed Union on AlbumsByAlbumTitle<Row>                                |
@@ -96,14 +102,80 @@ Predicates(identified by ID):
 Predicates(identified by ID):
   1: Split Range: ($AlbumId = $AlbumId_1)
  17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
-`,
+`),
+		},
+		{
+			"wrapped compact PLAN",
+			dcaYAML,
+			withStatsToRenderDefMap[false],
+			sliceOf(plantree.EnableCompact(), plantree.WithWrapWidth(40)),
+			heredoc.Doc(`
++-----+------------------------------------------+
+| ID  | Operator                                 |
++-----+------------------------------------------+
+|   0 | Distributed Union on AlbumsByAlbumTitle< |
+|     | Row>                                     |
+|  *1 | +Distributed Cross Apply<Row>            |
+|   2 |  +[Input]Create Batch<Row>               |
+|   3 |  |+Local Distributed Union<Row>          |
+|   4 |  | +Compute Struct<Row>                  |
+|   5 |  |  +Index Scan on AlbumsByAlbumTitle<Ro |
+|     |  |   w>(Full scan,scan_method:Automatic) |
+|  11 |  +[Map]Serialize Result<Row>             |
+|  12 |   +Cross Apply<Row>                      |
+|  13 |    +[Input]Batch Scan on $v2<Row>(scan_m |
+|     |    |ethod:Row)                           |
+|  16 |    +[Map]Local Distributed Union<Row>    |
+| *17 |     +Filter Scan<Row>(seekable_key_size: |
+|     |      0)                                  |
+|  18 |      +Index Scan on SongsBySongGenre<Row |
+|     |       >(Full scan,scan_method:Row)       |
++-----+------------------------------------------+
+Predicates(identified by ID):
+  1: Split Range: ($AlbumId = $AlbumId_1)
+ 17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
+`),
+		},
+		{
+			"wrapped PLAN",
+			dcaYAML,
+			withStatsToRenderDefMap[false],
+			sliceOf(plantree.WithWrapWidth(50)),
+			heredoc.Doc(`
++-----+---------------------------------------------------+
+| ID  | Operator                                          |
++-----+---------------------------------------------------+
+|   0 | Distributed Union on AlbumsByAlbumTitle <Row>     |
+|  *1 | +- Distributed Cross Apply <Row>                  |
+|   2 |    +- [Input] Create Batch <Row>                  |
+|   3 |    |  +- Local Distributed Union <Row>            |
+|   4 |    |     +- Compute Struct <Row>                  |
+|   5 |    |        +- Index Scan on AlbumsByAlbumTitle < |
+|     |    |           Row> (Full scan, scan_method: Auto |
+|     |    |           matic)                             |
+|  11 |    +- [Map] Serialize Result <Row>                |
+|  12 |       +- Cross Apply <Row>                        |
+|  13 |          +- [Input] Batch Scan on $v2 <Row> (scan |
+|     |          |  _method: Row)                         |
+|  16 |          +- [Map] Local Distributed Union <Row>   |
+| *17 |             +- Filter Scan <Row> (seekable_key_si |
+|     |                ze: 0)                             |
+|  18 |                +- Index Scan on SongsBySongGenre  |
+|     |                   <Row> (Full scan, scan_method:  |
+|     |                   Row)                            |
++-----+---------------------------------------------------+
+Predicates(identified by ID):
+  1: Split Range: ($AlbumId = $AlbumId_1)
+ 17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
+`),
 		},
 		{
 			"PROFILE",
 			dcaProfileYAML,
 			withStatsToRenderDefMap[true],
-			false,
-			`+-----+-------------------------------------------------------------------------------------------+------+-------+------------+
+			nil,
+			heredoc.Doc(`
++-----+-------------------------------------------------------------------------------------------+------+-------+------------+
 | ID  | Operator                                                                                  | Rows | Exec. | Latency    |
 +-----+-------------------------------------------------------------------------------------------+------+-------+------------+
 |   0 | Distributed Union on AlbumsByAlbumTitle <Row>                                             |   33 |     1 | 1.92 msecs |
@@ -122,12 +194,13 @@ Predicates(identified by ID):
 Predicates(identified by ID):
   1: Split Range: ($AlbumId = $AlbumId_1)
  17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
-`,
+`),
 		},
 		{
 			"PROFILE with custom",
 			dcaProfileYAML,
-			lo.Must(customFileToTableRenderDef([]byte(`
+			lo.Must(customFileToTableRenderDef([]byte(
+				heredoc.Doc(`
 - name: ID
   template: '{{.FormatID}}'
   alignment: RIGHT
@@ -143,9 +216,10 @@ Predicates(identified by ID):
 - name: Filtered
   template: '{{.ExecutionStats.FilteredRows.Total}}'
   alignment: RIGHT
-`))),
-			false,
-			`+-----+-------------------------------------------------------------------------------------------+------+---------+----------+
+`)))),
+			nil,
+			heredoc.Doc(`
++-----+-------------------------------------------------------------------------------------------+------+---------+----------+
 | ID  | Operator                                                                                  | Rows | Scanned | Filtered |
 +-----+-------------------------------------------------------------------------------------------+------+---------+----------+
 |   0 | Distributed Union on AlbumsByAlbumTitle <Row>                                             |   33 |         |          |
@@ -164,7 +238,7 @@ Predicates(identified by ID):
 Predicates(identified by ID):
   1: Split Range: ($AlbumId = $AlbumId_1)
  17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
-`,
+`),
 		},
 		{
 			"PROFILE with custom list",
@@ -176,8 +250,9 @@ Predicates(identified by ID):
 				`Scanned:{{.ExecutionStats.ScannedRows.Total}}:RIGHT`,
 				`Filtered:{{.ExecutionStats.FilteredRows.Total}}:RIGHT`,
 			})),
-			false,
-			`+-----+-------------------------------------------------------------------------------------------+------+---------+----------+
+			nil,
+			heredoc.Doc(`
++-----+-------------------------------------------------------------------------------------------+------+---------+----------+
 | ID  | Operator                                                                                  | Rows | Scanned | Filtered |
 +-----+-------------------------------------------------------------------------------------------+------+---------+----------+
 |   0 | Distributed Union on AlbumsByAlbumTitle <Row>                                             |   33 |         |          |
@@ -196,7 +271,7 @@ Predicates(identified by ID):
 Predicates(identified by ID):
   1: Split Range: ($AlbumId = $AlbumId_1)
  17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
-`,
+`),
 		},
 	}
 
@@ -212,9 +287,7 @@ Predicates(identified by ID):
 			queryplan.WithKnownFlagFormat(queryplan.KnownFlagFormatLabel),
 		)}
 
-		if tcase.compact {
-			opts = append(opts, plantree.EnableCompact())
-		}
+		opts = append(opts, tcase.opts...)
 
 		rows, err := plantree.ProcessPlan(queryplan.New(stats.GetQueryPlan().GetPlanNodes()), opts...)
 		if err != nil {

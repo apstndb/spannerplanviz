@@ -10,6 +10,7 @@ import (
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/apstndb/lox"
 	"github.com/apstndb/treeprint"
+	"github.com/mattn/go-runewidth"
 	"github.com/samber/lo"
 
 	"github.com/apstndb/spannerplanviz/queryplan"
@@ -27,7 +28,17 @@ type RowWithPredicates struct {
 }
 
 func (r RowWithPredicates) Text() string {
-	return r.TreePart + r.NodeText
+	treeLines := strings.Split(r.TreePart, "\n")
+	nodeLines := strings.Split(r.NodeText, "\n")
+	var sb strings.Builder
+	for i, line := range nodeLines {
+		if len(treeLines) > i {
+			sb.WriteString(strings.TrimSuffix(treeLines[i], "\n"))
+		}
+		sb.WriteString(line)
+		sb.WriteRune('\n')
+	}
+	return strings.TrimSuffix(sb.String(), "\n")
 }
 
 func (r RowWithPredicates) FormatID() string {
@@ -39,6 +50,9 @@ type options struct {
 	queryplanOptions     []queryplan.Option
 	treeprintOptions     []treeprint.Option
 	compact              bool
+	indentSize           int
+	wrapWidth            *int
+	wrapper              *runewidth.Condition
 }
 
 type Option func(*options)
@@ -61,8 +75,22 @@ func WithTreeprintOptions(opts ...treeprint.Option) Option {
 	}
 }
 
+func WithWrapWidth(width int) Option {
+	return func(o *options) {
+		o.wrapWidth = &width
+	}
+}
+
+func WithWrapper(wrapper *runewidth.Condition) Option {
+	return func(o *options) {
+		o.wrapper = wrapper
+	}
+}
+
+// EnableCompact enables compact node title mode.
 func EnableCompact() Option {
 	return func(o *options) {
+		o.indentSize = 0
 		o.compact = true
 		o.queryplanOptions = append(o.queryplanOptions, queryplan.EnableCompact())
 		o.treeprintOptions = append(
@@ -78,50 +106,52 @@ func EnableCompact() Option {
 
 func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredicates, err error) {
 	o := options{
+		indentSize: 2,
 		// default values to be override
 		treeprintOptions: []treeprint.Option{
 			treeprint.WithEdgeTypeLink("|"),
 			treeprint.WithEdgeTypeMid("+-"),
 			treeprint.WithEdgeTypeEnd("+-"),
 			treeprint.WithIndentSize(2),
+			treeprint.WithEdgeSeparator(" "),
 		},
 	}
 	for _, opt := range opts {
 		opt(&o)
 	}
 
-	sep := lo.Ternary(!o.compact, " ", "")
+	if o.wrapper == nil {
+		o.wrapper = runewidth.NewCondition()
+	}
+
 	tree := treeprint.New()
 
-	renderTree(qp, tree, nil)
+	renderTree(qp, tree, nil, 0, &o)
 	var result []RowWithPredicates
-	for _, line := range strings.Split(tree.StringWithOptions(o.treeprintOptions...), "\n") {
-		if line == "" {
+	for _, line := range strings.Split(tree.StringWithOptions(o.treeprintOptions...), "\000\n") {
+		if strings.TrimSpace(line) == "" {
 			continue
 		}
 
-		branchText, protojsonText, found := strings.Cut(line, "\t")
-		if !found {
+		split := strings.Split(line, "\t")
+
+		if len(split) != 3 {
 			// Handle the case where the separator is not found
 			return nil, fmt.Errorf("unexpected format, tree line = %q", line)
 		}
 
-		var link sppb.PlanNode_ChildLink
-		if err := json.Unmarshal([]byte(protojsonText), &link); err != nil {
+		branchText := strings.TrimPrefix(split[0], "\n")
+		nodeTextJson := split[1]
+		var nodeText string
+		if err := json.Unmarshal([]byte(nodeTextJson), &nodeText); err != nil {
 			return nil, fmt.Errorf("unexpected JSON unmarshal error, tree line = %q", line)
 		}
 
-		var linkType string
-		if link.GetType() != "" {
-			linkType = link.GetType()
+		protojsonText := split[2]
 
-			// Workaround to treat the first child of Apply as Input.
-			// This is necessary because it is more consistent with the official query plan operator docs.
-			// Note: Apply variants are Cross Apply, Anti Semi Apply, Semi Apply, Outer Apply, and their Distributed variants.
-		} else if parent := qp.GetParentNodeByChildLink(&link); parent != nil &&
-			strings.HasSuffix(parent.GetDisplayName(), "Apply") &&
-			len(parent.GetChildLinks()) > 0 && parent.GetChildLinks()[0].GetChildIndex() == link.GetChildIndex() {
-			linkType = "Input"
+		var link sppb.PlanNode_ChildLink
+		if err := json.Unmarshal([]byte(protojsonText), &link); err != nil {
+			return nil, fmt.Errorf("unexpected JSON unmarshal error, tree line = %q", line)
 		}
 
 		node := qp.GetNodeByIndex(link.GetChildIndex())
@@ -157,24 +187,52 @@ func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredica
 			Predicates:     predicates,
 			ChildLinks:     childLinks,
 			TreePart:       branchText,
-			NodeText:       lox.IfOrEmpty(linkType != "", "["+linkType+"]"+sep) + queryplan.NodeTitle(node, o.queryplanOptions...),
+			NodeText:       nodeText,
 			ExecutionStats: executionStats,
 		})
 	}
 	return result, nil
 }
 
-func renderTree(qp *queryplan.QueryPlan, tree treeprint.Tree, link *sppb.PlanNode_ChildLink) {
+func getLinkType(qp *queryplan.QueryPlan, link *sppb.PlanNode_ChildLink) string {
+	var linkType string
+	if link.GetType() != "" {
+		linkType = link.GetType()
+
+		// Workaround to treat the first child of Apply as Input.
+		// This is necessary because it is more consistent with the official query plan operator docs.
+		// Note: Apply variants are Cross Apply, Anti Semi Apply, Semi Apply, Outer Apply, and their Distributed variants.
+	} else if parent := qp.GetParentNodeByChildLink(link); parent != nil &&
+		strings.HasSuffix(parent.GetDisplayName(), "Apply") &&
+		len(parent.GetChildLinks()) > 0 && parent.GetChildLinks()[0].GetChildIndex() == link.GetChildIndex() {
+		linkType = "Input"
+	}
+	return linkType
+}
+
+func renderTree(qp *queryplan.QueryPlan, tree treeprint.Tree, link *sppb.PlanNode_ChildLink, level int, opts *options) {
 	if !qp.IsVisible(link) {
 		return
 	}
 
 	b, _ := json.Marshal(link)
-	// Prefixed by tab to ease to split
-	str := "\t" + string(b)
 
 	node := qp.GetNodeByChildLink(link)
 	visibleChildLinks := qp.VisibleChildLinks(node)
+	linkType := getLinkType(qp, link)
+	sep := lo.Ternary(!opts.compact, " ", "")
+
+	// node := qp.GetNodeByIndex(link.GetChildIndex())
+	nodeText := lox.IfOrEmpty(linkType != "", "["+linkType+"]"+sep) + queryplan.NodeTitle(node, opts.queryplanOptions...)
+	if opts.wrapWidth != nil {
+		nodeText = opts.wrapper.Wrap(nodeText, *opts.wrapWidth-level*(opts.indentSize+1)-opts.wrapper.StringWidth(sep))
+	}
+
+	newlineCount := strings.Count(nodeText, "\n")
+	nodeTextJson, _ := json.Marshal(nodeText)
+
+	// Prefixed by tab and terminated by null character to ease to split
+	str := strings.Repeat("\n", newlineCount) + "\t" + string(nodeTextJson) + "\t" + string(b) + "\000"
 
 	var branch treeprint.Tree
 
@@ -189,7 +247,7 @@ func renderTree(qp *queryplan.QueryPlan, tree treeprint.Tree, link *sppb.PlanNod
 	}
 
 	for _, child := range visibleChildLinks {
-		renderTree(qp, branch, child)
+		renderTree(qp, branch, child, level+1, opts)
 	}
 }
 
