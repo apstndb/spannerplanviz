@@ -126,7 +126,10 @@ func ProcessPlan(qp *queryplan.QueryPlan, opts ...Option) (rows []RowWithPredica
 
 	tree := treeprint.New()
 
-	renderTree(qp, tree, nil, 0, &o)
+	if err := buildTree(qp, tree, nil, 0, &o); err != nil {
+		return nil, fmt.Errorf("failed on buildTree, err: %w", err)
+	}
+
 	var result []RowWithPredicates
 	for _, line := range strings.Split(tree.StringWithOptions(o.treeprintOptions...), "\000\n") {
 		if strings.TrimSpace(line) == "" {
@@ -210,12 +213,16 @@ func getLinkType(qp *queryplan.QueryPlan, link *sppb.PlanNode_ChildLink) string 
 	return linkType
 }
 
-func renderTree(qp *queryplan.QueryPlan, tree treeprint.Tree, link *sppb.PlanNode_ChildLink, level int, opts *options) {
+func buildTree(qp *queryplan.QueryPlan, tree treeprint.Tree, link *sppb.PlanNode_ChildLink, level int, opts *options) error {
 	if !qp.IsVisible(link) {
-		return
+		// empty tree
+		return nil
 	}
 
-	b, _ := json.Marshal(link)
+	b, err := json.Marshal(link)
+	if err != nil {
+		return fmt.Errorf("unexpected error: link can't be marshalled to JSON: %w", err)
+	}
 
 	node := qp.GetNodeByChildLink(link)
 	visibleChildLinks := qp.VisibleChildLinks(node)
@@ -229,7 +236,10 @@ func renderTree(qp *queryplan.QueryPlan, tree treeprint.Tree, link *sppb.PlanNod
 	}
 
 	newlineCount := strings.Count(nodeText, "\n")
-	nodeTextJson, _ := json.Marshal(nodeText)
+	nodeTextJson, err := json.Marshal(nodeText)
+	if err != nil {
+		return fmt.Errorf("unexpected error: nodeText can't be marshalled to JSON: %w", err)
+	}
 
 	// Prefixed by tab and terminated by null character to ease to split
 	str := strings.Repeat("\n", newlineCount) + "\t" + string(nodeTextJson) + "\t" + string(b) + "\000"
@@ -247,8 +257,11 @@ func renderTree(qp *queryplan.QueryPlan, tree treeprint.Tree, link *sppb.PlanNod
 	}
 
 	for _, child := range visibleChildLinks {
-		renderTree(qp, branch, child, level+1, opts)
+		if err := buildTree(qp, branch, child, level+1, opts); err != nil {
+			return fmt.Errorf("unexpected error: buildTree failed on link %v, err: %w", link, err)
+		}
 	}
+	return nil
 }
 
 func jsonRoundtrip(input interface{}, output interface{}, disallowUnknownFields bool) error {
