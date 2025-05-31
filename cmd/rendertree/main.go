@@ -198,7 +198,7 @@ func run() error {
 	fullscan := flag.String("full-scan", "", "Deprecated alias for --known-flag.")
 	knownFlag := flag.String("known-flag", "", "Format known flags: 'label' or 'raw' (default: label)")
 	compact := flag.Bool("compact", false, "Enable compact format")
-	wrapWidth := flag.Int("wrap-width", 0, "")
+	wrapWidth := flag.Int("wrap-width", 0, "Number of characters at which to wrap the Operator column content. 0 means no wrapping.")
 
 	var custom stringList
 	flag.Var(&custom, "custom", "")
