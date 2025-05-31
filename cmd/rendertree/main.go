@@ -198,6 +198,7 @@ func run() error {
 	fullscan := flag.String("full-scan", "", "Deprecated alias for --known-flag.")
 	knownFlag := flag.String("known-flag", "", "Format known flags: 'label' or 'raw' (default: label)")
 	compact := flag.Bool("compact", false, "Enable compact format")
+	wrapWidth := flag.Int("wrap-width", 0, "Number of characters at which to wrap the Operator column content. 0 means no wrapping.")
 
 	var custom stringList
 	flag.Var(&custom, "custom", "")
@@ -268,6 +269,10 @@ func run() error {
 		fmt.Fprintf(os.Stderr, "Invalid value for -known-flag flag: %s.  Must be 'label' or 'raw'.\n", *knownFlag)
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	if *wrapWidth > 0 {
+		opts = append(opts, plantree.WithWrapWidth(*wrapWidth))
 	}
 
 	b, err := io.ReadAll(os.Stdin)

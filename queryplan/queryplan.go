@@ -128,10 +128,10 @@ const (
 	// KnownFlagFormatLabel prints known boolean flag metadata without value if true or omits if false.
 	KnownFlagFormatLabel
 
-	// Deprecated: FullScanFormatRaw is an alias of KnownFlagFormatRaw. (Deprecated)
+	// Deprecated: FullScanFormatRaw is an alias of KnownFlagFormatRaw.
 	FullScanFormatRaw = KnownFlagFormatRaw
 
-	// Deprecated: FullScanFormatLabel is an alias of KnownFlagFormatLabel. (Deprecated)
+	// Deprecated: FullScanFormatLabel is an alias of KnownFlagFormatLabel.
 	FullScanFormatLabel = KnownFlagFormatLabel
 )
 

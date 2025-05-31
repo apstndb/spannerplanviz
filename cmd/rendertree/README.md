@@ -82,3 +82,38 @@ Predicates(identified by ID):
  25: Split Range: STARTS_WITH($SongName_1, 'Thi')
  27: Seek Condition: STARTS_WITH($SongName_1, 'Thi')
 ```
+
+## Options for narrower width
+
+rendertree supports a compact format and wrapping for limited width environment.
+
+- `--compact` enables the compact format:
+  - Each level of depth in the Query Plan tree adds only one character to its indentation.
+  - Whitespaces are not inserted for operator and metadata display unless it causes ambiguity.
+- `--wrap-width` specifies the number of characters at which to wrap the content of the Operator column.
+  - The tree won't be broken even when lines are wrapped.
+
+```
+$ rendertree --compact --wrap-width=60 < testdata/distributed_cross_apply.yaml 
++-----+--------------------------------------------------------------+
+| ID  | Operator                                                     |
++-----+--------------------------------------------------------------+
+|   0 | Distributed Union on AlbumsByAlbumTitle<Row>                 |
+|  *1 | +Distributed Cross Apply<Row>                                |
+|   2 |  +[Input]Create Batch<Row>                                   |
+|   3 |  |+Local Distributed Union<Row>                              |
+|   4 |  | +Compute Struct<Row>                                      |
+|   5 |  |  +Index Scan on AlbumsByAlbumTitle<Row>(Full scan,scan_me |
+|     |  |   thod:Automatic)                                         |
+|  11 |  +[Map]Serialize Result<Row>                                 |
+|  12 |   +Cross Apply<Row>                                          |
+|  13 |    +[Input]Batch Scan on $v2<Row>(scan_method:Row)           |
+|  16 |    +[Map]Local Distributed Union<Row>                        |
+| *17 |     +Filter Scan<Row>(seekable_key_size:0)                   |
+|  18 |      +Index Scan on SongsBySongGenre<Row>(Full scan,scan_met |
+|     |       hod:Row)                                               |
++-----+--------------------------------------------------------------+
+Predicates(identified by ID):
+  1: Split Range: ($AlbumId = $AlbumId_1)
+ 17: Residual Condition: ($AlbumId = $batched_AlbumId_1)
+```
