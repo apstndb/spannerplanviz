@@ -19,14 +19,16 @@ package main
 import (
 	"context"
 	"errors"
-	"github.com/apstndb/spannerplanviz/option"
-	"github.com/apstndb/spannerplanviz/queryplan"
-	"github.com/apstndb/spannerplanviz/visualize"
-	"github.com/goccy/go-graphviz"
-	"github.com/jessevdk/go-flags"
 	"io"
 	"log"
 	"os"
+
+	"github.com/apstndb/spannerplan"
+	"github.com/goccy/go-graphviz"
+	"github.com/jessevdk/go-flags"
+
+	"github.com/apstndb/spannerplanviz/option"
+	"github.com/apstndb/spannerplanviz/visualize"
 )
 
 func main() {
@@ -72,7 +74,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	queryStats, rowType, err := queryplan.ExtractQueryPlan(b)
+	queryStats, rowType, err := spannerplan.ExtractQueryPlan(b)
 	if err != nil {
 		return err
 	}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/apstndb/spannerplanviz/option"
 	"html"
 	"io"
 	"log"
@@ -14,9 +13,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apstndb/spannerplanviz/option"
+
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 
-	"github.com/apstndb/spannerplanviz/queryplan"
+	"github.com/apstndb/spannerplan"
 	"github.com/goccy/go-graphviz"
 	"github.com/goccy/go-graphviz/cgraph"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -58,7 +59,7 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, param option.Options) error {
 	graph.SetRankDir(cgraph.BTRank)
 
-	qp := queryplan.New(queryStats.GetQueryPlan().GetPlanNodes())
+	qp := spannerplan.New(queryStats.GetQueryPlan().GetPlanNodes())
 
 	gvRootNode, err := renderTree(graph, rowType, nil, qp, param)
 	if err != nil {
@@ -78,7 +79,7 @@ func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *sppb.StructType, quer
 	return nil
 }
 
-func renderTree(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.PlanNode_ChildLink, qp *queryplan.QueryPlan, param option.Options) (*cgraph.Node, error) {
+func renderTree(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.PlanNode_ChildLink, qp *spannerplan.QueryPlan, param option.Options) (*cgraph.Node, error) {
 	node := qp.GetNodeByChildLink(childLink)
 	gvNode, err := renderNode(graph, rowType, childLink, qp, param)
 	if err != nil {
@@ -121,7 +122,7 @@ func isRemoteCall(node *sppb.PlanNode, cl *sppb.PlanNode_ChildLink) bool {
 	return n.GetStringValue() == strconv.Itoa(int(cl.GetChildIndex()))
 }
 
-func renderNode(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.PlanNode_ChildLink, queryPlan *queryplan.QueryPlan, param option.Options) (*cgraph.Node, error) {
+func renderNode(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.PlanNode_ChildLink, queryPlan *spannerplan.QueryPlan, param option.Options) (*cgraph.Node, error) {
 	planNode := queryPlan.GetNodeByChildLink(childLink)
 	var labelStr string
 	{
@@ -397,7 +398,7 @@ type childLinkGroup struct {
 	PlanNodes []*childLinkEntry
 }
 
-func getScalarChildLinks(qp *queryplan.QueryPlan, node *sppb.PlanNode, filter func(link *sppb.PlanNode_ChildLink) bool) []*childLinkGroup {
+func getScalarChildLinks(qp *spannerplan.QueryPlan, node *sppb.PlanNode, filter func(link *sppb.PlanNode_ChildLink) bool) []*childLinkGroup {
 	var result []*childLinkGroup
 	typeToChildLinks := make(map[string]*childLinkGroup)
 	for _, cl := range node.GetChildLinks() {
@@ -418,13 +419,13 @@ func getScalarChildLinks(qp *queryplan.QueryPlan, node *sppb.PlanNode, filter fu
 	return result
 }
 
-func getNonVariableChildLinks(plan *queryplan.QueryPlan, node *sppb.PlanNode) []*childLinkGroup {
+func getNonVariableChildLinks(plan *spannerplan.QueryPlan, node *sppb.PlanNode) []*childLinkGroup {
 	return getScalarChildLinks(plan, node, func(node *sppb.PlanNode_ChildLink) bool {
 		return node.GetVariable() == ""
 	})
 }
 
-func getVariableChildLinks(plan *queryplan.QueryPlan, node *sppb.PlanNode) []*childLinkGroup {
+func getVariableChildLinks(plan *spannerplan.QueryPlan, node *sppb.PlanNode) []*childLinkGroup {
 	return getScalarChildLinks(plan, node, func(node *sppb.PlanNode_ChildLink) bool {
 		return node.GetVariable() != ""
 	})
