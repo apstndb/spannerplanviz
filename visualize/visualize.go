@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -40,6 +41,7 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 	if err != nil {
 		return err
 	}
+	graph.SetStart(graphviz.SelfStart)
 
 	defer func() {
 		if err := graph.Close(); err != nil {
@@ -57,17 +59,17 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 }
 
 func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, param option.Options) error {
-	graph.SetRankDir(cgraph.BTRank)
-
 	qp := spannerplan.New(queryStats.GetQueryPlan().GetPlanNodes())
 
-	gvRootNode, err := renderTree(graph, rowType, nil, qp, param)
+	graph.SetRankDir(cgraph.BTRank)
+	gvRootNode, err := renderTree(graph, rowType, qp.GetNodeByIndex(0), qp, param)
 	if err != nil {
 		return err
 	}
 
-	if queryStats != nil && (param.ShowQuery || param.ShowQueryStats) {
-		n, err := setupQueryNode(graph, queryStats, param)
+	renderQueryNode := (param.ShowQuery || param.ShowQueryStats) && queryStats != nil
+	if renderQueryNode {
+		n, err := setupQueryNode(graph, queryStats, param.ShowQueryStats)
 		if err != nil {
 			return err
 		}
@@ -79,25 +81,16 @@ func buildGraphFromQueryPlan(graph *cgraph.Graph, rowType *sppb.StructType, quer
 	return nil
 }
 
-func renderTree(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.PlanNode_ChildLink, qp *spannerplan.QueryPlan, param option.Options) (*cgraph.Node, error) {
-	node := qp.GetNodeByChildLink(childLink)
-	gvNode, err := renderNode(graph, rowType, childLink, qp, param)
+func renderTree(graph *cgraph.Graph, rowType *sppb.StructType, node *sppb.PlanNode, qp *spannerplan.QueryPlan, param option.Options) (*cgraph.Node, error) {
+	gvNode, err := renderNode(graph, rowType, node, qp, param)
 	if err != nil {
-		return gvNode, err
+		return nil, err
 	}
+
 	for i, cl := range qp.VisibleChildLinks(node) {
-		if gvChildNode, err := renderTree(graph, rowType, cl, qp, param); err != nil {
-			return gvNode, err
+		if gvChildNode, err := renderTree(graph, rowType, qp.GetNodeByChildLink(cl), qp, param); err != nil {
+			return nil, err
 		} else {
-			ed, err := graph.CreateEdgeByName("", gvChildNode, gvNode)
-			if err != nil {
-				return gvNode, err
-			}
-
-			if isRemoteCall(node, cl) {
-				ed.SetStyle(cgraph.DashedEdgeStyle)
-			}
-
 			var childType string
 			if cl.GetType() == "" && strings.HasSuffix(node.GetDisplayName(), "Apply") && i == 0 {
 				childType = "Input"
@@ -105,6 +98,17 @@ func renderTree(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.P
 				childType = cl.GetType()
 			}
 
+			var style cgraph.EdgeStyle
+			if isRemoteCall(node, cl) {
+				style = cgraph.DashedEdgeStyle
+			}
+
+			ed, err := graph.CreateEdgeByName("", gvChildNode, gvNode)
+			if err != nil {
+				return nil, err
+			}
+
+			ed.SetStyle(style)
 			ed.SetLabel(childType)
 		}
 	}
@@ -122,55 +126,105 @@ func isRemoteCall(node *sppb.PlanNode, cl *sppb.PlanNode_ChildLink) bool {
 	return n.GetStringValue() == strconv.Itoa(int(cl.GetChildIndex()))
 }
 
-func renderNode(graph *cgraph.Graph, rowType *sppb.StructType, childLink *sppb.PlanNode_ChildLink, queryPlan *spannerplan.QueryPlan, param option.Options) (*cgraph.Node, error) {
-	planNode := queryPlan.GetNodeByChildLink(childLink)
-	var labelStr string
-	{
-		var labelBuf bytes.Buffer
-		metadataFields := planNode.GetMetadata().GetFields()
+type prerenderedNode struct {
+	Name, Label, Stats, Title, Tooltip string
+}
 
-		childLinks := getNonVariableChildLinks(queryPlan, planNode)
-		if param.SerializeResult && planNode.DisplayName == "Serialize Result" && rowType != nil {
-			labelBuf.WriteString(renderSerializeResult(rowType, childLinks))
-		}
+func (n *prerenderedNode) Metadata() string {
+	return toLeftAlignedText(n.Label) + encloseIfNotEmpty(`<i>`, toLeftAlignedText(n.Stats), `</i>`)
+}
 
-		if !param.HideScanTarget && planNode.GetDisplayName() == "Scan" {
-			scanType := strings.TrimSuffix(metadataFields["scan_type"].GetStringValue(), "Scan")
-			scanTarget := metadataFields["scan_target"].GetStringValue()
-			s := fmt.Sprintf("%s: %s\n", scanType, scanTarget)
-			labelBuf.WriteString(s)
-		}
+func (n *prerenderedNode) HTML() string {
+	return fmt.Sprintf(`<b>%s</b><br align="CENTER" />%s`, n.Title, n.Metadata())
+}
 
-		if param.NonVariableScalar {
-			labelBuf.WriteString(renderChildLinks(childLinks))
-		}
-
-		if param.Metadata {
-			labelBuf.WriteString(renderMetadata(metadataFields, param))
-		}
-
-		if param.VariableScalar {
-			childLinks := getVariableChildLinks(queryPlan, planNode)
-			labelBuf.WriteString(renderChildLinks(childLinks))
-		}
-		labelStr = labelBuf.String()
+func renderNode(graph *cgraph.Graph, rowType *sppb.StructType, planNode *sppb.PlanNode, queryPlan *spannerplan.QueryPlan, param option.Options) (*cgraph.Node, error) {
+	node, err := prerenderNode(queryPlan, planNode, param, rowType)
+	if err != nil {
+		return nil, err
 	}
 
-	statsStr := renderExecutionStatsOfNode(planNode, param)
-
-	metadataStr := toLeftAlignedText(labelStr) + encloseIfNotEmpty(`<i>`, toLeftAlignedText(statsStr), `</i>`)
-
-	n, err := setupGvNode(graph, planNode, getNodeTitle(planNode), metadataStr)
+	n, err := setupGvNode(graph, node)
 	if err != nil {
 		return nil, err
 	}
 	return n, nil
 }
 
-func renderExecutionStatsOfNode(planNode *sppb.PlanNode, param option.Options) string {
+func prerenderNode(queryPlan *spannerplan.QueryPlan, planNode *sppb.PlanNode, param option.Options, rowType *sppb.StructType) (*prerenderedNode, error) {
+	labelStr := renderLabel(planNode, queryPlan, param, rowType)
+	statsStr := renderExecutionStats(planNode.GetExecutionStats(), param)
+	titleStr := getNodeTitle(planNode)
+
+	b, err := yaml.Marshal(planNode)
+	if err != nil {
+		return nil, err
+	}
+
+	node := &prerenderedNode{
+		Label:   labelStr,
+		Stats:   statsStr,
+		Title:   titleStr,
+		Name:    fmt.Sprintf("node%d", planNode.GetIndex()),
+		Tooltip: string(b),
+	}
+	return node, err
+}
+
+func setupGvNode(graph *cgraph.Graph, node *prerenderedNode) (*cgraph.Node, error) {
+	n, err := graph.CreateNodeByName(node.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	n.SetShape(cgraph.BoxShape)
+	n.SetTooltip(node.Tooltip)
+
+	nodeHTML, err := graph.StrdupHTML(node.HTML())
+	if err != nil {
+		return nil, err
+	}
+
+	n.SetLabel(nodeHTML)
+	return n, nil
+}
+
+func renderLabel(planNode *sppb.PlanNode, queryPlan *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
+	var sb strings.Builder
+
+	childLinks := getNonVariableChildLinks(queryPlan, planNode)
+	if param.SerializeResult && planNode.DisplayName == "Serialize Result" && rowType != nil {
+		sb.WriteString(renderSerializeResult(rowType, childLinks))
+	}
+
+	metadataFields := planNode.GetMetadata().GetFields()
+
+	if !param.HideScanTarget && planNode.GetDisplayName() == "Scan" {
+		scanType := strings.TrimSuffix(metadataFields["scan_type"].GetStringValue(), "Scan")
+		scanTarget := metadataFields["scan_target"].GetStringValue()
+		s := fmt.Sprintf("%s: %s\n", scanType, scanTarget)
+		sb.WriteString(s)
+	}
+
+	if param.NonVariableScalar {
+		sb.WriteString(renderChildLinks(childLinks))
+	}
+
+	if param.Metadata {
+		sb.WriteString(renderMetadata(metadataFields, param.HideMetadata))
+	}
+
+	if param.VariableScalar {
+		childLinks := getVariableChildLinks(queryPlan, planNode)
+		sb.WriteString(renderChildLinks(childLinks))
+	}
+	return sb.String()
+}
+
+func renderExecutionStats(executionStats *structpb.Struct, param option.Options) string {
 	var statsBuf bytes.Buffer
 
-	executionStatsFields := planNode.GetExecutionStats().GetFields()
+	executionStatsFields := executionStats.GetFields()
 	if param.ExecutionStats {
 		statsBuf.WriteString(renderExecutionStatsWithoutSummary(executionStatsFields))
 	}
@@ -181,37 +235,60 @@ func renderExecutionStatsOfNode(planNode *sppb.PlanNode, param option.Options) s
 	return statsBuf.String()
 }
 
-func setupQueryNode(graph *cgraph.Graph, queryStats *sppb.ResultSetStats, param option.Options) (*cgraph.Node, error) {
-	var buf bytes.Buffer
+type queryNode struct {
+	queryStats *sppb.ResultSetStats
+}
 
-	fmt.Fprintf(&buf, "<b>%s</b>", toLeftAlignedText(queryStats.GetQueryStats().GetFields()["query_text"].GetStringValue()))
+func toQueryNode(queryStats *sppb.ResultSetStats) *queryNode {
+	return &queryNode{queryStats}
+}
+func (qn *queryNode) QueryText() string {
+	return qn.queryStats.GetQueryStats().GetFields()["query_text"].GetStringValue()
+}
 
+func (qn *queryNode) QueryStats() []string {
 	var stats []string
-	if param.ShowQueryStats {
-		for k, v := range queryStats.GetQueryStats().GetFields() {
-			if k == "query_text" {
-				continue
-			}
-			stats = append(stats, fmt.Sprintf("%s: %s", k, v.GetStringValue()))
+	for k, v := range qn.queryStats.GetQueryStats().GetFields() {
+		if k == "query_text" {
+			continue
 		}
+		stats = append(stats, fmt.Sprintf("%s: %s", k, v.GetStringValue()))
 	}
 
 	sort.Strings(stats)
-	fmt.Fprint(&buf, encloseIfNotEmpty("<i>", toLeftAlignedText(strings.Join(stats, "\n")), "</i>"))
+	return stats
+}
+
+func setupQueryNode(graph *cgraph.Graph, queryStats *sppb.ResultSetStats, showQueryStats bool) (*cgraph.Node, error) {
+	qn := toQueryNode(queryStats)
+	str := renderQueryNodeLabel(qn, showQueryStats)
+
+	s, err := graph.StrdupHTML(str)
+	if err != nil {
+		return nil, err
+	}
 
 	n, err := graph.CreateNodeByName("query")
 	if err != nil {
 		return nil, err
 	}
-	s, err := graph.StrdupHTML(buf.String())
-	if err != nil {
-		return nil, err
-	}
+
 	n.SetLabel(s)
 	n.SetShape(cgraph.BoxShape)
 	n.SetStyle(cgraph.RoundedNodeStyle)
 
 	return n, nil
+}
+
+func renderQueryNodeLabel(qn *queryNode, showQueryStats bool) string {
+	var buf strings.Builder
+
+	fmt.Fprintf(&buf, "<b>%s</b>", toLeftAlignedText(qn.QueryText()))
+	if showQueryStats {
+		fmt.Fprint(&buf, encloseIfNotEmpty("<i>", toLeftAlignedText(strings.Join(qn.QueryStats(), "\n")), "</i>"))
+	}
+
+	return buf.String()
 }
 
 func renderExecutionStatsWithoutSummary(executionStatsFields map[string]*structpb.Value) string {
@@ -227,20 +304,26 @@ func renderExecutionStatsWithoutSummary(executionStatsFields map[string]*structp
 	return strings.Join(statsStrings, "")
 }
 
-func renderMetadata(metadataFields map[string]*structpb.Value, param option.Options) string {
-	var metadataBuf bytes.Buffer
+func renderMetadata(metadataFields map[string]*structpb.Value, hideMetadata []string) string {
+	var metadataStrs []string
 	for k, v := range metadataFields {
 		switch {
-		case in(k, param.HideMetadata...):
+		case in(k, hideMetadata...):
 			continue
 		case in(k, "call_type", "scan_type", "scan_target", "iterator_type", "subquery_cluster_node"):
 			continue
 		default:
-			fmt.Fprintf(&metadataBuf, "%s=%v\n", k, v.AsInterface())
+			metadataStrs = append(metadataStrs, fmt.Sprintf("%s=%v", k, v.AsInterface()))
 		}
 	}
-	s := metadataBuf.String()
-	return s
+
+	slices.Sort(metadataStrs)
+	metadataStr := strings.Join(metadataStrs, "\n")
+
+	if metadataStr == "" {
+		return ""
+	}
+	return metadataStr + "\n"
 }
 
 func renderExecutionSummary(executionStatsFields map[string]*structpb.Value) string {
@@ -260,11 +343,10 @@ func renderExecutionSummary(executionStatsFields map[string]*structpb.Value) str
 		sort.Strings(executionSummaryStrings)
 		fmt.Fprint(&executionSummaryBuf, strings.Join(executionSummaryStrings, ""))
 	}
-	s := executionSummaryBuf.String()
-	return s
+	return executionSummaryBuf.String()
 }
 
-var newlineOrEOSRe = regexp.MustCompile(`(?:\n?$|\n)`)
+var newlineOrEOSRe = regexp.MustCompile(`\n?$|\n`)
 
 func toLeftAlignedText(str string) string {
 	if str == "" {
@@ -289,29 +371,6 @@ func tryToTimestampStr(s string) string {
 		return s
 	}
 	return time.Unix(int64(sec), int64(usec)*1000).UTC().Format(RFC3339Micro)
-}
-
-func setupGvNode(graph *cgraph.Graph, planNode *sppb.PlanNode, nodeTitle string, metadataStr string) (*cgraph.Node, error) {
-	n, err := graph.CreateNodeByName(fmt.Sprintf("node%d", planNode.GetIndex()))
-	if err != nil {
-		return nil, err
-	}
-
-	n.SetShape(cgraph.BoxShape)
-
-	b, err := yaml.Marshal(planNode)
-	if err != nil {
-		return nil, err
-	}
-	n.SetTooltip(string(b))
-
-	nodeHTML, err := graph.StrdupHTML(fmt.Sprintf(`<b>%s</b><br align="CENTER" />%s`, nodeTitle, metadataStr))
-	if err != nil {
-		return nil, err
-	}
-
-	n.SetLabel(nodeHTML)
-	return n, nil
 }
 
 func formatExecutionStatsValue(v *structpb.Value) string {
