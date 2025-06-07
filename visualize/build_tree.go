@@ -182,11 +182,10 @@ func formatQueryNode(queryStats map[string]*structpb.Value, showQueryStats bool)
 	delete(m, queryTextKey)
 
 	var buf strings.Builder
-	fmt.Fprintf(&buf, markupIfNotEmpty(toLeftAlignedText(text), "b"))
+	buf.WriteString(markupIfNotEmpty(toLeftAlignedText(text), "b"))
 	if showQueryStats {
 		statsStr := formatQueryStats(m)
-		fmt.Fprint(&buf,
-			markupIfNotEmpty(toLeftAlignedText(statsStr), "i"))
+		buf.WriteString(markupIfNotEmpty(toLeftAlignedText(statsStr), "i"))
 	}
 	return buf.String()
 }

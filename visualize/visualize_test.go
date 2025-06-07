@@ -19,8 +19,6 @@ import (
 var testdataFS embed.FS
 
 func TestRenderImage(t *testing.T) {
-	type args struct {
-	}
 	tests := []struct {
 		name       string
 		input      []byte
