@@ -245,7 +245,8 @@ func formatExecutionSummary(executionStatsFields map[string]*structpb.Value) str
 		var executionSummaryStrings []string
 		for k, v := range executionSummary.GetStructValue().AsMap() {
 			var value string
-			if strings.HasSuffix(k, "timestamp") {
+			// Only apply tryToTimestampStr to specific timestamp fields
+			if k == "execution_start_timestamp" || k == "execution_end_timestamp" {
 				formattedValue, err := tryToTimestampStr(fmt.Sprint(v))
 				if err != nil {
 					value = fmt.Sprintf("%s (error: %v)", fmt.Sprint(v), err)
@@ -273,9 +274,10 @@ func toLeftAlignedText(str string) string {
 }
 
 // tryToTimestampStr converts a string representation of a timestamp (seconds.microseconds)
-// into a RFC3339Nano formatted string. It strictly requires the microseconds part
-// to be exactly 6 digits long. Inputs with fewer or more than 6 microseconds
-// will result in an error.
+// into a RFC3339Nano formatted string. For Spanner's execution_start_timestamp and
+// execution_end_timestamp fields, the microseconds part is always expected to be
+// exactly 6 digits long, with padding if necessary. Inputs that do not conform
+// to this 6-digit microsecond format are considered invalid and will result in an error.
 func tryToTimestampStr(s string) (string, error) {
 	secStr, usecStr, found := strings.Cut(s, ".")
 
