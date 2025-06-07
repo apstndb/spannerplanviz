@@ -272,6 +272,10 @@ func toLeftAlignedText(str string) string {
 	return newlineOrEOSRe.ReplaceAllString(html.EscapeString(str), `<br align="left" />`)
 }
 
+// tryToTimestampStr converts a string representation of a timestamp (seconds.microseconds)
+// into a RFC3339Nano formatted string. It strictly requires the microseconds part
+// to be exactly 6 digits long. Inputs with fewer or more than 6 microseconds
+// will result in an error.
 func tryToTimestampStr(s string) (string, error) {
 	secStr, usecStr, found := strings.Cut(s, ".")
 
@@ -280,7 +284,7 @@ func tryToTimestampStr(s string) (string, error) {
 		return "", fmt.Errorf("invalid seconds in timestamp: %w", err)
 	}
 
-	if !found || len(usecStr) != 6 { // Modified condition
+	if !found || len(usecStr) != 6 {
 		return "", fmt.Errorf("invalid timestamp format: %s (microseconds must be exactly 6 digits)", s)
 	}
 
