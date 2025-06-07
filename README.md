@@ -8,8 +8,8 @@ Cloud Spanner Query Plan Visualizer using [goccy/go-graphviz](https://github.com
 
 ## Install
 
-```
-$ go install github.com/apstndb/spannerplanviz@latest
+```sh
+go install github.com/apstndb/spannerplanviz@latest
 ```
 
 ## Usage
