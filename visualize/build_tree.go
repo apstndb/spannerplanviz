@@ -233,7 +233,12 @@ func formatExecutionSummary(executionStatsFields map[string]*structpb.Value) str
 		for k, v := range executionSummary.GetStructValue().AsMap() {
 			var value string
 			if strings.HasSuffix(k, "timestamp") {
-				value = tryToTimestampStr(fmt.Sprint(v))
+				formattedValue, err := tryToTimestampStr(fmt.Sprint(v))
+				if err != nil {
+					value = fmt.Sprintf("%s (error: %v)", fmt.Sprint(v), err)
+				} else {
+					value = formattedValue
+				}
 			} else {
 				value = fmt.Sprint(v)
 			}
@@ -254,22 +259,24 @@ func toLeftAlignedText(str string) string {
 	return newlineOrEOSRe.ReplaceAllString(html.EscapeString(str), `<br align="left" />`)
 }
 
-const RFC3339Micro = "2006-01-02T15:04:05.999999Z07:00"
+func tryToTimestampStr(s string) (string, error) {
+	secStr, usecStr, found := strings.Cut(s, ".")
 
-func tryToTimestampStr(s string) string {
-	ss := strings.Split(s, ".")
-	if len(ss) != 2 || len(ss[1]) > 6 {
-		return s
-	}
-	sec, err := strconv.Atoi(ss[0])
+	sec, err := strconv.Atoi(secStr)
 	if err != nil {
-		return s
+		return "", fmt.Errorf("invalid seconds in timestamp: %w", err)
 	}
-	usec, err := strconv.Atoi(ss[1])
+
+	if !found || len(usecStr) != 6 { // Modified condition
+		return "", fmt.Errorf("invalid timestamp format: %s (microseconds must be exactly 6 digits)", s)
+	}
+
+	usec, err := strconv.Atoi(usecStr)
 	if err != nil {
-		return s
+		return "", fmt.Errorf("invalid microseconds in timestamp: %w", err)
 	}
-	return time.Unix(int64(sec), int64(usec)*1000).UTC().Format(RFC3339Micro)
+
+	return time.Unix(int64(sec), int64(usec)*1000).UTC().Format(time.RFC3339Nano), nil
 }
 
 func formatExecutionStatsValue(v *structpb.Value) string {
