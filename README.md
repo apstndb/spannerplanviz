@@ -8,13 +8,14 @@ Cloud Spanner Query Plan Visualizer using [goccy/go-graphviz](https://github.com
 
 ## Install
 
-```
-$ go get -u github.com/apstndb/spannerplanviz
+```sh
+go install github.com/apstndb/spannerplanviz@latest
 ```
 
 ## Usage
 
 It can read various types in JSON and YAML.
+
 * [QueryPlan](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSetStats?hl=en#QueryPlan)
     * Can get easily by client libraries
         * [AnalyzeQuery()](https://pkg.go.dev/cloud.google.com/go/spanner#ReadOnlyTransaction.AnalyzeQuery)
@@ -24,13 +25,6 @@ It can read various types in JSON and YAML.
 * [ResultSet](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSet?hl=en)
     * Output of `gcloud spanner databases execute-sql` and [execspansql](https://github.com/apstndb/execspansql)
 
-### PROFILE
-
-```
-$ gcloud spanner databases execute-sql --instance=sampleinstance sampledb --query-mode=PROFILE --format=yaml \
-  --sql "SELECT SongName FROM Songs" |
-  spannerplanviz --full --type=svg --output profile.svg
-```
 ### PLAN
 
 ```
@@ -39,6 +33,19 @@ $ gcloud spanner databases execute-sql --instance=sampleinstance sampledb --quer
   spannerplanviz --full --type=svg --output plan.svg
 ```
 
+### PROFILE
+
+You see verbose profile information. (Currently, `histograph` is not shown.)
+
+```
+$ gcloud spanner databases execute-sql --instance=sampleinstance sampledb --query-mode=PROFILE --format=yaml \
+  --sql "SELECT * FROM Singers JOIN Songs USING(SingerId) WHERE SongName LIKE 'Th%e'" |
+  spannerplanviz --full --type=svg --output profile.svg
+```
+
+![full profile](docs/dca_full.png)
+
+
 ## Disclaimer
 
-This tool is PRE-ALPHA quality.
+This tool is Alpha quality.
