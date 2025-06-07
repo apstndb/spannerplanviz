@@ -3,6 +3,7 @@ package visualize
 import (
 	"testing"
 
+	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -45,6 +46,72 @@ func TestToLeftAlignedText(t *testing.T) {
 			got := toLeftAlignedText(tt.input)
 			if diff := cmp.Diff(got, tt.want); diff != "" {
 				t.Errorf("toLeftAlignedText() mismatch (-got +want):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestIsRemoteCall(t *testing.T) {
+	tests := []struct {
+		name string
+		node *sppb.PlanNode
+		cl   *sppb.PlanNode_ChildLink
+		want bool
+	}{
+		{
+			name: "subquery_cluster_node missing",
+			node: &sppb.PlanNode{
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{},
+				},
+			},
+			cl:   &sppb.PlanNode_ChildLink{ChildIndex: 0},
+			want: false,
+		},
+		{
+			name: "call_type is Local",
+			node: &sppb.PlanNode{
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"subquery_cluster_node": structpb.NewStringValue("0"),
+						"call_type":             structpb.NewStringValue("Local"),
+					},
+				},
+			},
+			cl:   &sppb.PlanNode_ChildLink{ChildIndex: 0},
+			want: false,
+		},
+		{
+			name: "call_type missing, subquery_cluster_node matches",
+			node: &sppb.PlanNode{
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"subquery_cluster_node": structpb.NewStringValue("0"),
+					},
+				},
+			},
+			cl:   &sppb.PlanNode_ChildLink{ChildIndex: 0},
+			want: true,
+		},
+		{
+			name: "call_type missing, subquery_cluster_node does not match",
+			node: &sppb.PlanNode{
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"subquery_cluster_node": structpb.NewStringValue("1"),
+					},
+				},
+			},
+			cl:   &sppb.PlanNode_ChildLink{ChildIndex: 0},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isRemoteCall(tt.node, tt.cl)
+			if got != tt.want {
+				t.Errorf("isRemoteCall() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

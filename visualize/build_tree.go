@@ -48,6 +48,7 @@ func buildTree(qp *spannerplan.QueryPlan, planNode *sppb.PlanNode, rowType *sppb
 func buildLink(qp *spannerplan.QueryPlan, cl *sppb.PlanNode_ChildLink, node *sppb.PlanNode, child *treeNode) *link {
 	return &link{
 		ChildType: qp.GetLinkType(cl),
+		// If it's a remote call, the connection will be rendered as a dashed line in the visualization.
 		Style:     lox.IfOrEmpty(isRemoteCall(node, cl), cgraph.DashedEdgeStyle),
 		ChildNode: child,
 	}
@@ -80,15 +81,27 @@ func renderEdge(graph *cgraph.Graph, parent *treeNode, edge *link) error {
 	return nil
 }
 
+// isRemoteCall determines if a link between nodes represents a remote call in the Spanner query plan.
+// A remote call is identified if:
+//  1. The parent node has a "subquery_cluster_node" metadata field, which contains the node ID of the
+//     child that performs a remote operation.
+//  2. The 'call_type' metadata field is not "Local". If 'call_type' is "Local", it is not a remote call.
+//  3. The child link's index matches the value in "subquery_cluster_node", confirming this specific
+//     child is the one executing remotely.
 func isRemoteCall(node *sppb.PlanNode, cl *sppb.PlanNode_ChildLink) bool {
-	n, ok := node.GetMetadata().GetFields()["subquery_cluster_node"]
+	metadataFields := node.GetMetadata().GetFields()
+
+	subqueryClusterNode, ok := metadataFields["subquery_cluster_node"]
 	if !ok {
 		return false
 	}
-	if node.GetMetadata().GetFields()["call_type"].GetStringValue() == "Local" {
+
+	callType := metadataFields["call_type"].GetStringValue()
+	if callType == "Local" {
 		return false
 	}
-	return n.GetStringValue() == strconv.Itoa(int(cl.GetChildIndex()))
+
+	return subqueryClusterNode.GetStringValue() == strconv.Itoa(int(cl.GetChildIndex()))
 }
 
 type treeNode struct {
