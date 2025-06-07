@@ -4,8 +4,9 @@ github.com/MakeNowJust/heredoc/v2 v2.0.1 h1:rlCHh70XXXv7toz95ajQWOWQnN4WNLt0TdpZ
 github.com/MakeNowJust/heredoc/v2 v2.0.1/go.mod h1:6/2Abh5s+hc3g9nbWLe9ObDIOhaRrqsyY9MWy+4JdRM=
 github.com/apstndb/lox v0.0.0-20230530141045-98c1efebcde8 h1:xwpcb2pS5AsZZwAlmRjD4oYcJruN5mZF4J67Qv/qFHs=
 github.com/apstndb/lox v0.0.0-20230530141045-98c1efebcde8/go.mod h1:BkhLxNZ6Ql4FyP43VFrNyq+B4uf5J02RYRlemBCrazI=
-github.com/apstndb/spannerplan v0.1.0 h1:9T7M1QUSefn9r7bjqrlMAlqL8hPuA4mhBjlN7jy4ziQ=
 github.com/apstndb/spannerplan v0.1.0/go.mod h1:iPN9r9R2AknoFnBFqA232cUO+2ZkHpk4Q1qeSAU9xEM=
+github.com/apstndb/spannerplan v0.1.3-0.20250607013101-7f0e18fa1554 h1:QsHAtSePzAvQpYxBV9k/+HwjLmYU7/7/5/YeCyWJH5o=
+github.com/apstndb/spannerplan v0.1.3-0.20250607013101-7f0e18fa1554/go.mod h1:iPN9r9R2AknoFnBFqA232cUO+2ZkHpk4Q1qeSAU9xEM=
 github.com/apstndb/treeprint v0.0.0-20250529153958-e82576b37da6 h1:aTufxpgGiMiSQ/yoJzWsX7G7DCpvGOaDFtEYiE7QNmA=
 github.com/apstndb/treeprint v0.0.0-20250529153958-e82576b37da6/go.mod h1:kIPoI1ZQRmOP9hVdFSFjPGwOPVEOSpAEIFgG09dK+7Y=
 github.com/corona10/goimagehash v1.1.0 h1:teNMX/1e+Wn/AYSbLHX8mj+mF9r60R1kBeqE9MkoYwI=
