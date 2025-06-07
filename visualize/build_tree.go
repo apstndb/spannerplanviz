@@ -97,11 +97,11 @@ type treeNode struct {
 }
 
 func (n *treeNode) Metadata() string {
-	return toLeftAlignedText(n.Label) + encloseIfNotEmpty(`<i>`, toLeftAlignedText(n.Stats), `</i>`)
+	return toLeftAlignedText(n.Label) + markupIfNotEmpty(toLeftAlignedText(n.Stats), "i")
 }
 
 func (n *treeNode) HTML() string {
-	return fmt.Sprintf(`<b>%s</b><br align="CENTER" />%s`, n.Title, n.Metadata())
+	return fmt.Sprintf(`%s<br align="CENTER" />%s`, markupIfNotEmpty(n.Title, "b"), n.Metadata())
 }
 
 func buildNode(rowType *sppb.StructType, planNode *sppb.PlanNode, queryPlan *spannerplan.QueryPlan, param option.Options) (*treeNode, error) {
@@ -182,11 +182,11 @@ func formatQueryNode(queryStats map[string]*structpb.Value, showQueryStats bool)
 	delete(m, queryTextKey)
 
 	var buf strings.Builder
-	fmt.Fprintf(&buf, "<b>%s</b>", toLeftAlignedText(text))
+	fmt.Fprintf(&buf, markupIfNotEmpty(toLeftAlignedText(text), "b"))
 	if showQueryStats {
 		statsStr := formatQueryStats(m)
 		fmt.Fprint(&buf,
-			encloseIfNotEmpty("<i>", toLeftAlignedText(statsStr), "</i>"))
+			markupIfNotEmpty(toLeftAlignedText(statsStr), "i"))
 	}
 	return buf.String()
 }

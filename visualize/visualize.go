@@ -60,12 +60,12 @@ func buildAndRenderGraph(graph *cgraph.Graph, rowType *sppb.StructType, querySta
 		return err
 	}
 
-	return renderGraph(graph, err, rootNode, param, queryStats)
+	return renderGraph(graph, rootNode, param, queryStats)
 }
 
-func renderGraph(graph *cgraph.Graph, err error, rootNode *treeNode, param option.Options, queryStats *sppb.ResultSetStats) error {
+func renderGraph(graph *cgraph.Graph, rootNode *treeNode, param option.Options, queryStats *sppb.ResultSetStats) error {
 	graph.SetRankDir(cgraph.BTRank)
-	err = renderTree(graph, rootNode)
+	err := renderTree(graph, rootNode)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func renderGraph(graph *cgraph.Graph, err error, rootNode *treeNode, param optio
 	showQueryStats := param.ShowQueryStats
 	needQueryNode := (param.ShowQuery || showQueryStats) && queryStats != nil
 	if needQueryNode {
-		err := renderQueryNodeWithEdge(graph, queryStats, showQueryStats, rootNode.Name)
+		err = renderQueryNodeWithEdge(graph, queryStats, showQueryStats, rootNode.Name)
 		if err != nil {
 			return err
 		}
@@ -112,7 +112,7 @@ func renderTree(graph *cgraph.Graph, node *treeNode) error {
 			return err
 		}
 
-		err := renderEdge(graph, node, child)
+		err = renderEdge(graph, node, child)
 		if err != nil {
 			return err
 		}
