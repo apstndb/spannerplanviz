@@ -216,13 +216,23 @@ func formatExecutionStatsWithoutSummary(executionStatsFields map[string]*structp
 	return strings.Join(statsStrings, "")
 }
 
+// internalMetadataKeys lists metadata keys that are considered internal
+// and should not be displayed in the formatted metadata output.
+var internalMetadataKeys = []string{
+	"call_type",
+	"scan_type",
+	"scan_target",
+	"iterator_type",
+	"subquery_cluster_node",
+}
+
 func formatMetadata(metadataFields map[string]*structpb.Value, hideMetadata []string) string {
 	var metadataStrs []string
 	for k, v := range metadataFields {
 		switch {
 		case in(k, hideMetadata...):
 			continue
-		case in(k, "call_type", "scan_type", "scan_target", "iterator_type", "subquery_cluster_node"):
+		case in(k, internalMetadataKeys...):
 			continue
 		default:
 			metadataStrs = append(metadataStrs, fmt.Sprintf("%s=%v", k, v.AsInterface()))
