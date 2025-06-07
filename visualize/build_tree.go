@@ -22,8 +22,8 @@ import (
 	"github.com/apstndb/spannerplanviz/option"
 )
 
-// This file contains logics which are purely formatting and building tree.
-// cgraph dependency is allowed, and graphviz dependency is not allowed.
+// This file contains logics which are purely formatting strings and building tree structures.
+// It is ok to depend on types in the cgraph package, but don't use graphviz.Graph in this file.
 
 func buildTree(qp *spannerplan.QueryPlan, planNode *sppb.PlanNode, rowType *sppb.StructType, param option.Options) (*treeNode, error) {
 	node, err := buildNode(rowType, planNode, qp, param)
