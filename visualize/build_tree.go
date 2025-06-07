@@ -292,6 +292,13 @@ func tryToTimestampStr(s string) (string, error) {
 	return time.Unix(int64(sec), int64(usec)*1000).UTC().Format(time.RFC3339Nano), nil
 }
 
+func prefixIfNotEmpty(prefix, value string) string {
+	if value != "" {
+		return prefix + value
+	}
+	return ""
+}
+
 func formatExecutionStatsValue(v *structpb.Value) string {
 	fields := v.GetStructValue().GetFields()
 	total := fields["total"].GetStringValue()
@@ -299,15 +306,11 @@ func formatExecutionStatsValue(v *structpb.Value) string {
 	mean := fields["mean"].GetStringValue()
 	stdDev := fields["std_deviation"].GetStringValue()
 
-	var stdDevStr string
-	if stdDev != "" {
-		stdDevStr = fmt.Sprintf("±%s", stdDev)
-	}
-	var meanStr string
-	if mean != "" {
-		meanStr = fmt.Sprintf("@%s%s", mean, stdDevStr)
-	}
-	value := fmt.Sprintf("%s%s %s", total, meanStr, unit)
+	stdDevStr := prefixIfNotEmpty("±", stdDev)
+	meanStr := prefixIfNotEmpty("@", mean+stdDevStr)
+	unitStr := prefixIfNotEmpty(" ", unit)
+
+	value := fmt.Sprintf("%s%s%s", total, meanStr, unitStr)
 	return value
 }
 

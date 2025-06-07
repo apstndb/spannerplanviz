@@ -243,7 +243,19 @@ func TestFormatExecutionStatsValue(t *testing.T) {
 			input: structpb.NewStructValue(&structpb.Struct{
 				Fields: map[string]*structpb.Value{},
 			}),
-			want: " ", // This is what the current implementation returns for empty fields
+			want: "",
+		},
+		{
+			name: "all fields empty strings",
+			input: structpb.NewStructValue(&structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"total":         structpb.NewStringValue(""),
+					"unit":          structpb.NewStringValue(""),
+					"mean":          structpb.NewStringValue(""),
+					"std_deviation": structpb.NewStringValue(""),
+				},
+			}),
+			want: "",
 		},
 		{
 			name: "missing total",
@@ -265,7 +277,7 @@ func TestFormatExecutionStatsValue(t *testing.T) {
 					"std_deviation": structpb.NewStringValue("2"),
 				},
 			}),
-			want: "100@10±2 ",
+			want: "100@10±2",
 		},
 	}
 
