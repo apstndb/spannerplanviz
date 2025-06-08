@@ -1,11 +1,15 @@
 package visualize
 
 import (
+	"fmt"
 	"testing"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
+	"github.com/apstndb/spannerplan"
+	"github.com/apstndb/spannerplanviz/option"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/types/known/structpb"
+	"sigs.k8s.io/yaml"
 )
 
 func TestToLeftAlignedText(t *testing.T) {
@@ -46,6 +50,206 @@ func TestToLeftAlignedText(t *testing.T) {
 			got := toLeftAlignedText(tt.input)
 			if diff := cmp.Diff(got, tt.want); diff != "" {
 				t.Errorf("toLeftAlignedText() mismatch (-got +want):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestTreeNodeHTML is being re-added here.
+func TestTreeNodeHTML(t *testing.T) {
+	// Ensure necessary imports are present at the top of the file:
+	// import (
+	// 	"fmt"
+	// 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
+	// 	"github.com/apstndb/spannerplan"
+	// 	"github.com/apstndb/spannerplanviz/option"
+	// 	"github.com/google/go-cmp/cmp"
+	// 	"google.golang.org/protobuf/types/known/structpb"
+	// 	"sigs.k8s.io/yaml"
+	// )
+
+	testCases := []struct {
+		name          string
+		planNodeProto *sppb.PlanNode
+		// plan field removed as it's constructed per test run
+		param        option.Options
+		rowType      *sppb.StructType // Can be nil if not testing Serialize Result
+		expectedHTML string
+	}{
+		{
+			name: "Simple Title Only",
+			planNodeProto: &sppb.PlanNode{
+				Index:       1,
+				DisplayName: "Test Node Display Name",
+			},
+			param:        option.Options{Full: true},
+			rowType:      nil,
+			expectedHTML: `<b>Test Node Display Name</b>`,
+		},
+		{
+			name: "Title and Metadata",
+			planNodeProto: &sppb.PlanNode{
+				Index:       2,
+				DisplayName: "Node With Meta",
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"meta_key_1": structpb.NewStringValue("meta_val_1"),
+						"meta_key_2": structpb.NewNumberValue(123),
+					},
+				},
+			},
+			param:        option.Options{Full: true},
+			rowType:      nil,
+			expectedHTML: `<b>Node With Meta</b><br align="CENTER"/>meta_key_1=meta_val_1<br align="left" />meta_key_2=123<br align="left" />`,
+		},
+		{
+			name: "Title and Stats",
+			planNodeProto: &sppb.PlanNode{
+				Index:       3,
+				DisplayName: "Node With Stats",
+				ExecutionStats: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"latency": structpb.NewStructValue(&structpb.Struct{
+							Fields: map[string]*structpb.Value{
+								"total": structpb.NewStringValue("10s"),
+							},
+						}),
+						"rows": structpb.NewStructValue(&structpb.Struct{
+							Fields: map[string]*structpb.Value{
+								"total": structpb.NewStringValue("100"),
+								"unit":  structpb.NewStringValue("rows"),
+							},
+						}),
+					},
+				},
+			},
+			param:        option.Options{Full: true, ExecutionStats: true},
+			rowType:      nil,
+			expectedHTML: `<b>Node With Stats</b><br align="CENTER"/><i>latency: 10s<br align="left" />rows: 100 rows<br align="left" /></i>`,
+		},
+		{
+			name: "Scan Node",
+			planNodeProto: &sppb.PlanNode{
+				Index:       4,
+				DisplayName: "Table Scan",
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"scan_type":   structpb.NewStringValue("Full scan"),
+						"scan_target": structpb.NewStringValue("MyTable"),
+					},
+				},
+			},
+			param:        option.Options{Full: true, HideScanTarget: false},
+			rowType:      nil,
+			expectedHTML: `<b>Full scan Table Scan</b><br align="CENTER"/>Full scan: MyTable<br align="left" />`,
+		},
+		{
+			name: "Serialize Result Node",
+			planNodeProto: &sppb.PlanNode{
+				Index:       5,
+				DisplayName: "Serialize Result",
+				ChildLinks: []*sppb.PlanNode_ChildLink{
+					{ChildIndex: 0, Type: "Output"},
+				},
+			},
+			param: option.Options{Full: true},
+			rowType: &sppb.StructType{
+				Fields: []*sppb.StructType_Field{
+					{Name: "col1", Type: &sppb.Type{Code: sppb.TypeCode_STRING}},
+					{Name: "col2", Type: &sppb.Type{Code: sppb.TypeCode_INT64}},
+				},
+			},
+			expectedHTML: `<b>Serialize Result</b>`,
+		},
+		{
+			name: "Node with Scalar Child Links",
+			planNodeProto: &sppb.PlanNode{
+				Index:       6,
+				DisplayName: "Scalar Node",
+				ChildLinks: []*sppb.PlanNode_ChildLink{
+					{ChildIndex: 7, Type: "SCALAR", Variable: "scalar_var1"},
+					{ChildIndex: 8, Type: "SCALAR", Variable: "scalar_var2"},
+				},
+			},
+			param:        option.Options{Full: true, NonVariableScalar: true},
+			rowType:      nil,
+			expectedHTML: `<b>Scalar Node</b>`,
+		},
+		{
+			name: "Node with Variable Scalar Child Links",
+			planNodeProto: &sppb.PlanNode{
+				Index:       9,
+				DisplayName: "VarScalarOp",
+				ChildLinks: []*sppb.PlanNode_ChildLink{
+					{ChildIndex: 10, Type: "SCALAR", Variable: "var1"},
+				},
+			},
+			param:        option.Options{Full: true, VariableScalar: true}, // VariableScalar is true
+			rowType:      nil,
+			expectedHTML: `<b>VarScalarOp</b><br align="CENTER"/>SCALAR: $var1:=Scalar Output<br align="left" />`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			nodesForPlan := []*sppb.PlanNode{}
+			switch tc.name {
+			case "Serialize Result Node":
+				// tc.planNodeProto (Index 5) links to ChildIndex 0.
+				// For this case, ensure tc.planNodeProto is included, and its direct reference.
+				// If spannerplan is slice-based, this might still be problematic if indices aren't dense.
+				nodesForPlan = append(nodesForPlan, tc.planNodeProto)
+				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: 0, DisplayName: "ChildForSerialize"})
+			case "Node with Scalar Child Links":
+				// tc.planNodeProto (Index 6) links to ChildIndex 7 and 8.
+				// Re-applying dense slice hack assuming spannerplan might be slice-based.
+				for i := 0; i < 6; i++ { // Dummy nodes for 0-5
+					nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: int32(i), DisplayName: fmt.Sprintf("Dummy %d", i)})
+				}
+				nodesForPlan = append(nodesForPlan, tc.planNodeProto) // Actual node at Index 6
+				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: 7, DisplayName: "Scalar Child 1"}) // Actual node at Index 7
+				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: 8, DisplayName: "Scalar Child 2"}) // Actual node at Index 8
+			case "Node with Variable Scalar Child Links":
+				// tc.planNodeProto (Index 9) links to ChildIndex 10.
+				// Apply dense slice hack.
+				for i := 0; i < 9; i++ { // Dummy nodes for 0-8
+					nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: int32(i), DisplayName: fmt.Sprintf("Dummy %d", i)})
+				}
+				nodesForPlan = append(nodesForPlan, tc.planNodeProto) // Actual node at Index 9
+				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{ // Actual Scalar Child for Var
+					Index:       10,
+					Kind:        sppb.PlanNode_SCALAR,
+					DisplayName: "ScalarFunc",
+					ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Scalar Output"},
+				})
+			default:
+				// Default behavior: only the node itself (if no child links are involved in the HTML output expectation).
+				nodesForPlan = append(nodesForPlan, tc.planNodeProto)
+			}
+
+			currentPlan, err := spannerplan.New(nodesForPlan)
+			if err != nil {
+				nodeIndicesInPlan := []int32{}
+				for _, n := range nodesForPlan {
+					nodeIndicesInPlan = append(nodeIndicesInPlan, n.GetIndex())
+				}
+				t.Fatalf("spannerplan.New failed for test case %q with node indices %v: %v", tc.name, nodeIndicesInPlan, err)
+			}
+
+			node := &treeNode{
+				planNodeProto: tc.planNodeProto,
+				plan:          currentPlan,
+				Name:          fmt.Sprintf("node%d", tc.planNodeProto.GetIndex()),
+			}
+			tooltipBytes, errYaml := yaml.Marshal(tc.planNodeProto)
+			if errYaml != nil {
+				t.Fatalf("Failed to marshal planNodeProto to YAML for tooltip: %v", errYaml)
+			}
+			node.Tooltip = string(tooltipBytes)
+
+			gotHTML := node.HTML(tc.param, tc.rowType)
+			if diff := cmp.Diff(tc.expectedHTML, gotHTML); diff != "" {
+				t.Errorf("HTML() mismatch for test case %q (-expected +actual):\n%s", tc.name, diff)
 			}
 		})
 	}

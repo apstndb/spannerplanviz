@@ -11,7 +11,6 @@ require (
 	github.com/goccy/go-graphviz v0.2.9
 	github.com/google/go-cmp v0.5.9
 	github.com/jessevdk/go-flags v1.6.1
-	github.com/samber/lo v1.47.0
 	google.golang.org/protobuf v1.33.0
 	sigs.k8s.io/yaml v1.2.0
 )
@@ -33,6 +32,7 @@ require (
 	github.com/olekukonko/ll v0.0.6-0.20250511102614-9564773e9d27 // indirect
 	github.com/olekukonko/tablewriter v1.0.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/samber/lo v1.47.0 // indirect
 	github.com/tetratelabs/wazero v1.8.1 // indirect
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/image v0.21.0 // indirect
