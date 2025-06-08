@@ -164,8 +164,6 @@ func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options,
 		isScanNode := n.planNodeProto.GetDisplayName() == "Scan" || strings.Contains(n.planNodeProto.GetDisplayName(), "Scan")
 		if !isScanNode || si != sr || sr == "" {
 			labelParts = append(labelParts, escapeMermaidLabelContent(si))
-		} else if !isScanNode { // If not a scan node, always add scan info if it exists (though unlikely)
-			labelParts = append(labelParts, escapeMermaidLabelContent(si))
 		}
 	}
 
