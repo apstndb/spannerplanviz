@@ -115,13 +115,27 @@ type treeNode struct {
 	// Tooltip string
 }
 
+// nodeContent holds the raw, unformatted content extracted from a plan node,
+// before any Mermaid-specific escaping or final text formatting.
+type nodeContent struct {
+	Title               string
+	ShortRepresentation string
+	ScanInfo            string
+	SerializeResult     []string
+	NonVarScalarLinks   []string
+	Metadata            map[string]string
+	VarScalarLinks      []string
+	Stats               map[string]string
+	ExecutionSummary    string
+}
+
 // escapeMermaidLabelContent prepares a string for safe inclusion in a Mermaid label.
 // Copied from mermaid.go for use in treeNode.MermaidLabel.
 func escapeMermaidLabelContent(content string) string {
 	// Basic HTML escaping
-	// content = strings.ReplaceAll(content, "&", "&amp;") // Not strictly needed if #quot; etc. are used
-	// content = strings.ReplaceAll(content, "<", "&lt;") // Avoid if using <br/>, <b>
-	// content = strings.ReplaceAll(content, ">", "&gt;") // Avoid if using <br/>, <b>
+	// content = strings.ReplaceAll(content, "&", "&") // Not strictly needed if #quot; etc. are used
+	// content = strings.ReplaceAll(content, "<", "<") // Avoid if using <br/>, <b>
+	// content = strings.ReplaceAll(content, ">", ">") // Avoid if using <br/>, <b>
 
 	// Critical: Escape characters that break Mermaid syntax if not inside quotes,
 	// or that break the label string itself.
@@ -134,118 +148,134 @@ func escapeMermaidLabelContent(content string) string {
 	return content
 }
 
+// getNodeContent extracts and formats the raw content of a treeNode into a structured nodeContent.
+// This function centralizes the logic for gathering all relevant displayable information
+// from a plan node, before any Mermaid-specific or plain-text-specific formatting.
+func (n *treeNode) getNodeContent(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) nodeContent {
+	if n.planNodeProto == nil {
+		return nodeContent{} // Return empty struct for nil proto
+	}
+
+	content := nodeContent{
+		Title:               n.GetTitle(param),
+		ShortRepresentation: n.GetShortRepresentation(),
+		ScanInfo:            n.GetScanInfoOutput(param),
+		SerializeResult:     []string{}, // Initialize as empty slice
+		NonVarScalarLinks:   []string{},
+		Metadata:            n.GetMetadata(param),
+		VarScalarLinks:      []string{},
+		Stats:               n.GetStats(param),
+		ExecutionSummary:    n.GetExecutionSummary(param),
+	}
+
+	// Handle multi-line outputs
+	if sroVal := n.GetSerializeResultOutput(qp, param, rowType); sroVal != "" {
+		for _, line := range strings.Split(strings.TrimSuffix(sroVal, "\n"), "\n") {
+			if line != "" {
+				content.SerializeResult = append(content.SerializeResult, line)
+			}
+		}
+	}
+	if nvslVal := n.GetNonVarScalarLinksOutput(qp, param); nvslVal != "" {
+		for _, line := range strings.Split(strings.TrimSuffix(nvslVal, "\n"), "\n") {
+			if line != "" {
+				content.NonVarScalarLinks = append(content.NonVarScalarLinks, line)
+			}
+		}
+	}
+	if vslVal := n.GetVarScalarLinksOutput(qp, param); vslVal != "" {
+		for _, line := range strings.Split(strings.TrimSuffix(vslVal, "\n"), "\n") {
+			if line != "" {
+				content.VarScalarLinks = append(content.VarScalarLinks, line)
+			}
+		}
+	}
+
+	// Apply heuristic check for ScanInfo double-printing
+	// This logic is moved from MermaidLabel to here to centralize content decision.
+	isScanNode := n.planNodeProto.GetDisplayName() == "Scan" || strings.Contains(n.planNodeProto.GetDisplayName(), "Scan")
+	if isScanNode && content.ScanInfo != "" && content.ScanInfo == content.ShortRepresentation && content.ShortRepresentation != "" {
+		// If it's a scan node, and ScanInfo is identical to ShortRepresentation, and ShortRepresentation is not empty,
+		// then clear ScanInfo to avoid double-printing.
+		content.ScanInfo = ""
+	}
+
+	return content
+}
+
 // MermaidLabel generates the label string for this node, suitable for use in Mermaid diagrams.
-// It calls various Get... methods which perform on-demand formatting.
 func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
 	if n.planNodeProto == nil {
 		return escapeMermaidLabelContent("Error: nil planNodeProto")
 	}
 
+	content := n.getNodeContent(qp, param, rowType)
 	var labelParts []string
 
-	// Title (from GetTitle, which now always uses HideMetadata(true))
-	if title := n.GetTitle(param); title != "" {
-		labelParts = append(labelParts, fmt.Sprintf("<b>%s</b>", escapeMermaidLabelContent(title)))
+	if content.Title != "" {
+		labelParts = append(labelParts, fmt.Sprintf("<b>%s</b>", escapeMermaidLabelContent(content.Title)))
+	}
+	if content.ShortRepresentation != "" {
+		labelParts = append(labelParts, escapeMermaidLabelContent(content.ShortRepresentation))
+	}
+	if content.ScanInfo != "" {
+		labelParts = append(labelParts, escapeMermaidLabelContent(content.ScanInfo))
 	}
 
-	// Short Representation
-	sr := n.GetShortRepresentation() // Store for re-use in Scan Info logic
-	if sr != "" {
-		labelParts = append(labelParts, escapeMermaidLabelContent(sr))
+	for _, line := range content.SerializeResult {
+		labelParts = append(labelParts, escapeMermaidLabelContent(line))
+	}
+	for _, line := range content.NonVarScalarLinks {
+		labelParts = append(labelParts, escapeMermaidLabelContent(line))
 	}
 
-	// Scan Info (uses trimmed scan_type)
-	if si := n.GetScanInfoOutput(param); si != "" {
-		// Avoid double printing if ShortRepresentation for a Scan node is the same as ScanInfo
-		// This check is imperfect because DisplayName might not be "Scan" for all scan types (e.g. "Table Scan")
-		// A more robust check might involve looking at metadataFields["scan_type"] presence.
-		// For now, using DisplayName as a proxy.
-		// This is a heuristic check to avoid double-printing scan information, as noted in a review.
-		isScanNode := n.planNodeProto.GetDisplayName() == "Scan" || strings.Contains(n.planNodeProto.GetDisplayName(), "Scan")
-		if !isScanNode || si != sr || sr == "" {
-			labelParts = append(labelParts, escapeMermaidLabelContent(si))
-		}
-	}
-
-	// Serialize Result Output
-	if sroVal := n.GetSerializeResultOutput(qp, param, rowType); sroVal != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(sroVal, "\n"), "\n") {
-			if line != "" {
-				labelParts = append(labelParts, escapeMermaidLabelContent(line))
-			}
-		}
-	}
-
-	// Non-Variable Scalar Links
-	if nvslVal := n.GetNonVarScalarLinksOutput(qp, param); nvslVal != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(nvslVal, "\n"), "\n") {
-			if line != "" {
-				labelParts = append(labelParts, escapeMermaidLabelContent(line))
-			}
-		}
-	}
-
-	// Metadata
-	metadata := n.GetMetadata(param) // map[string]string
-	if len(metadata) > 0 {
+	if len(content.Metadata) > 0 {
 		var metaLines []string
 		var metaKeys []string
-		for k := range metadata {
+		for k := range content.Metadata {
 			metaKeys = append(metaKeys, k)
 		}
 		sort.Strings(metaKeys)
 		for _, k := range metaKeys {
-			metaLines = append(metaLines, fmt.Sprintf("%s: %s", escapeMermaidLabelContent(k), escapeMermaidLabelContent(metadata[k])))
+			metaLines = append(metaLines, fmt.Sprintf("%s: %s", escapeMermaidLabelContent(k), escapeMermaidLabelContent(content.Metadata[k])))
 		}
 		labelParts = append(labelParts, metaLines...)
 	}
 
-	// Variable Scalar Links
-	if vslVal := n.GetVarScalarLinksOutput(qp, param); vslVal != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(vslVal, "\n"), "\n") {
-			if line != "" {
-				labelParts = append(labelParts, escapeMermaidLabelContent(line))
-			}
-		}
+	for _, line := range content.VarScalarLinks {
+		labelParts = append(labelParts, escapeMermaidLabelContent(line))
 	}
 
-	// Stats
-	stats := n.GetStats(param) // map[string]string
-	if len(stats) > 0 {
+	if len(content.Stats) > 0 {
 		var statLines []string
 		var statKeys []string
-		for k := range stats {
+		for k := range content.Stats {
 			statKeys = append(statKeys, k)
 		}
 		sort.Strings(statKeys)
 		for _, k := range statKeys {
-			// Italicize stats for Mermaid, similar to Graphviz
-			statLines = append(statLines, fmt.Sprintf("<i>%s: %s</i>", escapeMermaidLabelContent(k), escapeMermaidLabelContent(stats[k])))
+			statLines = append(statLines, fmt.Sprintf("<i>%s: %s</i>", escapeMermaidLabelContent(k), escapeMermaidLabelContent(content.Stats[k])))
 		}
 		labelParts = append(labelParts, statLines...)
 	}
 
-	// Execution Summary
-	if esVal := n.GetExecutionSummary(param); esVal != "" {
+	if content.ExecutionSummary != "" {
 		var summaryLines []string
-		for _, line := range strings.Split(strings.TrimSuffix(esVal, "\n"), "\n") {
+		for _, line := range strings.Split(strings.TrimSuffix(content.ExecutionSummary, "\n"), "\n") {
 			if line != "" {
 				summaryLines = append(summaryLines, escapeMermaidLabelContent(line))
 			}
 		}
 		if len(summaryLines) > 0 {
-			// Italicize summary for Mermaid
 			labelParts = append(labelParts, fmt.Sprintf("<i>%s</i>", strings.Join(summaryLines, "<br/>")))
 		}
 	}
 
-	// Join parts with <br/> for Mermaid label
 	labelContent := strings.Join(labelParts, "<br/>")
-	if labelContent == "" { // Fallback if all parts are empty
-		labelContent = escapeMermaidLabelContent(n.GetName()) // Use on-demand GetName()
+	if labelContent == "" {
+		labelContent = escapeMermaidLabelContent(n.GetName())
 	}
 
-	// Final quote escaping for the overall label string used in Mermaid: nodeId["label_content"]
 	return strings.ReplaceAll(labelContent, "\"", "#quot;")
 }
 
@@ -847,75 +877,58 @@ func formatNodeContentAsText(node *treeNode, qp *spannerplan.QueryPlan, param op
 	if node == nil {
 		return nil
 	}
-	var content []string
+	content := node.getNodeContent(qp, param, rowType)
+	var result []string
 
-	// Note: qp is passed but node.plan is used by getters. This is fine for now.
-	// rowType is used by GetSerializeResultOutput.
-
-	if title := node.GetTitle(param); title != "" {
-		content = append(content, fmt.Sprintf("Title: %s", title))
+	if content.Title != "" {
+		result = append(result, fmt.Sprintf("Title: %s", content.Title))
 	}
-	if sr := node.GetShortRepresentation(); sr != "" {
-		content = append(content, fmt.Sprintf("ShortRepresentation: %s", sr))
+	if content.ShortRepresentation != "" {
+		result = append(result, fmt.Sprintf("ShortRepresentation: %s", content.ShortRepresentation))
 	}
-	if si := node.GetScanInfoOutput(param); si != "" {
-		content = append(content, fmt.Sprintf("ScanInfo: %s", si))
+	if content.ScanInfo != "" {
+		result = append(result, fmt.Sprintf("ScanInfo: %s", content.ScanInfo))
 	}
 
-	if sro := node.GetSerializeResultOutput(qp, param, rowType); sro != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(sro, "\n"), "\n") {
-			if line != "" {
-				content = append(content, fmt.Sprintf("SerializeResult: %s", line))
-			}
-		}
+	for _, line := range content.SerializeResult {
+		result = append(result, fmt.Sprintf("SerializeResult: %s", line))
 	}
 
-	if nvsl := node.GetNonVarScalarLinksOutput(qp, param); nvsl != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(nvsl, "\n"), "\n") {
-			if line != "" {
-				content = append(content, fmt.Sprintf("NonVarScalarLink: %s", line))
-			}
-		}
+	for _, line := range content.NonVarScalarLinks {
+		result = append(result, fmt.Sprintf("NonVarScalarLink: %s", line))
 	}
 
-	metadata := node.GetMetadata(param)
-	if len(metadata) > 0 {
+	if len(content.Metadata) > 0 {
 		var metaLines []string
-		for k, v := range metadata {
+		for k, v := range content.Metadata {
 			metaLines = append(metaLines, fmt.Sprintf("Metadata: %s = %s", k, v))
 		}
-		sort.Strings(metaLines)
-		content = append(content, metaLines...)
+		sort.Strings(metaLines) // Ensure deterministic order for golden files
+		result = append(result, metaLines...)
 	}
 
-	if vsl := node.GetVarScalarLinksOutput(qp, param); vsl != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(vsl, "\n"), "\n") {
-			if line != "" {
-				content = append(content, fmt.Sprintf("VarScalarLink: %s", line))
-			}
-		}
+	for _, line := range content.VarScalarLinks {
+		result = append(result, fmt.Sprintf("VarScalarLink: %s", line))
 	}
 
-	stats := node.GetStats(param)
-	if len(stats) > 0 {
+	if len(content.Stats) > 0 {
 		var statLines []string
-		for k, v := range stats {
+		for k, v := range content.Stats {
 			statLines = append(statLines, fmt.Sprintf("Stat: %s: %s", k, v))
 		}
-		sort.Strings(statLines)
-		content = append(content, statLines...)
+		sort.Strings(statLines) // Ensure deterministic order for golden files
+		result = append(result, statLines...)
 	}
 
-	if es := node.GetExecutionSummary(param); es != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(es, "\n"), "\n") {
+	if content.ExecutionSummary != "" {
+		for _, line := range strings.Split(strings.TrimSuffix(content.ExecutionSummary, "\n"), "\n") {
 			if line != "" {
-				content = append(content, fmt.Sprintf("ExecutionSummary: %s", line))
+				result = append(result, fmt.Sprintf("ExecutionSummary: %s", line))
 			}
 		}
 	}
 
-	sort.Strings(content)
-	return content
+	return result
 }
 
 // End of visualize/build_tree.go

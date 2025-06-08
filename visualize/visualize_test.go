@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"embed"
+	"fmt"
 
-	// "fmt" // Removing based on persistent build error
 	"os"
 	"path/filepath"
 	"sort"
@@ -332,13 +332,15 @@ func TestRenderMermaid_TextContent(t *testing.T) {
 		}
 		// Pass qp, param, and rowTypeForProcessing to formatNodeContentAsText
 		nodeText := formatNodeContentAsText(n, qp, param, rowTypeForProcessing)
-		allNodesTextContent = append(allNodesTextContent, nodeText...)
+		nodeName := n.GetName() // Get the node name
+		for _, line := range nodeText {
+			allNodesTextContent = append(allNodesTextContent, fmt.Sprintf("%s: %s", nodeName, line))
+		}
 		for _, childLink := range n.Children {
 			traverseAndFormat(childLink.ChildNode)
 		}
 	}
 	traverseAndFormat(rootTreeNode)
-	sort.Strings(allNodesTextContent)
 
 	actualContent := strings.Join(allNodesTextContent, "\n") + "\n"
 
