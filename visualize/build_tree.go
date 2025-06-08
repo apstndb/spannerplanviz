@@ -160,6 +160,7 @@ func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options,
 		// This check is imperfect because DisplayName might not be "Scan" for all scan types (e.g. "Table Scan")
 		// A more robust check might involve looking at metadataFields["scan_type"] presence.
 		// For now, using DisplayName as a proxy.
+		// This is a heuristic check to avoid double-printing scan information, as noted in a review.
 		isScanNode := n.planNodeProto.GetDisplayName() == "Scan" || strings.Contains(n.planNodeProto.GetDisplayName(), "Scan")
 		if !isScanNode || si != sr || sr == "" {
 			labelParts = append(labelParts, escapeMermaidLabelContent(si))
@@ -409,6 +410,7 @@ func (n *treeNode) Metadata(qp *spannerplan.QueryPlan, param option.Options, row
 	}
 
 	currentShortRep := n.GetShortRepresentation()
+	// This is a heuristic check to avoid double-printing scan information, as noted in a review.
 	isScanNode := n.planNodeProto != nil && n.planNodeProto.GetDisplayName() == "Scan"
 
 	if currentShortRep != "" {
