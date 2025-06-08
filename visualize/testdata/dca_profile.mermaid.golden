@@ -1,4 +1,4 @@
-%%{ init: {"theme": "default",
+%%{ init: {"theme": "neutral",
            "themeVariables": { "wrap": "false" },
            "flowchart": { "curve": "linear",
                           "markdownAutoWrap":"false",

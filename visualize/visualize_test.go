@@ -261,7 +261,7 @@ func TestRenderMermaid(t *testing.T) {
 	}
 
 	expectedMermaidOutput := strings.Join([]string{
-		`%%{ init: {"theme": "default",
+		`%%{ init: {"theme": "neutral",
            "themeVariables": { "wrap": "false" },
            "flowchart": { "curve": "linear",
                           "markdownAutoWrap":"false",

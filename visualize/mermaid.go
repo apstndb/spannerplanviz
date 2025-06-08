@@ -15,7 +15,7 @@ import (
 
 func renderMermaid(rootNode *treeNode, writer io.Writer, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) error {
 	var sb strings.Builder
-	sb.WriteString(`%%{ init: {"theme": "default",
+	sb.WriteString(`%%{ init: {"theme": "neutral",
            "themeVariables": { "wrap": "false" },
            "flowchart": { "curve": "linear",
                           "markdownAutoWrap":"false",

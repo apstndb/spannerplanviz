@@ -52,7 +52,7 @@ spannerplanviz --full --type=mermaid --output profile.mermaid < dca_profile.json
 ```
 
 ```mermaid
-%%{ init: {"theme": "default",
+%%{ init: {"theme": "neutral",
            "themeVariables": { "wrap": "false" },
            "flowchart": { "curve": "linear",
                           "markdownAutoWrap":"false",
