@@ -148,6 +148,17 @@ func escapeMermaidLabelContent(content string) string {
 	return content
 }
 
+// escapeGraphvizHTMLLabelContent prepares a string for safe inclusion in a Graphviz HTML label.
+// It escapes HTML special characters like '&', '<', '>', but specifically avoids escaping single quotes.
+func escapeGraphvizHTMLLabelContent(content string) string {
+	// Order matters: escape '&' first to avoid double-escaping already escaped entities.
+	content = strings.ReplaceAll(content, "&", "&amp;")
+	content = strings.ReplaceAll(content, "<", "&lt;")
+	content = strings.ReplaceAll(content, ">", "&gt;")
+	// Do NOT escape single quotes (apostrophes) as per user feedback for Graphviz DOT HTML labels.
+	return content
+}
+
 // getNodeContent extracts and formats the raw content of a treeNode into a structured nodeContent.
 // This function centralizes the logic for gathering all relevant displayable information
 // from a plan node, before any Mermaid-specific or plain-text-specific formatting.
@@ -425,95 +436,67 @@ func (n *treeNode) GetExecutionSummary(param option.Options) string {
 
 // New Metadata() and HTML() methods using on-demand getters
 func (n *treeNode) Metadata(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
+	content := n.getNodeContent(qp, param, rowType)
 	var labelLines []string
-	if sro := n.GetSerializeResultOutput(qp, param, rowType); sro != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(sro, "\n"), "\n") {
-			if line != "" {
-				labelLines = append(labelLines, line)
-			}
-		}
+
+	if content.ShortRepresentation != "" {
+		labelLines = append(labelLines, escapeGraphvizHTMLLabelContent(content.ShortRepresentation))
 	}
-	if sio := n.GetScanInfoOutput(param); sio != "" {
-		labelLines = append(labelLines, sio)
+	if content.ScanInfo != "" {
+		labelLines = append(labelLines, escapeGraphvizHTMLLabelContent(content.ScanInfo))
 	}
 
-	currentShortRep := n.GetShortRepresentation()
-	// This is a heuristic check to avoid double-printing scan information, as noted in a review.
-	isScanNode := n.planNodeProto != nil && n.planNodeProto.GetDisplayName() == "Scan"
-
-	if currentShortRep != "" {
-		if !isScanNode || currentShortRep != n.GetScanInfoOutput(param) {
-			labelLines = append(labelLines, currentShortRep)
-		} else if !isScanNode {
-			labelLines = append(labelLines, currentShortRep)
-		}
+	for _, line := range content.SerializeResult {
+		labelLines = append(labelLines, escapeGraphvizHTMLLabelContent(line))
+	}
+	for _, line := range content.NonVarScalarLinks {
+		labelLines = append(labelLines, escapeGraphvizHTMLLabelContent(line))
 	}
 
-	if nvsl := n.GetNonVarScalarLinksOutput(qp, param); nvsl != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(nvsl, "\n"), "\n") {
-			if line != "" {
-				labelLines = append(labelLines, line)
-			}
-		}
-	}
-
-	metadataMap := n.GetMetadata(param)
-	if len(metadataMap) > 0 {
+	if len(content.Metadata) > 0 {
 		var metaKVLines []string
 		var metaKeys []string
-		for k := range metadataMap {
+		for k := range content.Metadata {
 			metaKeys = append(metaKeys, k)
 		}
 		sort.Strings(metaKeys)
 		for _, k := range metaKeys {
-			// Values in metadataMap are already formatted strings by formatStructPBValue
-			// but formatNodeLabel's original formatMetadata did html.EscapeString on k and v.
-			// For direct reconstruction, we assume these map values are plain and escape here.
-			metaKVLines = append(metaKVLines, fmt.Sprintf("%s=%s", html.EscapeString(k), html.EscapeString(metadataMap[k])))
+			metaKVLines = append(metaKVLines, fmt.Sprintf("%s=%s", escapeGraphvizHTMLLabelContent(k), escapeGraphvizHTMLLabelContent(content.Metadata[k])))
 		}
 		labelLines = append(labelLines, metaKVLines...)
 	}
 
-	if vsl := n.GetVarScalarLinksOutput(qp, param); vsl != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(vsl, "\n"), "\n") {
-			if line != "" {
-				labelLines = append(labelLines, line)
-			}
-		}
+	for _, line := range content.VarScalarLinks {
+		labelLines = append(labelLines, escapeGraphvizHTMLLabelContent(line))
 	}
 
-	// All lines in labelLines are now raw strings (or escaped key=value), to be processed by toLeftAlignedText.
-	labelHTMLPart := toLeftAlignedText(strings.Join(labelLines, "\n"))
+	// All lines in labelLines are now raw strings (or escaped key=value), to be processed by toLeftAlignedTextGraphviz.
+	labelHTMLPart := toLeftAlignedTextGraphviz(strings.Join(labelLines, "\n"))
 
 	// Reconstruct content similar to old n.Stats (detailed stats + summary)
 	var statsAndSummaryPlainLines []string
-	statsMap := n.GetStats(param) // map[string]string, values are pre-formatted by formatExecutionStatsValue
-	if len(statsMap) > 0 {
+	if len(content.Stats) > 0 {
 		var statKVLines []string
 		var statKeys []string
-		for k := range statsMap {
+		for k := range content.Stats {
 			statKeys = append(statKeys, k)
 		}
 		sort.Strings(statKeys)
 		for _, k := range statKeys {
-			// Values from GetStats are already formatted strings.
-			// k needs escaping if it contains special chars, statsMap[k] is already a formatted value string.
-			statKVLines = append(statKVLines, fmt.Sprintf("%s: %s", html.EscapeString(k), html.EscapeString(statsMap[k])))
+			statKVLines = append(statKVLines, fmt.Sprintf("%s: %s", escapeGraphvizHTMLLabelContent(k), escapeGraphvizHTMLLabelContent(content.Stats[k])))
 		}
 		statsAndSummaryPlainLines = append(statsAndSummaryPlainLines, statKVLines...)
 	}
 
-	summaryStr := n.GetExecutionSummary(param) // Already a formatted multi-line string (includes "execution_summary:" prefix and newlines)
-	if summaryStr != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(summaryStr, "\n"), "\n") {
-			// These lines are part of a pre-formatted block, but individual lines might contain chars needing escape.
+	if content.ExecutionSummary != "" {
+		for _, line := range strings.Split(strings.TrimSuffix(content.ExecutionSummary, "\n"), "\n") {
 			if line != "" {
-				statsAndSummaryPlainLines = append(statsAndSummaryPlainLines, line)
+				statsAndSummaryPlainLines = append(statsAndSummaryPlainLines, escapeGraphvizHTMLLabelContent(line))
 			}
 		}
 	}
-	// All lines in statsAndSummaryPlainLines are raw strings, toLeftAlignedText will escape them.
-	statsHTMLPart := markupIfNotEmpty(toLeftAlignedText(strings.Join(statsAndSummaryPlainLines, "\n")), "i")
+	// All lines in statsAndSummaryPlainLines are raw strings, toLeftAlignedTextGraphviz will escape them.
+	statsHTMLPart := markupIfNotEmpty(toLeftAlignedTextGraphviz(strings.Join(statsAndSummaryPlainLines, "\n")), "i")
 
 	if labelHTMLPart != "" && statsHTMLPart != "" {
 		// toLeftAlignedText appends <br align="left"/> if its input is not empty.
@@ -678,6 +661,14 @@ func toLeftAlignedText(str string) string {
 	}
 
 	return newlineOrEOSRe.ReplaceAllString(html.EscapeString(str), `<br align="left" />`)
+}
+
+func toLeftAlignedTextGraphviz(str string) string {
+	if str == "" {
+		return ""
+	}
+	// Escaping for Graphviz HTML labels (no single quotes escaped)
+	return newlineOrEOSRe.ReplaceAllString(escapeGraphvizHTMLLabelContent(str), `<br align="left" />`)
 }
 
 // tryToTimestampStr converts a string representation of a timestamp (seconds.microseconds)
@@ -865,10 +856,10 @@ func formatQueryNode(queryStats map[string]*structpb.Value, showQueryStats bool)
 	text := m[queryTextKey].GetStringValue()
 	delete(m, queryTextKey)
 	var buf strings.Builder
-	buf.WriteString(markupIfNotEmpty(toLeftAlignedText(text), "b"))
+	buf.WriteString(markupIfNotEmpty(toLeftAlignedTextGraphviz(text), "b"))
 	if showQueryStats {
 		statsStr := formatQueryStats(m)
-		buf.WriteString(markupIfNotEmpty(toLeftAlignedText(statsStr), "i"))
+		buf.WriteString(markupIfNotEmpty(toLeftAlignedTextGraphviz(statsStr), "i"))
 	}
 	return buf.String()
 }
