@@ -6,17 +6,19 @@ import (
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/apstndb/spannerplan"
-	"github.com/apstndb/spannerplanviz/option"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"github.com/apstndb/spannerplanviz/option"
 	// "sigs.k8s.io/yaml" // Removed as not used after Tooltip changes
 )
 
 func TestToLeftAlignedText(t *testing.T) {
 	tests := []struct {
-		name  string
-		input string
-		want  string
+		name      string
+		input     string
+		isMermaid bool
+		want      string
 	}{
 		{
 			name:  "empty string",
@@ -57,19 +59,19 @@ func TestToLeftAlignedText(t *testing.T) {
 
 func TestTreeNodeMermaidLabel(t *testing.T) {
 	testCases := []struct {
-		name               string
-		planNodeProto      *sppb.PlanNode
-		param              option.Options
-		rowType            *sppb.StructType
-		nodesForPlan       []*sppb.PlanNode // For setting up QueryPlan
+		name                 string
+		planNodeProto        *sppb.PlanNode
+		param                option.Options
+		rowType              *sppb.StructType
+		nodesForPlan         []*sppb.PlanNode // For setting up QueryPlan
 		expectedMermaidLabel string
 	}{
 		{
-			name: "Nil PlanNodeProto",
-			planNodeProto: nil,
-			param:         option.Options{},
-			rowType:       nil,
-			nodesForPlan:  []*sppb.PlanNode{},
+			name:                 "Nil PlanNodeProto",
+			planNodeProto:        nil,
+			param:                option.Options{TypeFlag: "mermaid"},
+			rowType:              nil,
+			nodesForPlan:         []*sppb.PlanNode{},
 			expectedMermaidLabel: "Error: nil planNodeProto", // Escaped by final ReplaceAll
 		},
 		{
@@ -78,9 +80,9 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 				Index:       0,
 				DisplayName: "Test Node",
 			},
-			param:              option.Options{},
-			rowType:            nil,
-			nodesForPlan:       []*sppb.PlanNode{{Index: 0, DisplayName: "Test Node"}},
+			param:                option.Options{TypeFlag: "mermaid"},
+			rowType:              nil,
+			nodesForPlan:         []*sppb.PlanNode{{Index: 0, DisplayName: "Test Node"}},
 			expectedMermaidLabel: "<b>Test Node</b>",
 		},
 		{
@@ -95,7 +97,7 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 					},
 				},
 			},
-			param: option.Options{Metadata: true}, // Ensure metadata is processed by GetMetadata
+			param:   option.Options{TypeFlag: "mermaid", Metadata: true}, // Ensure metadata is processed by GetMetadata
 			rowType: nil,
 			nodesForPlan: []*sppb.PlanNode{{
 				Index:       1,
@@ -122,7 +124,7 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 					},
 				},
 			},
-			param: option.Options{ExecutionStats: true}, // Ensure stats are processed
+			param:   option.Options{TypeFlag: "mermaid", ExecutionStats: true}, // Ensure stats are processed
 			rowType: nil,
 			nodesForPlan: []*sppb.PlanNode{{
 				Index:       2,
@@ -149,7 +151,7 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 					},
 				},
 			},
-			param: option.Options{HideScanTarget: false}, // Ensure ScanInfo is generated
+			param:   option.Options{TypeFlag: "mermaid", HideScanTarget: false}, // Ensure ScanInfo is generated
 			rowType: nil,
 			nodesForPlan: []*sppb.PlanNode{{
 				Index:       3,
@@ -179,7 +181,7 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 					{ChildIndex: 1, Type: ""},
 				},
 			},
-			param: option.Options{}, // SerializeResult is not gated by a top-level param in GetSerializeResultOutput
+			param: option.Options{TypeFlag: "mermaid"}, // SerializeResult is not gated by a top-level param in GetSerializeResultOutput
 			rowType: &sppb.StructType{
 				Fields: []*sppb.StructType_Field{
 					{Name: "userID", Type: &sppb.Type{Code: sppb.TypeCode_INT64}},
@@ -195,15 +197,15 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 				},
 				{ // Index 1 in the slice for spannerplan.New
 					Index: 100, // Original index
-					Kind: sppb.PlanNode_SCALAR, ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "U_ID"}},
+					Kind:  sppb.PlanNode_SCALAR, ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "U_ID"}},
 			},
 			expectedMermaidLabel: "<b>Serialize Result</b><br/>Result.userID:U_ID",
 		},
 		{
 			name: "Node with All Elements",
 			planNodeProto: &sppb.PlanNode{
-				Index:       5,
-				DisplayName: "Complex Node",
+				Index:               5,
+				DisplayName:         "Complex Node",
 				ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "SR: Complex"},
 				Metadata: &structpb.Struct{
 					Fields: map[string]*structpb.Value{
@@ -222,11 +224,11 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 					},
 				},
 			},
-			param: option.Options{Metadata: true, ExecutionStats: true, ExecutionSummary: true},
+			param:   option.Options{TypeFlag: "mermaid", Metadata: true, ExecutionStats: true, ExecutionSummary: true},
 			rowType: nil,
 			nodesForPlan: []*sppb.PlanNode{{
-				Index:       5,
-				DisplayName: "Complex Node",
+				Index:               5,
+				DisplayName:         "Complex Node",
 				ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "SR: Complex"},
 				Metadata: &structpb.Struct{
 					Fields: map[string]*structpb.Value{"meta_1": structpb.NewStringValue("val_1")},
@@ -243,18 +245,18 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 				},
 			}},
 			// Order: Title, ShortRep, (ScanInfo - N/A), (SerializeResult - N/A), (NonVarScalar - N/A), Meta, (VarScalar - N/A), Stats, ExecSummary
-			expectedMermaidLabel: "<b>Complex Node</b><br/>SR: Complex<br/>meta_1: val_1<br/><i>cpu_time: 5ms</i><br/><i>execution_summary:<br/>   num_executions: 10</i>",
+			expectedMermaidLabel: "<b>Complex Node</b><br/>SR: Complex<br/>meta_1: val_1<br/><i>cpu_time: 5ms</i><br/><i>execution_summary:<br/>&nbsp;&nbsp;&nbsp;num_executions: 10</i>",
 		},
 		{
 			name: "Node with quotes in content",
 			planNodeProto: &sppb.PlanNode{
-				Index:       6,
-				DisplayName: "Node \"With Quotes\"",
+				Index:               6,
+				DisplayName:         "Node \"With Quotes\"",
 				ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Description with \"quotes\" and `backticks`"},
 			},
-			param:              option.Options{},
-			rowType:            nil,
-			nodesForPlan:       []*sppb.PlanNode{{Index: 6, DisplayName: "Node \"With Quotes\"", ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Description with \"quotes\" and `backticks`"}}},
+			param:                option.Options{TypeFlag: "mermaid"},
+			rowType:              nil,
+			nodesForPlan:         []*sppb.PlanNode{{Index: 6, DisplayName: "Node \"With Quotes\"", ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Description with \"quotes\" and `backticks`"}}},
 			expectedMermaidLabel: "<b>Node #quot;With Quotes#quot;</b><br/>Description with #quot;quotes#quot; and #96;backticks#96;",
 		},
 	}
@@ -461,7 +463,7 @@ func TestTreeNodeHTML(t *testing.T) {
 				for i := 0; i < 6; i++ { // Dummy nodes for 0-5
 					nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: int32(i), DisplayName: fmt.Sprintf("Dummy %d", i)})
 				}
-				nodesForPlan = append(nodesForPlan, tc.planNodeProto) // Actual node at Index 6
+				nodesForPlan = append(nodesForPlan, tc.planNodeProto)                                        // Actual node at Index 6
 				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: 7, DisplayName: "Scalar Child 1"}) // Actual node at Index 7
 				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: 8, DisplayName: "Scalar Child 2"}) // Actual node at Index 8
 			case "Node with Variable Scalar Child Links":
@@ -472,9 +474,9 @@ func TestTreeNodeHTML(t *testing.T) {
 				}
 				nodesForPlan = append(nodesForPlan, tc.planNodeProto) // Actual node at Index 9
 				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{ // Actual Scalar Child for Var
-					Index:       10,
-					Kind:        sppb.PlanNode_SCALAR,
-					DisplayName: "ScalarFunc",
+					Index:               10,
+					Kind:                sppb.PlanNode_SCALAR,
+					DisplayName:         "ScalarFunc",
 					ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Scalar Output"},
 				})
 			default:

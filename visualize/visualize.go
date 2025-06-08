@@ -2,6 +2,7 @@ package visualize
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 
@@ -10,8 +11,6 @@ import (
 	"github.com/apstndb/spannerplanviz/option"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
-
-	"fmt"
 
 	"github.com/goccy/go-graphviz"
 	"github.com/goccy/go-graphviz/cgraph"
@@ -118,7 +117,7 @@ func renderGraph(graph *cgraph.Graph, rootNode *treeNode, qp *spannerplan.QueryP
 	showQueryStats := param.ShowQueryStats
 	needQueryNode := (param.ShowQuery || showQueryStats) && queryStats != nil
 	if needQueryNode {
-		err = renderQueryNodeWithEdge(graph, queryStats, showQueryStats, rootNode.GetName()) // Use GetName()
+		err = renderQueryNodeWithEdge(graph, queryStats, showQueryStats, rootNode.GetName(), param.TypeFlag == "mermaid") // Use GetName()
 		if err != nil {
 			return err
 		}
@@ -126,7 +125,7 @@ func renderGraph(graph *cgraph.Graph, rootNode *treeNode, qp *spannerplan.QueryP
 	return nil
 }
 
-func renderQueryNodeWithEdge(graph *cgraph.Graph, queryStats *sppb.ResultSetStats, showQueryStats bool, rootName string) error {
+func renderQueryNodeWithEdge(graph *cgraph.Graph, queryStats *sppb.ResultSetStats, showQueryStats bool, rootName string, isMermaid bool) error {
 	str := formatQueryNode(queryStats.GetQueryStats().GetFields(), showQueryStats)
 
 	n, err := renderQueryNode(graph, str)

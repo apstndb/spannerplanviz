@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"embed"
-
 	// "fmt" // Removing based on persistent build error
 	"os"
 	"path/filepath"
@@ -14,11 +13,12 @@ import (
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/apstndb/spannerplan"
-	"github.com/apstndb/spannerplanviz/option"
 	"github.com/goccy/go-graphviz"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"github.com/apstndb/spannerplanviz/option"
 )
 
 //go:embed testdata/*
@@ -261,6 +261,13 @@ func TestRenderMermaid(t *testing.T) {
 	}
 
 	expectedMermaidOutput := strings.Join([]string{
+		`%%{ init: {"theme": "default",
+           "themeVariables": { "wrap": "false" },
+           "flowchart": { "curve": "linear",
+                          "markdownAutoWrap":"false",
+                          "wrappingWidth": "600" }
+           }
+}%%`,
 		`graph TD`,
 		`    node0["<b>Union</b><br/><i>latency: 3ms</i><br/><i>rows: 20</i>"]`,
 		`    style node0 text-align:left;`,

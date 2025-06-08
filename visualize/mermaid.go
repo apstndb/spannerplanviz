@@ -3,18 +3,26 @@ package visualize
 import (
 	"fmt"
 	"io"
-
 	// "sort" // For stable output of map iteration - Removed as not used
 	"strings"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb" // For sppb.StructType
 	"github.com/apstndb/spannerplan"                   // For spannerplan.QueryPlan
-	"github.com/apstndb/spannerplanviz/option"         // For option.Options
 	"github.com/goccy/go-graphviz/cgraph"              // For EdgeStyle constants
+
+	"github.com/apstndb/spannerplanviz/option" // For option.Options
 )
 
 func renderMermaid(rootNode *treeNode, writer io.Writer, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) error {
 	var sb strings.Builder
+	sb.WriteString(`%%{ init: {"theme": "default",
+           "themeVariables": { "wrap": "false" },
+           "flowchart": { "curve": "linear",
+                          "markdownAutoWrap":"false",
+                          "wrappingWidth": "600" }
+           }
+}%%
+`)
 	sb.WriteString("graph TD\n") // Top-Down direction
 
 	renderedNodes := make(map[string]bool) // To track rendered nodes and avoid duplicates

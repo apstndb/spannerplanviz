@@ -391,7 +391,7 @@ func (n *treeNode) GetExecutionSummary(param option.Options) string {
 	if n.planNodeProto == nil || n.planNodeProto.GetExecutionStats() == nil {
 		return ""
 	}
-	return formatExecutionSummary(n.planNodeProto.GetExecutionStats().GetFields())
+	return formatExecutionSummary(n.planNodeProto.GetExecutionStats().GetFields(), param.TypeFlag == "mermaid")
 }
 
 // New Metadata() and HTML() methods using on-demand getters
@@ -617,7 +617,7 @@ func formatExecutionStats(executionStats *structpb.Struct, param option.Options)
 		statsBuf.WriteString(formatExecutionStatsWithoutSummary(executionStatsFields))
 	}
 	if param.ExecutionSummary {
-		statsBuf.WriteString(formatExecutionSummary(executionStatsFields))
+		statsBuf.WriteString(formatExecutionSummary(executionStatsFields, param.TypeFlag == "mermaid"))
 	}
 	return statsBuf.String()
 }
@@ -666,7 +666,7 @@ func formatMetadata(metadataFields map[string]*structpb.Value, hideMetadata []st
 	return metadataStr + "\n"
 }
 
-func formatExecutionSummary(executionStatsFields map[string]*structpb.Value) string {
+func formatExecutionSummary(executionStatsFields map[string]*structpb.Value, isMermaid bool) string {
 	if executionStatsFields == nil {
 		return ""
 	}
@@ -687,7 +687,11 @@ func formatExecutionSummary(executionStatsFields map[string]*structpb.Value) str
 			} else {
 				value = fmt.Sprint(v)
 			}
-			executionSummaryStrings = append(executionSummaryStrings, fmt.Sprintf("   %s: %s\n", k, value))
+			if isMermaid {
+				executionSummaryStrings = append(executionSummaryStrings, fmt.Sprintf("&nbsp;&nbsp;&nbsp;%s: %s\n", k, value))
+			} else {
+				executionSummaryStrings = append(executionSummaryStrings, fmt.Sprintf("   %s: %s\n", k, value))
+			}
 		}
 		sort.Strings(executionSummaryStrings)
 		fmt.Fprint(&executionSummaryBuf, strings.Join(executionSummaryStrings, ""))
@@ -701,6 +705,7 @@ func toLeftAlignedText(str string) string {
 	if str == "" {
 		return ""
 	}
+
 	return newlineOrEOSRe.ReplaceAllString(html.EscapeString(str), `<br align="left" />`)
 }
 
