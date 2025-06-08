@@ -72,9 +72,22 @@ func TestRenderImage(t *testing.T) {
     }
     expectedSVG := string(expectedSVGBytes)
 
+    if os.Getenv("UPDATE_GOLDEN_FILES") == "true" {
+        // This block is for updating the golden file if the env var is set.
+        // It assumes actualSVG holds the new correct content.
+        goldenSVGPath := "testdata/full.svg" // Define path for clarity
+        errWrite := os.WriteFile(goldenSVGPath, []byte(actualSVG), 0644)
+        if errWrite != nil {
+            t.Fatalf("Failed to write updated golden file %s: %v", goldenSVGPath, errWrite)
+        }
+        t.Logf("Successfully updated golden file %s. Please re-run tests without UPDATE_GOLDEN_FILES.", goldenSVGPath)
+        t.Fatalf("Golden file updated. Re-run tests.")
+    }
+
     if diff := cmp.Diff(strings.TrimSpace(expectedSVG), strings.TrimSpace(actualSVG)); diff != "" {
         t.Logf("SVG diff (-expected +actual):\n%s", diff)
         t.Errorf("Generated SVG does not match testdata/full.svg.")
+        // t.Skip("Skipping SVG diff check as golden file update is required due to scan type formatting changes.") // Remove skip
     }
 }
 
@@ -125,9 +138,21 @@ func TestRenderImage_WithQueryStats(t *testing.T) {
     }
     expectedSVG := string(expectedSVGBytes)
 
+    if os.Getenv("UPDATE_GOLDEN_FILES") == "true" {
+        // This block is for updating the golden file if the env var is set.
+        // It assumes actualSVG holds the new correct content.
+        errWrite := os.WriteFile(goldenSVGPath, []byte(actualSVG), 0644)
+        if errWrite != nil {
+            t.Fatalf("Failed to write updated golden file %s: %v", goldenSVGPath, errWrite)
+        }
+        t.Logf("Successfully updated golden file %s. Please re-run tests without UPDATE_GOLDEN_FILES.", goldenSVGPath)
+        t.Fatalf("Golden file updated. Re-run tests.")
+    }
+
     if diff := cmp.Diff(strings.TrimSpace(expectedSVG), strings.TrimSpace(actualSVG)); diff != "" {
         t.Logf("SVG diff (-expected +actual) for %s:\n%s", goldenSVGPath, diff)
         t.Errorf("Generated SVG does not match %s.", goldenSVGPath)
+        // t.Skipf("Skipping SVG diff check for %s as golden file update is required due to scan type formatting changes.", goldenSVGPath) // Remove skip
     }
 }
 
@@ -202,8 +227,8 @@ func TestRenderMermaid(t *testing.T) {
 		if n == nil {
 			return
 		}
-		// n.HTML() now requires param and rowType. rowType is nil in this test.
-		t.Logf("Node %s HTML: [%s]", n.Name, n.HTML(param, nil))
+		// n.HTML() now requires qp, param and rowType. rowType is nil in this test.
+		t.Logf("Node %s HTML: [%s]", n.GetName(), n.HTML(qp, param, nil))
 		for _, childLink := range n.Children {
 			logHTML(childLink.ChildNode)
 		}
@@ -236,9 +261,9 @@ func TestRenderMermaid(t *testing.T) {
 
 	expectedMermaidOutput := strings.Join([]string{
 		`graph TD`,
-		`    node0["<b>Union</b><br/>latency: 3ms<br/>rows: 20"]`,
-		`    node1["<b>Scan1</b><br/>latency: 2ms<br/>rows: 20"]`,
-		`    node2["<b>Scan2</b><br/>latency: 1ms<br/>rows: 10"]`,
+		`    node0["<b>Union</b><br/><i>latency: 3ms</i><br/><i>rows: 20</i>"]`,
+		`    node1["<b>Scan1</b><br/><i>latency: 2ms</i><br/><i>rows: 20</i>"]`,
+		`    node2["<b>Scan2</b><br/><i>latency: 1ms</i><br/><i>rows: 10</i>"]`,
 		`    node0 -->|Input| node1`,
 		`    node0 -->|Input| node2`,
 		``,
@@ -322,8 +347,10 @@ func TestRenderMermaid_TextContent(t *testing.T) {
         if err != nil {
             t.Fatalf("Failed to write golden file %s: %v", resolvedGoldenFilePath, err)
         }
-        t.Logf("Successfully updated golden file %s.", resolvedGoldenFilePath)
-        return
+        t.Logf("Successfully updated golden file %s. Please re-run tests without UPDATE_GOLDEN_FILES.", resolvedGoldenFilePath)
+        // Fail after updating to ensure the next run compares against the new golden file.
+        // Or use t.SkipNow() if preferred to not show as a "failure" during update runs.
+        t.Fatalf("Golden file updated. Re-run tests.")
     }
 
     // Read directly from filesystem for comparison.
@@ -337,5 +364,6 @@ func TestRenderMermaid_TextContent(t *testing.T) {
 
     if diff := cmp.Diff(expectedContent, actualContent); diff != "" {
         t.Errorf("Text content mismatch (-expected +actual) for %s:\n%s", goldenFilePath, diff)
+        // t.Skipf("Skipping text content diff check for %s as golden file update is required due to scan type formatting changes.", goldenFilePath) // Remove skip
     }
 }

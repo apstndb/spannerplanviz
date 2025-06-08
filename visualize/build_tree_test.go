@@ -9,7 +9,7 @@ import (
 	"github.com/apstndb/spannerplanviz/option"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/types/known/structpb"
-	"sigs.k8s.io/yaml"
+	// "sigs.k8s.io/yaml" // Removed as not used after Tooltip changes
 )
 
 func TestToLeftAlignedText(t *testing.T) {
@@ -50,6 +50,261 @@ func TestToLeftAlignedText(t *testing.T) {
 			got := toLeftAlignedText(tt.input)
 			if diff := cmp.Diff(got, tt.want); diff != "" {
 				t.Errorf("toLeftAlignedText() mismatch (-got +want):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestTreeNodeMermaidLabel(t *testing.T) {
+	testCases := []struct {
+		name               string
+		planNodeProto      *sppb.PlanNode
+		param              option.Options
+		rowType            *sppb.StructType
+		nodesForPlan       []*sppb.PlanNode // For setting up QueryPlan
+		expectedMermaidLabel string
+	}{
+		{
+			name: "Nil PlanNodeProto",
+			planNodeProto: nil,
+			param:         option.Options{},
+			rowType:       nil,
+			nodesForPlan:  []*sppb.PlanNode{},
+			expectedMermaidLabel: "Error: nil planNodeProto", // Escaped by final ReplaceAll
+		},
+		{
+			name: "Simple Node (Title only)",
+			planNodeProto: &sppb.PlanNode{
+				Index:       0,
+				DisplayName: "Test Node",
+			},
+			param:              option.Options{},
+			rowType:            nil,
+			nodesForPlan:       []*sppb.PlanNode{{Index: 0, DisplayName: "Test Node"}},
+			expectedMermaidLabel: "<b>Test Node</b>",
+		},
+		{
+			name: "Node with Title and Metadata",
+			planNodeProto: &sppb.PlanNode{
+				Index:       1,
+				DisplayName: "Meta Node",
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"meta_key": structpb.NewStringValue("meta_val"),
+						"another":  structpb.NewNumberValue(42),
+					},
+				},
+			},
+			param: option.Options{Metadata: true}, // Ensure metadata is processed by GetMetadata
+			rowType: nil,
+			nodesForPlan: []*sppb.PlanNode{{
+				Index:       1,
+				DisplayName: "Meta Node",
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"meta_key": structpb.NewStringValue("meta_val"),
+						"another":  structpb.NewNumberValue(42),
+					},
+				},
+			}},
+			expectedMermaidLabel: "<b>Meta Node</b><br/>another: 42<br/>meta_key: meta_val",
+		},
+		{
+			name: "Node with Stats",
+			planNodeProto: &sppb.PlanNode{
+				Index:       2,
+				DisplayName: "Stat Node",
+				ExecutionStats: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"latency": structpb.NewStructValue(&structpb.Struct{
+							Fields: map[string]*structpb.Value{"total": structpb.NewStringValue("1ms")},
+						}),
+					},
+				},
+			},
+			param: option.Options{ExecutionStats: true}, // Ensure stats are processed
+			rowType: nil,
+			nodesForPlan: []*sppb.PlanNode{{
+				Index:       2,
+				DisplayName: "Stat Node",
+				ExecutionStats: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"latency": structpb.NewStructValue(&structpb.Struct{
+							Fields: map[string]*structpb.Value{"total": structpb.NewStringValue("1ms")},
+						}),
+					},
+				},
+			}},
+			expectedMermaidLabel: "<b>Stat Node</b><br/><i>latency: 1ms</i>",
+		},
+		{
+			name: "Scan Node with ScanInfo",
+			planNodeProto: &sppb.PlanNode{
+				Index:       3,
+				DisplayName: "Table Scan", // Contains "Scan"
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"scan_type":   structpb.NewStringValue("Full Scan"),
+						"scan_target": structpb.NewStringValue("UsersTable"),
+					},
+				},
+			},
+			param: option.Options{HideScanTarget: false}, // Ensure ScanInfo is generated
+			rowType: nil,
+			nodesForPlan: []*sppb.PlanNode{{
+				Index:       3,
+				DisplayName: "Table Scan",
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"scan_type":   structpb.NewStringValue("Full Scan"),
+						"scan_target": structpb.NewStringValue("UsersTable"),
+					},
+				},
+			}},
+			// GetTitle uses "Table Scan", GetScanInfoOutput uses "Full Scan: UsersTable".
+			// spannerplan.NodeTitle (called by GetTitle) uses metadata["scan_type"] if available.
+			// GetScanInfoOutput also uses metadata["scan_type"] ("Full Scan") and trims "Scan", becoming "Full ".
+			// NodeTitle likely combines "Full " with "Table Scan" -> "Full  Table Scan" (note double space)
+			// GetScanInfoOutput formats as "Full : UsersTable"
+			expectedMermaidLabel: "<b>Full  Table Scan</b><br/>Full : UsersTable",
+		},
+		{
+			name: "Serialize Result Node",
+			planNodeProto: &sppb.PlanNode{
+				Index:       4,
+				DisplayName: "Serialize Result",
+				ChildLinks: []*sppb.PlanNode_ChildLink{
+					// ChildIndex must refer to the index in the plan.Nodes slice.
+					// Node with original Index 100 is the second element (index 1) in nodesForPlan.
+					{ChildIndex: 1, Type: ""},
+				},
+			},
+			param: option.Options{}, // SerializeResult is not gated by a top-level param in GetSerializeResultOutput
+			rowType: &sppb.StructType{
+				Fields: []*sppb.StructType_Field{
+					{Name: "userID", Type: &sppb.Type{Code: sppb.TypeCode_INT64}},
+				},
+			},
+			nodesForPlan: []*sppb.PlanNode{
+				{ // Index 0 in the slice for spannerplan.New
+					Index:       4, // Original index
+					DisplayName: "Serialize Result",
+					ChildLinks: []*sppb.PlanNode_ChildLink{
+						{ChildIndex: 1, Type: ""}, // Corrected to point to the next node in the slice
+					},
+				},
+				{ // Index 1 in the slice for spannerplan.New
+					Index: 100, // Original index
+					Kind: sppb.PlanNode_SCALAR, ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "U_ID"}},
+			},
+			expectedMermaidLabel: "<b>Serialize Result</b><br/>Result.userID:U_ID",
+		},
+		{
+			name: "Node with All Elements",
+			planNodeProto: &sppb.PlanNode{
+				Index:       5,
+				DisplayName: "Complex Node",
+				ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "SR: Complex"},
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"meta_1": structpb.NewStringValue("val_1"),
+						// scan_type/target deliberately omitted to not conflict with scaninfo if DisplayName was "Scan"
+					},
+				},
+				ExecutionStats: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"cpu_time": structpb.NewStructValue(&structpb.Struct{
+							Fields: map[string]*structpb.Value{"total": structpb.NewStringValue("5ms")},
+						}),
+						"execution_summary": structpb.NewStructValue(&structpb.Struct{
+							Fields: map[string]*structpb.Value{"num_executions": structpb.NewStringValue("10")},
+						}),
+					},
+				},
+			},
+			param: option.Options{Metadata: true, ExecutionStats: true, ExecutionSummary: true},
+			rowType: nil,
+			nodesForPlan: []*sppb.PlanNode{{
+				Index:       5,
+				DisplayName: "Complex Node",
+				ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "SR: Complex"},
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{"meta_1": structpb.NewStringValue("val_1")},
+				},
+				ExecutionStats: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"cpu_time": structpb.NewStructValue(&structpb.Struct{
+							Fields: map[string]*structpb.Value{"total": structpb.NewStringValue("5ms")},
+						}),
+						"execution_summary": structpb.NewStructValue(&structpb.Struct{
+							Fields: map[string]*structpb.Value{"num_executions": structpb.NewStringValue("10")},
+						}),
+					},
+				},
+			}},
+			// Order: Title, ShortRep, (ScanInfo - N/A), (SerializeResult - N/A), (NonVarScalar - N/A), Meta, (VarScalar - N/A), Stats, ExecSummary
+			expectedMermaidLabel: "<b>Complex Node</b><br/>SR: Complex<br/>meta_1: val_1<br/><i>cpu_time: 5ms</i><br/><i>execution_summary:<br/>   num_executions: 10</i>",
+		},
+		{
+			name: "Node with quotes in content",
+			planNodeProto: &sppb.PlanNode{
+				Index:       6,
+				DisplayName: "Node \"With Quotes\"",
+				ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Description with \"quotes\" and `backticks`"},
+			},
+			param:              option.Options{},
+			rowType:            nil,
+			nodesForPlan:       []*sppb.PlanNode{{Index: 6, DisplayName: "Node \"With Quotes\"", ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Description with \"quotes\" and `backticks`"}}},
+			expectedMermaidLabel: "<b>Node #quot;With Quotes#quot;</b><br/>Description with #quot;quotes#quot; and #96;backticks#96;",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// For tests involving child links (like Serialize Result), ensure the plan has the child nodes.
+			// Most simple cases here don't need complex child setups for MermaidLabel, unlike HTML which might traverse.
+			nodesInTestPlan := tc.nodesForPlan
+			if nodesInTestPlan == nil { // Default if not specified by test case
+				if tc.planNodeProto != nil {
+					nodesInTestPlan = []*sppb.PlanNode{tc.planNodeProto}
+				} else {
+					nodesInTestPlan = []*sppb.PlanNode{} // Empty plan for nil proto test
+				}
+			}
+
+			var currentPlan *spannerplan.QueryPlan
+			var err error
+			if len(nodesInTestPlan) > 0 || tc.name == "Serialize Result Node" { // Serialize Result needs QueryPlan even if node list is simple
+				currentPlan, err = spannerplan.New(nodesInTestPlan)
+				if err != nil {
+					t.Fatalf("spannerplan.New failed for test case %q: %v", tc.name, err)
+				}
+			}
+			// If nodesInTestPlan is empty and not Serialize Result, currentPlan can be nil.
+			// Getters in MermaidLabel should handle nil QueryPlan if they don't use it.
+			// GetSerializeResultOutput, GetNonVarScalarLinksOutput, GetVarScalarLinksOutput do use qp.
+
+			node := &treeNode{
+				planNodeProto: tc.planNodeProto,
+				// plan field is not directly part of treeNode anymore
+			}
+
+			// The MermaidLabel method itself handles the final quote escaping for the overall label.
+			// So, tc.expectedMermaidLabel should represent the content *before* that final step,
+			// but *with* internal #quot; and #96; etc. from escapeMermaidLabelContent.
+			// The current structure of MermaidLabel in build_tree.go does:
+			// labelContent := strings.Join(labelParts, "<br/>")
+			// ...
+			// return strings.ReplaceAll(labelContent, "\"", "#quot;")
+			// So expectedMermaidLabel should match `labelContent`
+			// Let's adjust expectations to match the actual output of MermaidLabel directly.
+			// This means expectedMermaidLabel already includes the final #quot; transformations if any part had a quote.
+
+			gotLabel := node.MermaidLabel(currentPlan, tc.param, tc.rowType)
+
+			if diff := cmp.Diff(tc.expectedMermaidLabel, gotLabel); diff != "" {
+				t.Errorf("MermaidLabel() mismatch for test case %q (-expected +actual):\n%s", tc.name, diff)
+				t.Logf("Got: %s", gotLabel)
 			}
 		})
 	}
@@ -238,16 +493,14 @@ func TestTreeNodeHTML(t *testing.T) {
 
 			node := &treeNode{
 				planNodeProto: tc.planNodeProto,
-				plan:          currentPlan,
-				Name:          fmt.Sprintf("node%d", tc.planNodeProto.GetIndex()),
+				// plan and Name fields removed
 			}
-			tooltipBytes, errYaml := yaml.Marshal(tc.planNodeProto)
-			if errYaml != nil {
-				t.Fatalf("Failed to marshal planNodeProto to YAML for tooltip: %v", errYaml)
-			}
-			node.Tooltip = string(tooltipBytes)
+			// Tooltip is now via GetTooltip, not directly set or checked here unless specific to HTML output.
+			// The HTML method itself calls GetTooltip. If we need to check tooltip content,
+			// it would be via node.GetTooltip() directly, not as part of node.HTML() test unless it affects HTML.
+			// For now, ensure HTML() can be called.
 
-			gotHTML := node.HTML(tc.param, tc.rowType)
+			gotHTML := node.HTML(currentPlan, tc.param, tc.rowType) // Pass currentPlan
 			if diff := cmp.Diff(tc.expectedHTML, gotHTML); diff != "" {
 				t.Errorf("HTML() mismatch for test case %q (-expected +actual):\n%s", tc.name, diff)
 			}

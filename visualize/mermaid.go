@@ -3,7 +3,7 @@ package visualize
 import (
 	"fmt"
 	"io"
-	"sort" // For stable output of map iteration
+	// "sort" // For stable output of map iteration - Removed as not used
 	"strings"
 
 	"github.com/goccy/go-graphviz/cgraph" // For EdgeStyle constants

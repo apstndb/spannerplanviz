@@ -64,9 +64,9 @@ NonVarScalarLink: Residual Condition: ($SongName LIKE 'Th%e')
 NonVarScalarLink: Seek Condition: ($SingerId_1 = $batched_SingerId)
 NonVarScalarLink: Split Range: ($SingerId_1 = $SingerId)
 NonVarScalarLink: Split Range: true
-ScanInfo: BatchScan: $v2
-ScanInfo: TableScan: Singers
-ScanInfo: TableScan: Songs
+ScanInfo: Batch: $v2
+ScanInfo: Table: Singers
+ScanInfo: Table: Songs
 SerializeResult: Result.AlbumId:$AlbumId
 SerializeResult: Result.BirthDate:$batched_BirthDate
 SerializeResult: Result.Duration:$Duration

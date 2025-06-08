@@ -53,9 +53,9 @@ type link struct {
 }
 
 func renderEdge(graph *cgraph.Graph, parent *treeNode, edge *link) error {
-	gvChildNode, err := graph.NodeByName(edge.ChildNode.Name)
+	gvChildNode, err := graph.NodeByName(edge.ChildNode.GetName())
 	if err != nil { return err }
-	gvNode, err := graph.NodeByName(parent.Name)
+	gvNode, err := graph.NodeByName(parent.GetName())
 	if err != nil { return err }
 	ed, err := graph.CreateEdgeByName("", gvChildNode, gvNode)
 	if err != nil { return err }
@@ -348,9 +348,9 @@ func (n *treeNode) GetExecutionSummary(param option.Options) string {
 }
 
 // New Metadata() and HTML() methods using on-demand getters
-func (n *treeNode) Metadata(param option.Options, rowType *sppb.StructType) string {
+func (n *treeNode) Metadata(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
     var labelLines []string
-    if sro := n.GetSerializeResultOutput(param, rowType); sro != "" {
+    if sro := n.GetSerializeResultOutput(qp, param, rowType); sro != "" {
         for _, line := range strings.Split(strings.TrimSuffix(sro, "\n"), "\n") {
             if line != "" { labelLines = append(labelLines, line) }
         }
@@ -370,7 +370,7 @@ func (n *treeNode) Metadata(param option.Options, rowType *sppb.StructType) stri
         }
     }
 
-    if nvsl := n.GetNonVarScalarLinksOutput(param); nvsl != "" {
+    if nvsl := n.GetNonVarScalarLinksOutput(qp, param); nvsl != "" {
         for _, line := range strings.Split(strings.TrimSuffix(nvsl, "\n"), "\n") {
             if line != "" { labelLines = append(labelLines, line) }
         }
@@ -391,7 +391,7 @@ func (n *treeNode) Metadata(param option.Options, rowType *sppb.StructType) stri
         labelLines = append(labelLines, metaKVLines...)
     }
 
-    if vsl := n.GetVarScalarLinksOutput(param); vsl != "" {
+    if vsl := n.GetVarScalarLinksOutput(qp, param); vsl != "" {
         for _, line := range strings.Split(strings.TrimSuffix(vsl, "\n"), "\n") {
             if line != "" { labelLines = append(labelLines, line) }
         }
@@ -437,17 +437,17 @@ func (n *treeNode) Metadata(param option.Options, rowType *sppb.StructType) stri
     return statsHTMLPart
 }
 
-func (n *treeNode) HTML(param option.Options, rowType *sppb.StructType) string {
+func (n *treeNode) HTML(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
     titleHTML := ""
     if t := n.GetTitle(param); t != "" {
         // n.GetTitle calls spannerplan.NodeTitle which already HTML escapes its content.
         titleHTML = markupIfNotEmpty(t, "b")
     }
 
-    metadataHTML := n.Metadata(param, rowType)
+    metadataHTML := n.Metadata(qp, param, rowType)
 
     if titleHTML == "" && metadataHTML == "" {
-        return html.EscapeString(n.Name)
+        return html.EscapeString(n.GetName())
     }
     if titleHTML == "" {
         return metadataHTML
@@ -747,13 +747,13 @@ func formatNodeContentAsText(node *treeNode, qp *spannerplan.QueryPlan, param op
 		content = append(content, fmt.Sprintf("ScanInfo: %s", si))
 	}
 
-	if sro := node.GetSerializeResultOutput(param, rowType); sro != "" {
+	if sro := node.GetSerializeResultOutput(qp, param, rowType); sro != "" {
 		for _, line := range strings.Split(strings.TrimSuffix(sro, "\n"), "\n") {
 			if line != "" { content = append(content, fmt.Sprintf("SerializeResult: %s", line)) }
 		}
 	}
 
-	if nvsl := node.GetNonVarScalarLinksOutput(param); nvsl != "" {
+	if nvsl := node.GetNonVarScalarLinksOutput(qp, param); nvsl != "" {
 		for _, line := range strings.Split(strings.TrimSuffix(nvsl, "\n"), "\n") {
 			if line != "" { content = append(content, fmt.Sprintf("NonVarScalarLink: %s", line)) }
 		}
@@ -766,7 +766,7 @@ func formatNodeContentAsText(node *treeNode, qp *spannerplan.QueryPlan, param op
 		sort.Strings(metaLines); content = append(content, metaLines...)
 	}
 
-	if vsl := node.GetVarScalarLinksOutput(param); vsl != "" {
+	if vsl := node.GetVarScalarLinksOutput(qp, param); vsl != "" {
 		for _, line := range strings.Split(strings.TrimSuffix(vsl, "\n"), "\n") {
 			if line != "" { content = append(content, fmt.Sprintf("VarScalarLink: %s", line)) }
 		}

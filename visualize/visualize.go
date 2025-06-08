@@ -67,7 +67,7 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 
 	// 2. Fork based on TypeFlag
 	if param.TypeFlag == "mermaid" {
-		return renderMermaid(rootNode, writer, param, rowType)
+		return renderMermaid(rootNode, writer, qp, param, rowType)
 	}
 
 	// 3. Graphviz path
@@ -96,7 +96,7 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 
 	// Call renderGraph directly with rootNode
 	// renderGraph internally handles setting RankDir, rendering the tree, and adding the query node if needed.
-	err = renderGraph(graph, rootNode, param, queryStats, rowType) // Added rowType
+	err = renderGraph(graph, rootNode, qp, param, queryStats, rowType) // Pass qp
 	if err != nil {
 		return fmt.Errorf("failed to render graph content: %w", err) // Wrap error from renderGraph
 	}
@@ -104,9 +104,10 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 	return g.Render(ctx, graph, format, writer)
 }
 
-func renderGraph(graph *cgraph.Graph, rootNode *treeNode, param option.Options, queryStats *sppb.ResultSetStats, rowType *sppb.StructType) error { // Added rowType
+// renderGraph now accepts QueryPlan (qp)
+func renderGraph(graph *cgraph.Graph, rootNode *treeNode, qp *spannerplan.QueryPlan, param option.Options, queryStats *sppb.ResultSetStats, rowType *sppb.StructType) error {
 	graph.SetRankDir(cgraph.BTRank)
-	err := renderTree(graph, rootNode, param, rowType) // Pass param, rowType
+	err := renderTree(graph, rootNode, qp, param, rowType) // Pass qp
 	if err != nil {
 		return err
 	}
@@ -114,7 +115,7 @@ func renderGraph(graph *cgraph.Graph, rootNode *treeNode, param option.Options, 
 	showQueryStats := param.ShowQueryStats
 	needQueryNode := (param.ShowQuery || showQueryStats) && queryStats != nil
 	if needQueryNode {
-		err = renderQueryNodeWithEdge(graph, queryStats, showQueryStats, rootNode.Name)
+		err = renderQueryNodeWithEdge(graph, queryStats, showQueryStats, rootNode.GetName()) // Use GetName()
 		if err != nil {
 			return err
 		}
@@ -142,14 +143,15 @@ func renderQueryNodeWithEdge(graph *cgraph.Graph, queryStats *sppb.ResultSetStat
 	return nil
 }
 
-func renderTree(graph *cgraph.Graph, node *treeNode, param option.Options, rowType *sppb.StructType) error { // Signature already updated by previous diff, this is for context
-	err := renderNode(graph, node, param, rowType) // Pass param, rowType
+// renderTree now accepts QueryPlan (qp)
+func renderTree(graph *cgraph.Graph, node *treeNode, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) error {
+	err := renderNode(graph, node, qp, param, rowType) // Pass qp
 	if err != nil {
 		return err
 	}
 
 	for _, child := range node.Children {
-		if err := renderTree(graph, child.ChildNode, param, rowType); err != nil { // Pass param, rowType
+		if err := renderTree(graph, child.ChildNode, qp, param, rowType); err != nil { // Pass qp
 			return err
 		}
 
@@ -161,16 +163,24 @@ func renderTree(graph *cgraph.Graph, node *treeNode, param option.Options, rowTy
 	return nil
 }
 
-func renderNode(graph *cgraph.Graph, node *treeNode, param option.Options, rowType *sppb.StructType) error { // Add param, rowType
-	n, err := graph.CreateNodeByName(node.Name)
+// renderNode now accepts QueryPlan (qp)
+func renderNode(graph *cgraph.Graph, node *treeNode, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) error {
+	n, err := graph.CreateNodeByName(node.GetName()) // Use GetName()
 	if err != nil {
 		return err
 	}
 
 	n.SetShape(cgraph.BoxShape)
-	n.SetTooltip(node.Tooltip)
+	tooltipStr, ttErr := node.GetTooltip()
+	if ttErr != nil {
+		// Log error or use a default tooltip string if desired
+		tooltipStr = "Error generating tooltip"
+		log.Printf("Error getting tooltip for node %s: %v", node.GetName(), ttErr)
+	}
+	n.SetTooltip(tooltipStr)
 
-	nodeHTML, err := graph.StrdupHTML(node.HTML(param, rowType)) // Call with param, rowType
+	nodeHTMLStr := node.HTML(qp, param, rowType) // Pass qp
+	nodeHTML, err := graph.StrdupHTML(nodeHTMLStr)
 	if err != nil {
 		return err
 	}
