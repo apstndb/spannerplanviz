@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"embed"
+
 	// "fmt" // Removing based on persistent build error
 	"os"
 	"path/filepath"
@@ -311,6 +312,7 @@ func TestRenderMermaid_TextContent(t *testing.T) {
 
 	// 2. Build the treeNode structure
 	param := option.Options{Full: true}
+	param.ApplyFullOption()
 
 	qp, err := spannerplan.New(statsToProcess.GetQueryPlan().GetPlanNodes())
 	if err != nil {

@@ -161,7 +161,7 @@ func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options,
 		// A more robust check might involve looking at metadataFields["scan_type"] presence.
 		// For now, using DisplayName as a proxy.
 		isScanNode := n.planNodeProto.GetDisplayName() == "Scan" || strings.Contains(n.planNodeProto.GetDisplayName(), "Scan")
-		if !(isScanNode && si == sr && sr != "") {
+		if !isScanNode || si != sr || sr == "" {
 			labelParts = append(labelParts, escapeMermaidLabelContent(si))
 		} else if !isScanNode { // If not a scan node, always add scan info if it exists (though unlikely)
 			labelParts = append(labelParts, escapeMermaidLabelContent(si))
@@ -358,7 +358,7 @@ func (n *treeNode) GetMetadata(param option.Options) map[string]string {
 
 func (n *treeNode) GetStats(param option.Options) map[string]string {
 	statsMap := make(map[string]string)
-	if n.planNodeProto == nil || n.planNodeProto.GetExecutionStats() == nil {
+	if n.planNodeProto == nil || n.planNodeProto.GetExecutionStats() == nil || !param.ExecutionStats {
 		return statsMap
 	}
 
@@ -412,7 +412,7 @@ func (n *treeNode) Metadata(qp *spannerplan.QueryPlan, param option.Options, row
 	isScanNode := n.planNodeProto != nil && n.planNodeProto.GetDisplayName() == "Scan"
 
 	if currentShortRep != "" {
-		if !(isScanNode && currentShortRep == n.GetScanInfoOutput(param)) {
+		if !isScanNode || currentShortRep != n.GetScanInfoOutput(param) {
 			labelLines = append(labelLines, currentShortRep)
 		} else if !isScanNode {
 			labelLines = append(labelLines, currentShortRep)
@@ -576,65 +576,6 @@ func buildNode(rowType *sppb.StructType, planNode *sppb.PlanNode, queryPlan *spa
 	return &treeNode{
 		planNodeProto: planNode,
 	}, nil
-}
-
-func formatNodeLabel(planNode *sppb.PlanNode, queryPlan *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
-	var sb strings.Builder
-	childLinks := getNonVariableChildLinks(queryPlan, planNode)
-	if param.SerializeResult && planNode.DisplayName == "Serialize Result" && rowType != nil {
-		sb.WriteString(formatSerializeResult(rowType, childLinks))
-	}
-	metadataFields := planNode.GetMetadata().GetFields()
-	if !param.HideScanTarget && planNode.GetDisplayName() == "Scan" {
-		scanTypeVal, okType := metadataFields["scan_type"]
-		scanTargetVal, okTarget := metadataFields["scan_target"]
-		if okType && okTarget {
-			scanType := strings.TrimSuffix(scanTypeVal.GetStringValue(), "Scan")
-			scanTarget := scanTargetVal.GetStringValue()
-			s := fmt.Sprintf("%s: %s\n", scanType, scanTarget)
-			sb.WriteString(s)
-		}
-	}
-	if param.NonVariableScalar {
-		sb.WriteString(formatChildLinks(childLinks))
-	}
-	if param.Metadata {
-		// Pass n.plan and n.planNodeProto if formatMetadata needs them,
-		// or ensure formatMetadata is self-contained or gets data from params.
-		// Original formatMetadata only needed metadataFields and hideMetadata list.
-		sb.WriteString(formatMetadata(metadataFields, param.HideMetadata))
-	}
-	if param.VariableScalar {
-		sb.WriteString(formatChildLinks(getVariableChildLinks(queryPlan, planNode)))
-	}
-	return sb.String()
-}
-
-func formatExecutionStats(executionStats *structpb.Struct, param option.Options) string {
-	var statsBuf bytes.Buffer
-	executionStatsFields := executionStats.GetFields()
-	if param.ExecutionStats {
-		statsBuf.WriteString(formatExecutionStatsWithoutSummary(executionStatsFields))
-	}
-	if param.ExecutionSummary {
-		statsBuf.WriteString(formatExecutionSummary(executionStatsFields, param.TypeFlag == "mermaid"))
-	}
-	return statsBuf.String()
-}
-
-func formatExecutionStatsWithoutSummary(executionStatsFields map[string]*structpb.Value) string {
-	var statsStrings []string
-	if executionStatsFields == nil {
-		return ""
-	}
-	for k, v := range executionStatsFields {
-		if k == "execution_summary" {
-			continue
-		}
-		statsStrings = append(statsStrings, fmt.Sprintf("%s: %s\n", k, formatExecutionStatsValue(v)))
-	}
-	sort.Strings(statsStrings)
-	return strings.Join(statsStrings, "")
 }
 
 // internalMetadataKeys lists metadata keys that are considered internal

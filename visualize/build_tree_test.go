@@ -473,7 +473,7 @@ func TestTreeNodeHTML(t *testing.T) {
 					nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: int32(i), DisplayName: fmt.Sprintf("Dummy %d", i)})
 				}
 				nodesForPlan = append(nodesForPlan, tc.planNodeProto) // Actual node at Index 9
-				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{ // Actual Scalar Child for Var
+				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{   // Actual Scalar Child for Var
 					Index:               10,
 					Kind:                sppb.PlanNode_SCALAR,
 					DisplayName:         "ScalarFunc",
@@ -816,6 +816,59 @@ func TestFormatMetadata(t *testing.T) {
 			got := formatMetadata(tt.input, tt.hideMetadata)
 			if diff := cmp.Diff(got, tt.want); diff != "" {
 				t.Errorf("formatMetadata() mismatch (-got +want):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestTreeNodeGetStats(t *testing.T) {
+	tests := []struct {
+		name     string
+		planNode *sppb.PlanNode
+		param    option.Options
+		want     map[string]string
+	}{
+		{
+			name: "Node with stats",
+			planNode: &sppb.PlanNode{
+				ExecutionStats: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"cpu_time": structpb.NewStructValue(&structpb.Struct{
+							Fields: map[string]*structpb.Value{"total": structpb.NewStringValue("10ms")},
+						}),
+						"rows_returned": structpb.NewStructValue(&structpb.Struct{
+							Fields: map[string]*structpb.Value{"total": structpb.NewStringValue("100")},
+						}),
+						"execution_summary": structpb.NewStringValue("summary_text"), // Should be ignored
+					},
+				},
+			},
+			param: option.Options{ExecutionStats: true},
+			want: map[string]string{
+				"cpu_time":      "10ms",
+				"rows_returned": "100",
+			},
+		},
+		{
+			name:     "Node with no stats",
+			planNode: &sppb.PlanNode{},
+			param:    option.Options{},
+			want:     map[string]string{},
+		},
+		{
+			name:     "Nil plan node",
+			planNode: nil,
+			param:    option.Options{},
+			want:     map[string]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			node := &treeNode{planNodeProto: tt.planNode}
+			got := node.GetStats(tt.param)
+			if diff := cmp.Diff(got, tt.want); diff != "" {
+				t.Errorf("GetStats() mismatch (-got +want):\n%s", diff)
 			}
 		})
 	}
