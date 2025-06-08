@@ -19,12 +19,6 @@ import (
 func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, format graphviz.Format, writer io.Writer, param option.Options) error {
 	if queryStats == nil || queryStats.GetQueryPlan() == nil {
 		// This handles cases where the input stats or the plan itself is fundamentally missing.
-		if param.TypeFlag == "mermaid" {
-			if _, err := writer.Write([]byte("graph TD\n")); err != nil {
-				return fmt.Errorf("failed to write empty mermaid graph for nil plan: %w", err)
-			}
-			return nil
-		}
 		return fmt.Errorf("cannot render image: queryStats or queryPlan is nil")
 	}
 
@@ -33,14 +27,6 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 	// spannerplan.New is expected to handle this (e.g., return an error or an "empty" QueryPlan object).
 	qp, err := spannerplan.New(queryStats.GetQueryPlan().GetPlanNodes())
 	if err != nil {
-		// If spannerplan.New errors (e.g., it considers empty PlanNodes an error, or plan is malformed)
-		if param.TypeFlag == "mermaid" {
-			// Output an empty Mermaid graph on QueryPlan creation failure.
-			if _, writeErr := writer.Write([]byte("graph TD\n")); writeErr != nil {
-				return fmt.Errorf("failed to write empty mermaid graph after QueryPlan error: %w (original error: %v)", writeErr, err)
-			}
-			return nil
-		}
 		return fmt.Errorf("failed to create QueryPlan: %w", err)
 	}
 
@@ -49,13 +35,6 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 	// it implies the plan is empty or has no node at index 0 (which is assumed to be the root).
 	physicalRootNode := qp.GetNodeByIndex(0)
 	if physicalRootNode == nil {
-		if param.TypeFlag == "mermaid" {
-			if _, err := writer.Write([]byte("graph TD\n")); err != nil {
-				return fmt.Errorf("failed to write empty mermaid graph (root node is nil): %w", err)
-			}
-			return nil
-		}
-		// For non-Mermaid, if physicalRootNode is nil, it means no drawable plan.
 		return fmt.Errorf("cannot render image: query plan has no actionable root node (e.g., empty or rootless)")
 	}
 
