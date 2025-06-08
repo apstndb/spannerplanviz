@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"embed"
+
 	// "fmt" // Removing based on persistent build error
 	"os"
 	"path/filepath"
@@ -24,136 +25,136 @@ import (
 var testdataFS embed.FS
 
 func TestRenderImage(t *testing.T) {
-    // 1. Read dca_profile.json
-    jsonBytes, err := testdataFS.ReadFile("testdata/dca_profile.json")
-    if err != nil {
-        t.Fatalf("Failed to read dca_profile.json from embed.FS: %v", err)
-    }
+	// 1. Read dca_profile.json
+	jsonBytes, err := testdataFS.ReadFile("testdata/dca_profile.json")
+	if err != nil {
+		t.Fatalf("Failed to read dca_profile.json from embed.FS: %v", err)
+	}
 
-    // 2. Unmarshal into sppb.ResultSet
-    var resultSet sppb.ResultSet
-    unmarshalOpts := protojson.UnmarshalOptions{DiscardUnknown: true}
-    err = unmarshalOpts.Unmarshal(jsonBytes, &resultSet)
-    if err != nil {
-        t.Fatalf("Failed to unmarshal dca_profile.json into sppb.ResultSet: %v", err)
-    }
+	// 2. Unmarshal into sppb.ResultSet
+	var resultSet sppb.ResultSet
+	unmarshalOpts := protojson.UnmarshalOptions{DiscardUnknown: true}
+	err = unmarshalOpts.Unmarshal(jsonBytes, &resultSet)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal dca_profile.json into sppb.ResultSet: %v", err)
+	}
 
-    // 3. Extract stats and rowType
-    statsToRender := resultSet.GetStats()
-    rowTypeToRender := resultSet.GetMetadata().GetRowType()
+	// 3. Extract stats and rowType
+	statsToRender := resultSet.GetStats()
+	rowTypeToRender := resultSet.GetMetadata().GetRowType()
 
-    if statsToRender == nil || statsToRender.GetQueryPlan() == nil || len(statsToRender.GetQueryPlan().GetPlanNodes()) == 0 {
-        t.Fatalf("dca_profile.json (via ResultSet.Stats) does not contain any plan nodes.")
-    }
+	if statsToRender == nil || statsToRender.GetQueryPlan() == nil || len(statsToRender.GetQueryPlan().GetPlanNodes()) == 0 {
+		t.Fatalf("dca_profile.json (via ResultSet.Stats) does not contain any plan nodes.")
+	}
 
-    param := option.Options{
-        TypeFlag:          "svg",
-        Full:              true,
-        NonVariableScalar: true,
-        VariableScalar:    true,
-        Metadata:          true,
-        ExecutionStats:    true,
-        ExecutionSummary:  true,
-        SerializeResult:   true,
-        ShowQuery:         false,
-        ShowQueryStats:    false,
-    }
+	param := option.Options{
+		TypeFlag:          "svg",
+		Full:              true,
+		NonVariableScalar: true,
+		VariableScalar:    true,
+		Metadata:          true,
+		ExecutionStats:    true,
+		ExecutionSummary:  true,
+		SerializeResult:   true,
+		ShowQuery:         false,
+		ShowQueryStats:    false,
+	}
 
-    var buf bytes.Buffer
-    err = RenderImage(context.Background(), rowTypeToRender, statsToRender, graphviz.SVG, &buf, param)
-    if err != nil {
-        t.Fatalf("RenderImage failed: %v", err)
-    }
-    actualSVG := buf.String()
+	var buf bytes.Buffer
+	err = RenderImage(context.Background(), rowTypeToRender, statsToRender, graphviz.SVG, &buf, param)
+	if err != nil {
+		t.Fatalf("RenderImage failed: %v", err)
+	}
+	actualSVG := buf.String()
 
-    expectedSVGBytes, err := testdataFS.ReadFile("testdata/full.svg")
-    if err != nil {
-        t.Fatalf("Failed to read testdata/full.svg from embed.FS: %v", err)
-    }
-    expectedSVG := string(expectedSVGBytes)
+	expectedSVGBytes, err := testdataFS.ReadFile("testdata/full.svg")
+	if err != nil {
+		t.Fatalf("Failed to read testdata/full.svg from embed.FS: %v", err)
+	}
+	expectedSVG := string(expectedSVGBytes)
 
-    if os.Getenv("UPDATE_GOLDEN_FILES") == "true" {
-        // This block is for updating the golden file if the env var is set.
-        // It assumes actualSVG holds the new correct content.
-        goldenSVGPath := "testdata/full.svg" // Define path for clarity
-        errWrite := os.WriteFile(goldenSVGPath, []byte(actualSVG), 0644)
-        if errWrite != nil {
-            t.Fatalf("Failed to write updated golden file %s: %v", goldenSVGPath, errWrite)
-        }
-        t.Logf("Successfully updated golden file %s. Please re-run tests without UPDATE_GOLDEN_FILES.", goldenSVGPath)
-        t.Fatalf("Golden file updated. Re-run tests.")
-    }
+	if os.Getenv("UPDATE_GOLDEN_FILES") == "true" {
+		// This block is for updating the golden file if the env var is set.
+		// It assumes actualSVG holds the new correct content.
+		goldenSVGPath := "testdata/full.svg" // Define path for clarity
+		errWrite := os.WriteFile(goldenSVGPath, []byte(actualSVG), 0644)
+		if errWrite != nil {
+			t.Fatalf("Failed to write updated golden file %s: %v", goldenSVGPath, errWrite)
+		}
+		t.Logf("Successfully updated golden file %s. Please re-run tests without UPDATE_GOLDEN_FILES.", goldenSVGPath)
+		t.Fatalf("Golden file updated. Re-run tests.")
+	}
 
-    if diff := cmp.Diff(strings.TrimSpace(expectedSVG), strings.TrimSpace(actualSVG)); diff != "" {
-        t.Logf("SVG diff (-expected +actual):\n%s", diff)
-        t.Errorf("Generated SVG does not match testdata/full.svg.")
-        // t.Skip("Skipping SVG diff check as golden file update is required due to scan type formatting changes.") // Remove skip
-    }
+	if diff := cmp.Diff(strings.TrimSpace(expectedSVG), strings.TrimSpace(actualSVG)); diff != "" {
+		t.Logf("SVG diff (-expected +actual):\n%s", diff)
+		t.Errorf("Generated SVG does not match testdata/full.svg.")
+		// t.Skip("Skipping SVG diff check as golden file update is required due to scan type formatting changes.") // Remove skip
+	}
 }
 
 func TestRenderImage_WithQueryStats(t *testing.T) {
-    jsonBytes, err := testdataFS.ReadFile("testdata/dca_profile.json")
-    if err != nil {
-        t.Fatalf("Failed to read dca_profile.json from embed.FS: %v", err)
-    }
+	jsonBytes, err := testdataFS.ReadFile("testdata/dca_profile.json")
+	if err != nil {
+		t.Fatalf("Failed to read dca_profile.json from embed.FS: %v", err)
+	}
 
-    var resultSet sppb.ResultSet
-    unmarshalOpts := protojson.UnmarshalOptions{DiscardUnknown: true}
-    err = unmarshalOpts.Unmarshal(jsonBytes, &resultSet)
-    if err != nil {
-        t.Fatalf("Failed to unmarshal dca_profile.json into sppb.ResultSet: %v", err)
-    }
+	var resultSet sppb.ResultSet
+	unmarshalOpts := protojson.UnmarshalOptions{DiscardUnknown: true}
+	err = unmarshalOpts.Unmarshal(jsonBytes, &resultSet)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal dca_profile.json into sppb.ResultSet: %v", err)
+	}
 
-    statsToRender := resultSet.GetStats()
-    rowTypeToRender := resultSet.GetMetadata().GetRowType()
+	statsToRender := resultSet.GetStats()
+	rowTypeToRender := resultSet.GetMetadata().GetRowType()
 
-    if statsToRender == nil || statsToRender.GetQueryPlan() == nil || len(statsToRender.GetQueryPlan().GetPlanNodes()) == 0 {
-        t.Fatalf("dca_profile.json (via ResultSet.Stats) does not contain any plan nodes.")
-    }
+	if statsToRender == nil || statsToRender.GetQueryPlan() == nil || len(statsToRender.GetQueryPlan().GetPlanNodes()) == 0 {
+		t.Fatalf("dca_profile.json (via ResultSet.Stats) does not contain any plan nodes.")
+	}
 
-    param := option.Options{
-        TypeFlag:          "svg",
-        Full:              true,
-        NonVariableScalar: true,
-        VariableScalar:    true,
-        Metadata:          true,
-        ExecutionStats:    true,
-        ExecutionSummary:  true,
-        SerializeResult:   true,
-        ShowQuery:         true,
-        ShowQueryStats:    true,
-    }
+	param := option.Options{
+		TypeFlag:          "svg",
+		Full:              true,
+		NonVariableScalar: true,
+		VariableScalar:    true,
+		Metadata:          true,
+		ExecutionStats:    true,
+		ExecutionSummary:  true,
+		SerializeResult:   true,
+		ShowQuery:         true,
+		ShowQueryStats:    true,
+	}
 
-    var buf bytes.Buffer
-    err = RenderImage(context.Background(), rowTypeToRender, statsToRender, graphviz.SVG, &buf, param)
-    if err != nil {
-        t.Fatalf("RenderImage failed: %v", err)
-    }
-    actualSVG := buf.String()
+	var buf bytes.Buffer
+	err = RenderImage(context.Background(), rowTypeToRender, statsToRender, graphviz.SVG, &buf, param)
+	if err != nil {
+		t.Fatalf("RenderImage failed: %v", err)
+	}
+	actualSVG := buf.String()
 
-    goldenSVGPath := "testdata/full_with_query_stats.svg"
-    expectedSVGBytes, err := testdataFS.ReadFile(goldenSVGPath)
-    if err != nil {
-        t.Fatalf("Failed to read %s from embed.FS: %v", goldenSVGPath, err)
-    }
-    expectedSVG := string(expectedSVGBytes)
+	goldenSVGPath := "testdata/full_with_query_stats.svg"
+	expectedSVGBytes, err := testdataFS.ReadFile(goldenSVGPath)
+	if err != nil {
+		t.Fatalf("Failed to read %s from embed.FS: %v", goldenSVGPath, err)
+	}
+	expectedSVG := string(expectedSVGBytes)
 
-    if os.Getenv("UPDATE_GOLDEN_FILES") == "true" {
-        // This block is for updating the golden file if the env var is set.
-        // It assumes actualSVG holds the new correct content.
-        errWrite := os.WriteFile(goldenSVGPath, []byte(actualSVG), 0644)
-        if errWrite != nil {
-            t.Fatalf("Failed to write updated golden file %s: %v", goldenSVGPath, errWrite)
-        }
-        t.Logf("Successfully updated golden file %s. Please re-run tests without UPDATE_GOLDEN_FILES.", goldenSVGPath)
-        t.Fatalf("Golden file updated. Re-run tests.")
-    }
+	if os.Getenv("UPDATE_GOLDEN_FILES") == "true" {
+		// This block is for updating the golden file if the env var is set.
+		// It assumes actualSVG holds the new correct content.
+		errWrite := os.WriteFile(goldenSVGPath, []byte(actualSVG), 0644)
+		if errWrite != nil {
+			t.Fatalf("Failed to write updated golden file %s: %v", goldenSVGPath, errWrite)
+		}
+		t.Logf("Successfully updated golden file %s. Please re-run tests without UPDATE_GOLDEN_FILES.", goldenSVGPath)
+		t.Fatalf("Golden file updated. Re-run tests.")
+	}
 
-    if diff := cmp.Diff(strings.TrimSpace(expectedSVG), strings.TrimSpace(actualSVG)); diff != "" {
-        t.Logf("SVG diff (-expected +actual) for %s:\n%s", goldenSVGPath, diff)
-        t.Errorf("Generated SVG does not match %s.", goldenSVGPath)
-        // t.Skipf("Skipping SVG diff check for %s as golden file update is required due to scan type formatting changes.", goldenSVGPath) // Remove skip
-    }
+	if diff := cmp.Diff(strings.TrimSpace(expectedSVG), strings.TrimSpace(actualSVG)); diff != "" {
+		t.Logf("SVG diff (-expected +actual) for %s:\n%s", goldenSVGPath, diff)
+		t.Errorf("Generated SVG does not match %s.", goldenSVGPath)
+		// t.Skipf("Skipping SVG diff check for %s as golden file update is required due to scan type formatting changes.", goldenSVGPath) // Remove skip
+	}
 }
 
 func TestRenderMermaid(t *testing.T) {
@@ -201,15 +202,15 @@ func TestRenderMermaid(t *testing.T) {
 	var rowType *sppb.StructType = nil
 
 	param := option.Options{
-		TypeFlag:         "mermaid",
-		Full:             true,
+		TypeFlag:          "mermaid",
+		Full:              true,
 		NonVariableScalar: true,
-		VariableScalar:   true,
-		Metadata:         true,
-		ExecutionStats:   true,
-		ExecutionSummary: true,
-		ShowQuery:        true,
-		ShowQueryStats:   false,
+		VariableScalar:    true,
+		Metadata:          true,
+		ExecutionStats:    true,
+		ExecutionSummary:  true,
+		ShowQuery:         true,
+		ShowQueryStats:    false,
 	}
 
 	qp, err := spannerplan.New(stats.GetQueryPlan().GetPlanNodes())
@@ -262,8 +263,11 @@ func TestRenderMermaid(t *testing.T) {
 	expectedMermaidOutput := strings.Join([]string{
 		`graph TD`,
 		`    node0["<b>Union</b><br/><i>latency: 3ms</i><br/><i>rows: 20</i>"]`,
+		`    style node0 text-align:left;`,
 		`    node1["<b>Scan1</b><br/><i>latency: 2ms</i><br/><i>rows: 20</i>"]`,
+		`    style node1 text-align:left;`,
 		`    node2["<b>Scan2</b><br/><i>latency: 1ms</i><br/><i>rows: 10</i>"]`,
+		`    style node2 text-align:left;`,
 		`    node0 -->|Input| node1`,
 		`    node0 -->|Input| node2`,
 		``,
@@ -278,94 +282,94 @@ func TestRenderMermaid(t *testing.T) {
 }
 
 func TestRenderMermaid_TextContent(t *testing.T) {
-    // 1. Load dca_profile.json using embed.FS
-    jsonBytes, err := testdataFS.ReadFile("testdata/dca_profile.json")
-    if err != nil {
-        t.Fatalf("Failed to read dca_profile.json: %v", err)
-    }
+	// 1. Load dca_profile.json using embed.FS
+	jsonBytes, err := testdataFS.ReadFile("testdata/dca_profile.json")
+	if err != nil {
+		t.Fatalf("Failed to read dca_profile.json: %v", err)
+	}
 
-    var resultSet sppb.ResultSet
-    unmarshalOpts := protojson.UnmarshalOptions{DiscardUnknown: true}
-    err = unmarshalOpts.Unmarshal(jsonBytes, &resultSet)
-    if err != nil {
-        t.Fatalf("Failed to unmarshal dca_profile.json into sppb.ResultSet: %v", err)
-    }
+	var resultSet sppb.ResultSet
+	unmarshalOpts := protojson.UnmarshalOptions{DiscardUnknown: true}
+	err = unmarshalOpts.Unmarshal(jsonBytes, &resultSet)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal dca_profile.json into sppb.ResultSet: %v", err)
+	}
 
-    statsToProcess := resultSet.GetStats()
-    rowTypeForProcessing := resultSet.GetMetadata().GetRowType()
+	statsToProcess := resultSet.GetStats()
+	rowTypeForProcessing := resultSet.GetMetadata().GetRowType()
 
-    if statsToProcess == nil || statsToProcess.GetQueryPlan() == nil || len(statsToProcess.GetQueryPlan().GetPlanNodes()) == 0 {
-        t.Fatalf("dca_profile.json (via ResultSet.Stats) does not contain any plan nodes.")
-    }
+	if statsToProcess == nil || statsToProcess.GetQueryPlan() == nil || len(statsToProcess.GetQueryPlan().GetPlanNodes()) == 0 {
+		t.Fatalf("dca_profile.json (via ResultSet.Stats) does not contain any plan nodes.")
+	}
 
-    // 2. Build the treeNode structure
-    param := option.Options{ Full: true }
+	// 2. Build the treeNode structure
+	param := option.Options{Full: true}
 
-    qp, err := spannerplan.New(statsToProcess.GetQueryPlan().GetPlanNodes())
-    if err != nil {
-        t.Fatalf("spannerplan.New failed: %v", err)
-    }
+	qp, err := spannerplan.New(statsToProcess.GetQueryPlan().GetPlanNodes())
+	if err != nil {
+		t.Fatalf("spannerplan.New failed: %v", err)
+	}
 
-    rootTreeNode, err := buildTree(qp, qp.GetNodeByIndex(0), rowTypeForProcessing, param)
-    if err != nil {
-        t.Fatalf("buildTree failed: %v", err)
-    }
+	rootTreeNode, err := buildTree(qp, qp.GetNodeByIndex(0), rowTypeForProcessing, param)
+	if err != nil {
+		t.Fatalf("buildTree failed: %v", err)
+	}
 
-    var allNodesTextContent []string
-    var traverseAndFormat func(n *treeNode) // treeNode is visualize.treeNode
-    traverseAndFormat = func(n *treeNode) {
-        if n == nil {
-            return
-        }
-        // Pass qp, param, and rowTypeForProcessing to formatNodeContentAsText
-        nodeText := formatNodeContentAsText(n, qp, param, rowTypeForProcessing)
-        allNodesTextContent = append(allNodesTextContent, nodeText...)
-        for _, childLink := range n.Children {
-            traverseAndFormat(childLink.ChildNode)
-        }
-    }
-    traverseAndFormat(rootTreeNode)
-    sort.Strings(allNodesTextContent)
+	var allNodesTextContent []string
+	var traverseAndFormat func(n *treeNode) // treeNode is visualize.treeNode
+	traverseAndFormat = func(n *treeNode) {
+		if n == nil {
+			return
+		}
+		// Pass qp, param, and rowTypeForProcessing to formatNodeContentAsText
+		nodeText := formatNodeContentAsText(n, qp, param, rowTypeForProcessing)
+		allNodesTextContent = append(allNodesTextContent, nodeText...)
+		for _, childLink := range n.Children {
+			traverseAndFormat(childLink.ChildNode)
+		}
+	}
+	traverseAndFormat(rootTreeNode)
+	sort.Strings(allNodesTextContent)
 
-    actualContent := strings.Join(allNodesTextContent, "\n") + "\n"
+	actualContent := strings.Join(allNodesTextContent, "\n") + "\n"
 
-    // 3. Compare with a new golden file: testdata/dca_profile_plan_content.txt
-    goldenFilePath := "testdata/dca_profile_plan_content.txt"
+	// 3. Compare with a new golden file: testdata/dca_profile_plan_content.txt
+	goldenFilePath := "testdata/dca_profile_plan_content.txt"
 
-    if os.Getenv("UPDATE_GOLDEN_FILES") == "true" {
-        // Golden file path relative to the package directory
-        resolvedGoldenFilePath := filepath.Join("testdata", "dca_profile_plan_content.txt")
+	if os.Getenv("UPDATE_GOLDEN_FILES") == "true" {
+		// Golden file path relative to the package directory
+		resolvedGoldenFilePath := filepath.Join("testdata", "dca_profile_plan_content.txt")
 
-        // Ensure the target directory ("testdata") exists
-        targetDir := filepath.Dir(resolvedGoldenFilePath) // This will be "testdata"
-        if errMkdir := os.MkdirAll(targetDir, 0755); errMkdir != nil {
-            t.Fatalf("Failed to create directory %s: %v", targetDir, errMkdir)
-        }
+		// Ensure the target directory ("testdata") exists
+		targetDir := filepath.Dir(resolvedGoldenFilePath) // This will be "testdata"
+		if errMkdir := os.MkdirAll(targetDir, 0755); errMkdir != nil {
+			t.Fatalf("Failed to create directory %s: %v", targetDir, errMkdir)
+		}
 
-        t.Logf("Attempting to update golden file: %s", resolvedGoldenFilePath)
-        err = os.WriteFile(resolvedGoldenFilePath, []byte(actualContent), 0644)
-        if err != nil {
-            t.Fatalf("Failed to write golden file %s: %v", resolvedGoldenFilePath, err)
-        }
-        t.Logf("Successfully updated golden file %s. Please re-run tests without UPDATE_GOLDEN_FILES.", resolvedGoldenFilePath)
-        // Fail after updating to ensure the next run compares against the new golden file.
-        // Or use t.SkipNow() if preferred to not show as a "failure" during update runs.
-        t.Fatalf("Golden file updated. Re-run tests.")
-    }
+		t.Logf("Attempting to update golden file: %s", resolvedGoldenFilePath)
+		err = os.WriteFile(resolvedGoldenFilePath, []byte(actualContent), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write golden file %s: %v", resolvedGoldenFilePath, err)
+		}
+		t.Logf("Successfully updated golden file %s. Please re-run tests without UPDATE_GOLDEN_FILES.", resolvedGoldenFilePath)
+		// Fail after updating to ensure the next run compares against the new golden file.
+		// Or use t.SkipNow() if preferred to not show as a "failure" during update runs.
+		t.Fatalf("Golden file updated. Re-run tests.")
+	}
 
-    // Read directly from filesystem for comparison.
-    // goldenFilePath is "testdata/dca_profile_plan_content.txt"
-    // This path will be relative to the package directory when the test runs.
-    expectedContentBytes, err := os.ReadFile(goldenFilePath)
-    if err != nil {
-        t.Fatalf("Failed to read golden file %s: %v. (Try running with UPDATE_GOLDEN_FILES=true env var)", goldenFilePath, err)
-    }
-    expectedContent := string(expectedContentBytes)
+	// Read directly from filesystem for comparison.
+	// goldenFilePath is "testdata/dca_profile_plan_content.txt"
+	// This path will be relative to the package directory when the test runs.
+	expectedContentBytes, err := os.ReadFile(goldenFilePath)
+	if err != nil {
+		t.Fatalf("Failed to read golden file %s: %v. (Try running with UPDATE_GOLDEN_FILES=true env var)", goldenFilePath, err)
+	}
+	expectedContent := string(expectedContentBytes)
 
-    if diff := cmp.Diff(expectedContent, actualContent); diff != "" {
-        t.Errorf("Text content mismatch (-expected +actual) for %s:\n%s", goldenFilePath, diff)
-        // t.Skipf("Skipping text content diff check for %s as golden file update is required due to scan type formatting changes.", goldenFilePath) // Remove skip
-    }
+	if diff := cmp.Diff(expectedContent, actualContent); diff != "" {
+		t.Errorf("Text content mismatch (-expected +actual) for %s:\n%s", goldenFilePath, diff)
+		// t.Skipf("Skipping text content diff check for %s as golden file update is required due to scan type formatting changes.", goldenFilePath) // Remove skip
+	}
 }
 
 func TestRenderMermaid_Golden(t *testing.T) {

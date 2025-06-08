@@ -11,9 +11,10 @@ import (
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 
+	"fmt"
+
 	"github.com/goccy/go-graphviz"
 	"github.com/goccy/go-graphviz/cgraph"
-	"fmt"
 )
 
 func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, format graphviz.Format, writer io.Writer, param option.Options) error {
@@ -91,6 +92,8 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 		}
 	}()
 
+	// Set the graph start type to RegularStart to ensure deterministic layout behavior.
+	// The default start type for Graphviz can be random, leading to inconsistent graph renderings.
 	graph.SetStart(graphviz.RegularStart)
 	graph.SetFontName("Times New Roman:style=Bold")
 

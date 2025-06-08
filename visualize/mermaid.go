@@ -3,13 +3,14 @@ package visualize
 import (
 	"fmt"
 	"io"
+
 	// "sort" // For stable output of map iteration - Removed as not used
 	"strings"
 
-	"github.com/goccy/go-graphviz/cgraph" // For EdgeStyle constants
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb" // For sppb.StructType
-	"github.com/apstndb/spannerplan"                 // For spannerplan.QueryPlan
-	"github.com/apstndb/spannerplanviz/option"       // For option.Options
+	"github.com/apstndb/spannerplan"                   // For spannerplan.QueryPlan
+	"github.com/apstndb/spannerplanviz/option"         // For option.Options
+	"github.com/goccy/go-graphviz/cgraph"              // For EdgeStyle constants
 )
 
 func renderMermaid(rootNode *treeNode, writer io.Writer, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) error {
@@ -40,6 +41,7 @@ func renderMermaid(rootNode *treeNode, writer io.Writer, qp *spannerplan.QueryPl
 		finalLabel := node.MermaidLabel(qp, param, rowType) // Pass qp, param, rowType
 
 		sb.WriteString(fmt.Sprintf("    %s[\"%s\"]\n", nodeName, finalLabel))
+		sb.WriteString(fmt.Sprintf("    style %s text-align:left;\n", nodeName))
 
 		// Edges
 		for _, edgeLink := range node.Children {
@@ -56,7 +58,11 @@ func renderMermaid(rootNode *treeNode, writer io.Writer, qp *spannerplan.QueryPl
 			// Let's use a basic escape for ChildType here for quotes, as it's for the edge label.
 			edgeLabel := strings.ReplaceAll(edgeLink.ChildType, "\"", "#quot;")
 
-			edgeStr := fmt.Sprintf("    %s %s|%s| %s\n", nodeName, arrow, edgeLabel, edgeLink.ChildNode.GetName())
+			var edgeLabelPart string
+			if edgeLabel != "" {
+				edgeLabelPart = fmt.Sprintf("|%s|", edgeLabel)
+			}
+			edgeStr := fmt.Sprintf("    %s %s%s %s\n", nodeName, arrow, edgeLabelPart, edgeLink.ChildNode.GetName())
 			edgesToRender = append(edgesToRender, edgeStr)
 
 			buildMermaidRecursive(edgeLink.ChildNode)

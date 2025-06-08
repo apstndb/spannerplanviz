@@ -22,15 +22,22 @@ import (
 	"github.com/apstndb/spannerplanviz/option"
 )
 
+// This file contains logics which are purely formatting strings and building tree structures.
+// It is ok to depend on types in the cgraph package, but don't use graphviz.Graph in this file.
+
 func buildTree(qp *spannerplan.QueryPlan, planNode *sppb.PlanNode, rowType *sppb.StructType, param option.Options) (*treeNode, error) {
 	node, err := buildNode(rowType, planNode, qp, param)
 	if err != nil {
 		return nil, err
 	}
+
 	var edges []*link
 	for _, cl := range qp.VisibleChildLinks(planNode) {
 		childNode, err := buildTree(qp, qp.GetNodeByChildLink(cl), rowType, param)
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
+
 		edge := buildLink(qp, cl, planNode, childNode)
 		edges = append(edges, edge)
 	}
@@ -41,6 +48,7 @@ func buildTree(qp *spannerplan.QueryPlan, planNode *sppb.PlanNode, rowType *sppb
 func buildLink(qp *spannerplan.QueryPlan, cl *sppb.PlanNode_ChildLink, node *sppb.PlanNode, child *treeNode) *link {
 	return &link{
 		ChildType: qp.GetLinkType(cl),
+		// If it's a remote call, the connection will be rendered as a dashed line in the visualization.
 		Style:     lox.IfOrEmpty(isRemoteCall(node, cl), cgraph.DashedEdgeStyle),
 		ChildNode: child,
 	}
@@ -54,22 +62,43 @@ type link struct {
 
 func renderEdge(graph *cgraph.Graph, parent *treeNode, edge *link) error {
 	gvChildNode, err := graph.NodeByName(edge.ChildNode.GetName())
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
+
 	gvNode, err := graph.NodeByName(parent.GetName())
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
+
 	ed, err := graph.CreateEdgeByName("", gvChildNode, gvNode)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
+
 	ed.SetStyle(edge.Style)
 	ed.SetLabel(edge.ChildType)
 	return nil
 }
 
+// isRemoteCall determines if a link between nodes represents a remote call in the Spanner query plan.
+// A remote call is identified if:
+//  1. The parent node has a "subquery_cluster_node" metadata field, which contains the node ID of the
+//     child that performs a remote operation.
+//  2. The 'call_type' metadata field is not "Local". If 'call_type' is "Local", it is not a remote call.
+//  3. The child link's index matches the value in "subquery_cluster_node", confirming this specific
+//     child is the one executing remotely.
 func isRemoteCall(node *sppb.PlanNode, cl *sppb.PlanNode_ChildLink) bool {
 	metadataFields := node.GetMetadata().GetFields()
+
 	subqueryClusterNode, ok := metadataFields["subquery_cluster_node"]
-	if !ok { return false }
+	if !ok {
+		return false
+	}
 	callType := metadataFields["call_type"].GetStringValue()
-	if callType == "Local" { return false }
+	if callType == "Local" {
+		return false
+	}
 	return subqueryClusterNode.GetStringValue() == strconv.Itoa(int(cl.GetChildIndex()))
 }
 
@@ -133,23 +162,27 @@ func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options,
 		// For now, using DisplayName as a proxy.
 		isScanNode := n.planNodeProto.GetDisplayName() == "Scan" || strings.Contains(n.planNodeProto.GetDisplayName(), "Scan")
 		if !(isScanNode && si == sr && sr != "") {
-			 labelParts = append(labelParts, escapeMermaidLabelContent(si))
+			labelParts = append(labelParts, escapeMermaidLabelContent(si))
 		} else if !isScanNode { // If not a scan node, always add scan info if it exists (though unlikely)
-			 labelParts = append(labelParts, escapeMermaidLabelContent(si))
+			labelParts = append(labelParts, escapeMermaidLabelContent(si))
 		}
 	}
 
 	// Serialize Result Output
 	if sroVal := n.GetSerializeResultOutput(qp, param, rowType); sroVal != "" {
 		for _, line := range strings.Split(strings.TrimSuffix(sroVal, "\n"), "\n") {
-			if line != "" { labelParts = append(labelParts, escapeMermaidLabelContent(line)) }
+			if line != "" {
+				labelParts = append(labelParts, escapeMermaidLabelContent(line))
+			}
 		}
 	}
 
 	// Non-Variable Scalar Links
 	if nvslVal := n.GetNonVarScalarLinksOutput(qp, param); nvslVal != "" {
 		for _, line := range strings.Split(strings.TrimSuffix(nvslVal, "\n"), "\n") {
-			if line != "" { labelParts = append(labelParts, escapeMermaidLabelContent(line)) }
+			if line != "" {
+				labelParts = append(labelParts, escapeMermaidLabelContent(line))
+			}
 		}
 	}
 
@@ -158,7 +191,9 @@ func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options,
 	if len(metadata) > 0 {
 		var metaLines []string
 		var metaKeys []string
-		for k := range metadata { metaKeys = append(metaKeys, k) }
+		for k := range metadata {
+			metaKeys = append(metaKeys, k)
+		}
 		sort.Strings(metaKeys)
 		for _, k := range metaKeys {
 			metaLines = append(metaLines, fmt.Sprintf("%s: %s", escapeMermaidLabelContent(k), escapeMermaidLabelContent(metadata[k])))
@@ -169,7 +204,9 @@ func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options,
 	// Variable Scalar Links
 	if vslVal := n.GetVarScalarLinksOutput(qp, param); vslVal != "" {
 		for _, line := range strings.Split(strings.TrimSuffix(vslVal, "\n"), "\n") {
-			if line != "" { labelParts = append(labelParts, escapeMermaidLabelContent(line)) }
+			if line != "" {
+				labelParts = append(labelParts, escapeMermaidLabelContent(line))
+			}
 		}
 	}
 
@@ -178,7 +215,9 @@ func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options,
 	if len(stats) > 0 {
 		var statLines []string
 		var statKeys []string
-		for k := range stats { statKeys = append(statKeys, k) }
+		for k := range stats {
+			statKeys = append(statKeys, k)
+		}
 		sort.Strings(statKeys)
 		for _, k := range statKeys {
 			// Italicize stats for Mermaid, similar to Graphviz
@@ -189,12 +228,14 @@ func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options,
 
 	// Execution Summary
 	if esVal := n.GetExecutionSummary(param); esVal != "" {
-		 var summaryLines []string
-		 for _, line := range strings.Split(strings.TrimSuffix(esVal, "\n"), "\n") {
-			if line != "" { summaryLines = append(summaryLines, escapeMermaidLabelContent(line)) }
+		var summaryLines []string
+		for _, line := range strings.Split(strings.TrimSuffix(esVal, "\n"), "\n") {
+			if line != "" {
+				summaryLines = append(summaryLines, escapeMermaidLabelContent(line))
+			}
 		}
 		if len(summaryLines) > 0 {
-			 // Italicize summary for Mermaid
+			// Italicize summary for Mermaid
 			labelParts = append(labelParts, fmt.Sprintf("<i>%s</i>", strings.Join(summaryLines, "<br/>")))
 		}
 	}
@@ -239,33 +280,35 @@ func (n *treeNode) GetTitle(param option.Options) string { // param is now unuse
 }
 
 func (n *treeNode) GetShortRepresentation() string {
-	if n.planNodeProto == nil || n.planNodeProto.GetShortRepresentation() == nil { return "" }
+	if n.planNodeProto == nil || n.planNodeProto.GetShortRepresentation() == nil {
+		return ""
+	}
 	return n.planNodeProto.GetShortRepresentation().GetDescription()
 }
 
 func (n *treeNode) GetScanInfoOutput(param option.Options) string {
-    if n.planNodeProto == nil || n.planNodeProto.GetMetadata() == nil || param.HideScanTarget {
-        return ""
-    }
+	if n.planNodeProto == nil || n.planNodeProto.GetMetadata() == nil || param.HideScanTarget {
+		return ""
+	}
 
-    metadataFields := n.planNodeProto.GetMetadata().GetFields()
-    scanTypeVal, okType := metadataFields["scan_type"]
-    scanTargetVal, okTarget := metadataFields["scan_target"]
+	metadataFields := n.planNodeProto.GetMetadata().GetFields()
+	scanTypeVal, okType := metadataFields["scan_type"]
+	scanTargetVal, okTarget := metadataFields["scan_target"]
 
-    if okType && okTarget {
-        scanTypeString := scanTypeVal.GetStringValue()
+	if okType && okTarget {
+		scanTypeString := scanTypeVal.GetStringValue()
 
-        processedScanType := strings.TrimSuffix(scanTypeString, "Scan")
-        // If TrimSuffix results in an empty string (e.g. scanTypeString was "Scan"),
-        // and the original string was not empty, use the original string.
-        if processedScanType == "" && scanTypeString != "" {
-            processedScanType = scanTypeString
-        }
+		processedScanType := strings.TrimSuffix(scanTypeString, "Scan")
+		// If TrimSuffix results in an empty string (e.g. scanTypeString was "Scan"),
+		// and the original string was not empty, use the original string.
+		if processedScanType == "" && scanTypeString != "" {
+			processedScanType = scanTypeString
+		}
 
-        scanTarget := scanTargetVal.GetStringValue()
-        return fmt.Sprintf("%s: %s", processedScanType, scanTarget)
-    }
-    return ""
+		scanTarget := scanTargetVal.GetStringValue()
+		return fmt.Sprintf("%s: %s", processedScanType, scanTarget)
+	}
+	return ""
 }
 
 func (n *treeNode) GetSerializeResultOutput(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
@@ -277,12 +320,16 @@ func (n *treeNode) GetSerializeResultOutput(qp *spannerplan.QueryPlan, param opt
 }
 
 func (n *treeNode) GetNonVarScalarLinksOutput(qp *spannerplan.QueryPlan, param option.Options) string {
-	if n.planNodeProto == nil || qp == nil { return "" }
+	if n.planNodeProto == nil || qp == nil {
+		return ""
+	}
 	return formatChildLinks(getNonVariableChildLinks(qp, n.planNodeProto))
 }
 
 func (n *treeNode) GetVarScalarLinksOutput(qp *spannerplan.QueryPlan, param option.Options) string {
-	if n.planNodeProto == nil || qp == nil { return "" }
+	if n.planNodeProto == nil || qp == nil {
+		return ""
+	}
 	return formatChildLinks(getVariableChildLinks(qp, n.planNodeProto))
 }
 
@@ -349,113 +396,125 @@ func (n *treeNode) GetExecutionSummary(param option.Options) string {
 
 // New Metadata() and HTML() methods using on-demand getters
 func (n *treeNode) Metadata(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
-    var labelLines []string
-    if sro := n.GetSerializeResultOutput(qp, param, rowType); sro != "" {
-        for _, line := range strings.Split(strings.TrimSuffix(sro, "\n"), "\n") {
-            if line != "" { labelLines = append(labelLines, line) }
-        }
-    }
-    if sio := n.GetScanInfoOutput(param); sio != "" {
-        labelLines = append(labelLines, sio)
-    }
+	var labelLines []string
+	if sro := n.GetSerializeResultOutput(qp, param, rowType); sro != "" {
+		for _, line := range strings.Split(strings.TrimSuffix(sro, "\n"), "\n") {
+			if line != "" {
+				labelLines = append(labelLines, line)
+			}
+		}
+	}
+	if sio := n.GetScanInfoOutput(param); sio != "" {
+		labelLines = append(labelLines, sio)
+	}
 
-    currentShortRep := n.GetShortRepresentation()
-    isScanNode := n.planNodeProto != nil && n.planNodeProto.GetDisplayName() == "Scan"
+	currentShortRep := n.GetShortRepresentation()
+	isScanNode := n.planNodeProto != nil && n.planNodeProto.GetDisplayName() == "Scan"
 
-    if currentShortRep != "" {
-        if !(isScanNode && currentShortRep == n.GetScanInfoOutput(param)) {
-            labelLines = append(labelLines, currentShortRep)
-        } else if !isScanNode {
-            labelLines = append(labelLines, currentShortRep)
-        }
-    }
+	if currentShortRep != "" {
+		if !(isScanNode && currentShortRep == n.GetScanInfoOutput(param)) {
+			labelLines = append(labelLines, currentShortRep)
+		} else if !isScanNode {
+			labelLines = append(labelLines, currentShortRep)
+		}
+	}
 
-    if nvsl := n.GetNonVarScalarLinksOutput(qp, param); nvsl != "" {
-        for _, line := range strings.Split(strings.TrimSuffix(nvsl, "\n"), "\n") {
-            if line != "" { labelLines = append(labelLines, line) }
-        }
-    }
+	if nvsl := n.GetNonVarScalarLinksOutput(qp, param); nvsl != "" {
+		for _, line := range strings.Split(strings.TrimSuffix(nvsl, "\n"), "\n") {
+			if line != "" {
+				labelLines = append(labelLines, line)
+			}
+		}
+	}
 
-    metadataMap := n.GetMetadata(param)
-    if len(metadataMap) > 0 {
-        var metaKVLines []string
-        var metaKeys []string
-        for k := range metadataMap { metaKeys = append(metaKeys, k) }
-        sort.Strings(metaKeys)
-        for _, k := range metaKeys {
-             // Values in metadataMap are already formatted strings by formatStructPBValue
-             // but formatNodeLabel's original formatMetadata did html.EscapeString on k and v.
-             // For direct reconstruction, we assume these map values are plain and escape here.
-             metaKVLines = append(metaKVLines, fmt.Sprintf("%s=%s", html.EscapeString(k), html.EscapeString(metadataMap[k])))
-        }
-        labelLines = append(labelLines, metaKVLines...)
-    }
+	metadataMap := n.GetMetadata(param)
+	if len(metadataMap) > 0 {
+		var metaKVLines []string
+		var metaKeys []string
+		for k := range metadataMap {
+			metaKeys = append(metaKeys, k)
+		}
+		sort.Strings(metaKeys)
+		for _, k := range metaKeys {
+			// Values in metadataMap are already formatted strings by formatStructPBValue
+			// but formatNodeLabel's original formatMetadata did html.EscapeString on k and v.
+			// For direct reconstruction, we assume these map values are plain and escape here.
+			metaKVLines = append(metaKVLines, fmt.Sprintf("%s=%s", html.EscapeString(k), html.EscapeString(metadataMap[k])))
+		}
+		labelLines = append(labelLines, metaKVLines...)
+	}
 
-    if vsl := n.GetVarScalarLinksOutput(qp, param); vsl != "" {
-        for _, line := range strings.Split(strings.TrimSuffix(vsl, "\n"), "\n") {
-            if line != "" { labelLines = append(labelLines, line) }
-        }
-    }
+	if vsl := n.GetVarScalarLinksOutput(qp, param); vsl != "" {
+		for _, line := range strings.Split(strings.TrimSuffix(vsl, "\n"), "\n") {
+			if line != "" {
+				labelLines = append(labelLines, line)
+			}
+		}
+	}
 
-    // All lines in labelLines are now raw strings (or escaped key=value), to be processed by toLeftAlignedText.
-    labelHTMLPart := toLeftAlignedText(strings.Join(labelLines, "\n"))
+	// All lines in labelLines are now raw strings (or escaped key=value), to be processed by toLeftAlignedText.
+	labelHTMLPart := toLeftAlignedText(strings.Join(labelLines, "\n"))
 
-    // Reconstruct content similar to old n.Stats (detailed stats + summary)
-    var statsAndSummaryPlainLines []string
-    statsMap := n.GetStats(param) // map[string]string, values are pre-formatted by formatExecutionStatsValue
-    if len(statsMap) > 0 {
-        var statKVLines []string
-        var statKeys []string
-        for k := range statsMap { statKeys = append(statKeys, k) }
-        sort.Strings(statKeys)
-        for _, k := range statKeys {
-            // Values from GetStats are already formatted strings.
-            // k needs escaping if it contains special chars, statsMap[k] is already a formatted value string.
-            statKVLines = append(statKVLines, fmt.Sprintf("%s: %s", html.EscapeString(k), html.EscapeString(statsMap[k])))
-        }
-        statsAndSummaryPlainLines = append(statsAndSummaryPlainLines, statKVLines...)
-    }
+	// Reconstruct content similar to old n.Stats (detailed stats + summary)
+	var statsAndSummaryPlainLines []string
+	statsMap := n.GetStats(param) // map[string]string, values are pre-formatted by formatExecutionStatsValue
+	if len(statsMap) > 0 {
+		var statKVLines []string
+		var statKeys []string
+		for k := range statsMap {
+			statKeys = append(statKeys, k)
+		}
+		sort.Strings(statKeys)
+		for _, k := range statKeys {
+			// Values from GetStats are already formatted strings.
+			// k needs escaping if it contains special chars, statsMap[k] is already a formatted value string.
+			statKVLines = append(statKVLines, fmt.Sprintf("%s: %s", html.EscapeString(k), html.EscapeString(statsMap[k])))
+		}
+		statsAndSummaryPlainLines = append(statsAndSummaryPlainLines, statKVLines...)
+	}
 
-    summaryStr := n.GetExecutionSummary(param) // Already a formatted multi-line string (includes "execution_summary:" prefix and newlines)
-    if summaryStr != "" {
-         for _, line := range strings.Split(strings.TrimSuffix(summaryStr, "\n"), "\n") {
-            // These lines are part of a pre-formatted block, but individual lines might contain chars needing escape.
-            if line != "" { statsAndSummaryPlainLines = append(statsAndSummaryPlainLines, line) }
-        }
-    }
-    // All lines in statsAndSummaryPlainLines are raw strings, toLeftAlignedText will escape them.
-    statsHTMLPart := markupIfNotEmpty(toLeftAlignedText(strings.Join(statsAndSummaryPlainLines, "\n")), "i")
+	summaryStr := n.GetExecutionSummary(param) // Already a formatted multi-line string (includes "execution_summary:" prefix and newlines)
+	if summaryStr != "" {
+		for _, line := range strings.Split(strings.TrimSuffix(summaryStr, "\n"), "\n") {
+			// These lines are part of a pre-formatted block, but individual lines might contain chars needing escape.
+			if line != "" {
+				statsAndSummaryPlainLines = append(statsAndSummaryPlainLines, line)
+			}
+		}
+	}
+	// All lines in statsAndSummaryPlainLines are raw strings, toLeftAlignedText will escape them.
+	statsHTMLPart := markupIfNotEmpty(toLeftAlignedText(strings.Join(statsAndSummaryPlainLines, "\n")), "i")
 
-    if labelHTMLPart != "" && statsHTMLPart != "" {
-        // toLeftAlignedText appends <br align="left"/> if its input is not empty.
-        // So labelHTMLPart might end with it.
-        return labelHTMLPart + statsHTMLPart
-    }
-    if labelHTMLPart != "" {
-        return labelHTMLPart
-    }
-    return statsHTMLPart
+	if labelHTMLPart != "" && statsHTMLPart != "" {
+		// toLeftAlignedText appends <br align="left"/> if its input is not empty.
+		// So labelHTMLPart might end with it.
+		return labelHTMLPart + statsHTMLPart
+	}
+	if labelHTMLPart != "" {
+		return labelHTMLPart
+	}
+	return statsHTMLPart
 }
 
 func (n *treeNode) HTML(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
-    titleHTML := ""
-    if t := n.GetTitle(param); t != "" {
-        // n.GetTitle calls spannerplan.NodeTitle which already HTML escapes its content.
-        titleHTML = markupIfNotEmpty(t, "b")
-    }
+	titleHTML := ""
+	if t := n.GetTitle(param); t != "" {
+		// n.GetTitle calls spannerplan.NodeTitle which already HTML escapes its content.
+		titleHTML = markupIfNotEmpty(t, "b")
+	}
 
-    metadataHTML := n.Metadata(qp, param, rowType)
+	metadataHTML := n.Metadata(qp, param, rowType)
 
-    if titleHTML == "" && metadataHTML == "" {
-        return html.EscapeString(n.GetName())
-    }
-    if titleHTML == "" {
-        return metadataHTML
-    }
-    if metadataHTML == "" {
-        return titleHTML
-    }
-    return fmt.Sprintf(`%s<br align="CENTER"/>%s`, titleHTML, metadataHTML)
+	if titleHTML == "" && metadataHTML == "" {
+		return html.EscapeString(n.GetName())
+	}
+	if titleHTML == "" {
+		return metadataHTML
+	}
+	if metadataHTML == "" {
+		return titleHTML
+	}
+	return fmt.Sprintf(`%s<br align="CENTER"/>%s`, titleHTML, metadataHTML)
 }
 
 // formatStructPBValue converts a structpb.Value to a string representation.
@@ -565,43 +624,69 @@ func formatExecutionStats(executionStats *structpb.Struct, param option.Options)
 
 func formatExecutionStatsWithoutSummary(executionStatsFields map[string]*structpb.Value) string {
 	var statsStrings []string
-	if executionStatsFields == nil { return "" }
+	if executionStatsFields == nil {
+		return ""
+	}
 	for k, v := range executionStatsFields {
-		if k == "execution_summary" { continue }
+		if k == "execution_summary" {
+			continue
+		}
 		statsStrings = append(statsStrings, fmt.Sprintf("%s: %s\n", k, formatExecutionStatsValue(v)))
 	}
 	sort.Strings(statsStrings)
 	return strings.Join(statsStrings, "")
 }
 
+// internalMetadataKeys lists metadata keys that are considered internal
+// and should not be displayed in the formatted metadata output.
 var internalMetadataKeys = []string{
-	"call_type", "scan_type", "scan_target", "iterator_type", "subquery_cluster_node",
+	"call_type",
+	"scan_type",
+	"scan_target",
+	"iterator_type",
+	"subquery_cluster_node",
 }
 
 func formatMetadata(metadataFields map[string]*structpb.Value, hideMetadata []string) string {
-	if metadataFields == nil { return "" }
+	if metadataFields == nil {
+		return ""
+	}
 	var metadataStrs []string
 	for k, v := range metadataFields {
-		if slices.Contains(hideMetadata, k) || slices.Contains(internalMetadataKeys, k) { continue }
+		if slices.Contains(hideMetadata, k) || slices.Contains(internalMetadataKeys, k) {
+			continue
+		}
 		metadataStrs = append(metadataStrs, fmt.Sprintf("%s=%v", k, v.AsInterface()))
 	}
 	slices.Sort(metadataStrs)
 	metadataStr := strings.Join(metadataStrs, "\n")
-	if metadataStr == "" { return "" }
+	if metadataStr == "" {
+		return ""
+	}
 	return metadataStr + "\n"
 }
 
 func formatExecutionSummary(executionStatsFields map[string]*structpb.Value) string {
-	if executionStatsFields == nil { return "" }
+	if executionStatsFields == nil {
+		return ""
+	}
 	var executionSummaryBuf bytes.Buffer
 	if executionSummary, ok := executionStatsFields["execution_summary"]; ok {
 		fmt.Fprintln(&executionSummaryBuf, "execution_summary:")
 		var executionSummaryStrings []string
-		for k, v_ := range executionSummary.GetStructValue().AsMap() {
+		for k, v := range executionSummary.GetStructValue().AsMap() {
 			var value string
+			// Only apply tryToTimestampStr to specific timestamp fields
 			if k == "execution_start_timestamp" || k == "execution_end_timestamp" {
-				formattedValue, err_ := tryToTimestampStr(fmt.Sprint(v_)); if err_ != nil { value = fmt.Sprintf("%s (error: %v)", fmt.Sprint(v_), err_) } else { value = formattedValue } // Renamed err
-			} else { value = fmt.Sprint(v_) }
+				formattedValue, err := tryToTimestampStr(fmt.Sprint(v))
+				if err != nil {
+					value = fmt.Sprintf("%s (error: %v)", fmt.Sprint(v), err)
+				} else {
+					value = formattedValue
+				}
+			} else {
+				value = fmt.Sprint(v)
+			}
 			executionSummaryStrings = append(executionSummaryStrings, fmt.Sprintf("   %s: %s\n", k, value))
 		}
 		sort.Strings(executionSummaryStrings)
@@ -611,43 +696,100 @@ func formatExecutionSummary(executionStatsFields map[string]*structpb.Value) str
 }
 
 var newlineOrEOSRe = regexp.MustCompile(`\n?$|\n`)
+
 func toLeftAlignedText(str string) string {
-	if str == "" { return "" }
+	if str == "" {
+		return ""
+	}
 	return newlineOrEOSRe.ReplaceAllString(html.EscapeString(str), `<br align="left" />`)
 }
 
+// tryToTimestampStr converts a string representation of a timestamp (seconds.microseconds)
+// into a RFC3339Nano formatted string. For Spanner's execution_start_timestamp and
+// execution_end_timestamp fields, the microseconds part is always expected to be
+// exactly 6 digits long, with padding if necessary. Inputs that do not conform
+// to this 6-digit microsecond format are considered invalid and will result in an error.
 func tryToTimestampStr(s string) (string, error) {
 	secStr, usecStr, found := strings.Cut(s, ".")
-	sec, err_ := strconv.Atoi(secStr); if err_ != nil { return "", fmt.Errorf("invalid seconds in timestamp: %w", err_) } // Renamed err
-	if !found || len(usecStr) != 6 { return "", fmt.Errorf("invalid timestamp format: %s (microseconds must be exactly 6 digits)", s) }
-	usec, err_ := strconv.Atoi(usecStr); if err_ != nil { return "", fmt.Errorf("invalid microseconds in timestamp: %w", err_) } // Renamed err
+
+	sec, err := strconv.Atoi(secStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid seconds in timestamp: %w", err)
+	}
+
+	if !found || len(usecStr) != 6 {
+		return "", fmt.Errorf("invalid timestamp format: %s (microseconds must be exactly 6 digits)", s)
+	}
+
+	usec, err := strconv.Atoi(usecStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid microseconds in timestamp: %w", err)
+	}
+
 	return time.Unix(int64(sec), int64(usec)*1000).UTC().Format(time.RFC3339Nano), nil
 }
 
 func prefixIfNotEmpty(prefix, value string) string {
-	if value != "" { return prefix + value }
+	if value != "" {
+		return prefix + value
+	}
 	return ""
 }
 
 func formatExecutionStatsValue(v_struct *structpb.Value) string {
-    if v_struct == nil || v_struct.GetStructValue() == nil { return "" }
+	if v_struct == nil || v_struct.GetStructValue() == nil {
+		return ""
+	}
 	fields := v_struct.GetStructValue().GetFields()
-	total := ""; if totalVal, ok := fields["total"]; ok { total = totalVal.GetStringValue() }
-	unit := "";  if unitVal, ok := fields["unit"]; ok { unit = unitVal.GetStringValue() }
-	mean := "";  if meanVal, ok := fields["mean"]; ok { mean = meanVal.GetStringValue() }
-	stdDev := "";if stdDevVal, okS := fields["std_deviation"]; okS { stdDev = stdDevVal.GetStringValue() }
-	if total == "" && unit == "" && mean == "" && stdDev == "" { return "" }
-	if total == "" && mean == "" && stdDev == "" && unit != "" { return "" }
+	total := ""
+	if totalVal, ok := fields["total"]; ok {
+		total = totalVal.GetStringValue()
+	}
+	unit := ""
+	if unitVal, ok := fields["unit"]; ok {
+		unit = unitVal.GetStringValue()
+	}
+	mean := ""
+	if meanVal, ok := fields["mean"]; ok {
+		mean = meanVal.GetStringValue()
+	}
+	stdDev := ""
+	if stdDevVal, okS := fields["std_deviation"]; okS {
+		stdDev = stdDevVal.GetStringValue()
+	}
+	if total == "" && unit == "" && mean == "" && stdDev == "" {
+		return ""
+	}
+	if total == "" && mean == "" && stdDev == "" && unit != "" {
+		return ""
+	}
 	stdDevStr := prefixIfNotEmpty("±", stdDev)
-	meanAndStdDevPart := ""; if mean != "" { meanAndStdDevPart = "@" + mean + stdDevStr } else if stdDev != "" { meanAndStdDevPart = "@" + stdDevStr }
+	meanAndStdDevPart := ""
+	if mean != "" {
+		meanAndStdDevPart = "@" + mean + stdDevStr
+	} else if stdDev != "" {
+		meanAndStdDevPart = "@" + stdDevStr
+	}
 	value := total
-	if meanAndStdDevPart != "" { value += meanAndStdDevPart }
-	if unit != "" { if value != "" { value += " " + unit } }
+	if meanAndStdDevPart != "" {
+		value += meanAndStdDevPart
+	}
+	if unit != "" {
+		if value != "" {
+			value += " " + unit
+		}
+	}
 	return value
 }
 
-type childLinkEntry struct { Variable  string; PlanNodes *sppb.PlanNode }
-type childLinkGroup struct { Type string; PlanNodes []*childLinkEntry }
+type childLinkEntry struct {
+	Variable  string
+	PlanNodes *sppb.PlanNode
+}
+type childLinkGroup struct {
+	Type      string
+	PlanNodes []*childLinkEntry
+}
 
 func getScalarChildLinks(qp *spannerplan.QueryPlan, node *sppb.PlanNode, filter func(link *sppb.PlanNode_ChildLink) bool) []*childLinkGroup {
 	var result []*childLinkGroup
@@ -655,7 +797,9 @@ func getScalarChildLinks(qp *spannerplan.QueryPlan, node *sppb.PlanNode, filter 
 	for _, cl := range node.GetChildLinks() {
 		childNode := qp.GetNodeByChildLink(cl)
 		childType := cl.GetType()
-		if !filter(cl) || childNode.GetKind() != sppb.PlanNode_SCALAR { continue }
+		if !filter(cl) || childNode.GetKind() != sppb.PlanNode_SCALAR {
+			continue
+		}
 		if _, ok := typeToChildLinks[childType]; !ok {
 			newEntry := &childLinkGroup{Type: childType}
 			typeToChildLinks[childType] = newEntry
@@ -680,13 +824,26 @@ func formatChildLinks(childLinks []*childLinkGroup) string {
 	for _, cl := range childLinks {
 		var prefix string
 		if cl.Type != "" && cl.Type != "Value" {
-			if len(cl.PlanNodes) == 1 { prefix = fmt.Sprintf("%s: ", cl.Type) } else { prefix = "  "; fmt.Fprintf(&buf, "%s:\n", cl.Type) }
+			if len(cl.PlanNodes) == 1 {
+				prefix = fmt.Sprintf("%s: ", cl.Type)
+			} else {
+				prefix = "  "
+				fmt.Fprintf(&buf, "%s:\n", cl.Type)
+			}
 		}
 		for _, planNode_ := range cl.PlanNodes {
-			if planNode_.Variable == "" && cl.Type == "" { continue }
-			description := "";
-			if psr := planNode_.PlanNodes.GetShortRepresentation(); psr != nil { description = psr.GetDescription() }
-			if planNode_.Variable == "" { fmt.Fprintf(&buf, "%s%s\n", prefix, description) } else { fmt.Fprintf(&buf, "%s$%s:=%s\n", prefix, planNode_.Variable, description) }
+			if planNode_.Variable == "" && cl.Type == "" {
+				continue
+			}
+			description := ""
+			if psr := planNode_.PlanNodes.GetShortRepresentation(); psr != nil {
+				description = psr.GetDescription()
+			}
+			if planNode_.Variable == "" {
+				fmt.Fprintf(&buf, "%s%s\n", prefix, description)
+			} else {
+				fmt.Fprintf(&buf, "%s$%s:=%s\n", prefix, planNode_.Variable, description)
+			}
 		}
 	}
 	return buf.String()
@@ -695,13 +852,21 @@ func formatChildLinks(childLinks []*childLinkGroup) string {
 func formatSerializeResult(rowType *sppb.StructType, childLinks []*childLinkGroup) string {
 	var result bytes.Buffer
 	for _, cl := range childLinks {
-		if cl.Type != "" { continue }
+		if cl.Type != "" {
+			continue
+		}
 		for i, planNodeEntry := range cl.PlanNodes {
-			if rowType == nil || i >= len(rowType.GetFields()) { continue }
+			if rowType == nil || i >= len(rowType.GetFields()) {
+				continue
+			}
 			name := rowType.GetFields()[i].GetName()
-			if name == "" { name = fmt.Sprintf("no_name<%d>", i) }
-			description := "";
-			if psr := planNodeEntry.PlanNodes.GetShortRepresentation(); psr != nil { description = psr.GetDescription() }
+			if name == "" {
+				name = fmt.Sprintf("no_name<%d>", i)
+			}
+			description := ""
+			if psr := planNodeEntry.PlanNodes.GetShortRepresentation(); psr != nil {
+				description = psr.GetDescription()
+			}
 			text := fmt.Sprintf("Result.%s:%s", name, description)
 			fmt.Fprintln(&result, text)
 		}
@@ -711,7 +876,9 @@ func formatSerializeResult(rowType *sppb.StructType, childLinks []*childLinkGrou
 
 func formatQueryStats(stats map[string]*structpb.Value) string {
 	var result []string
-	for k, v := range stats { result = append(result, fmt.Sprintf("%s: %s", k, v.GetStringValue())) }
+	for k, v := range stats {
+		result = append(result, fmt.Sprintf("%s: %s", k, v.GetStringValue()))
+	}
 	sort.Strings(result)
 	return strings.Join(result, "\n")
 }
@@ -731,7 +898,9 @@ func formatQueryNode(queryStats map[string]*structpb.Value, showQueryStats bool)
 }
 
 func formatNodeContentAsText(node *treeNode, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) []string {
-	if node == nil { return nil }
+	if node == nil {
+		return nil
+	}
 	var content []string
 
 	// Note: qp is passed but node.plan is used by getters. This is fine for now.
@@ -749,43 +918,58 @@ func formatNodeContentAsText(node *treeNode, qp *spannerplan.QueryPlan, param op
 
 	if sro := node.GetSerializeResultOutput(qp, param, rowType); sro != "" {
 		for _, line := range strings.Split(strings.TrimSuffix(sro, "\n"), "\n") {
-			if line != "" { content = append(content, fmt.Sprintf("SerializeResult: %s", line)) }
+			if line != "" {
+				content = append(content, fmt.Sprintf("SerializeResult: %s", line))
+			}
 		}
 	}
 
 	if nvsl := node.GetNonVarScalarLinksOutput(qp, param); nvsl != "" {
 		for _, line := range strings.Split(strings.TrimSuffix(nvsl, "\n"), "\n") {
-			if line != "" { content = append(content, fmt.Sprintf("NonVarScalarLink: %s", line)) }
+			if line != "" {
+				content = append(content, fmt.Sprintf("NonVarScalarLink: %s", line))
+			}
 		}
 	}
 
 	metadata := node.GetMetadata(param)
 	if len(metadata) > 0 {
 		var metaLines []string
-		for k, v := range metadata { metaLines = append(metaLines, fmt.Sprintf("Metadata: %s = %s", k, v)) }
-		sort.Strings(metaLines); content = append(content, metaLines...)
+		for k, v := range metadata {
+			metaLines = append(metaLines, fmt.Sprintf("Metadata: %s = %s", k, v))
+		}
+		sort.Strings(metaLines)
+		content = append(content, metaLines...)
 	}
 
 	if vsl := node.GetVarScalarLinksOutput(qp, param); vsl != "" {
 		for _, line := range strings.Split(strings.TrimSuffix(vsl, "\n"), "\n") {
-			if line != "" { content = append(content, fmt.Sprintf("VarScalarLink: %s", line)) }
+			if line != "" {
+				content = append(content, fmt.Sprintf("VarScalarLink: %s", line))
+			}
 		}
 	}
 
 	stats := node.GetStats(param)
 	if len(stats) > 0 {
 		var statLines []string
-		for k, v := range stats { statLines = append(statLines, fmt.Sprintf("Stat: %s: %s", k, v)) }
-		sort.Strings(statLines); content = append(content, statLines...)
+		for k, v := range stats {
+			statLines = append(statLines, fmt.Sprintf("Stat: %s: %s", k, v))
+		}
+		sort.Strings(statLines)
+		content = append(content, statLines...)
 	}
 
 	if es := node.GetExecutionSummary(param); es != "" {
 		for _, line := range strings.Split(strings.TrimSuffix(es, "\n"), "\n") {
-			if line != "" { content = append(content, fmt.Sprintf("ExecutionSummary: %s", line)) }
+			if line != "" {
+				content = append(content, fmt.Sprintf("ExecutionSummary: %s", line))
+			}
 		}
 	}
 
 	sort.Strings(content)
 	return content
 }
+
 // End of visualize/build_tree.go
