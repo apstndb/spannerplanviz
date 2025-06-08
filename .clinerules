@@ -14,3 +14,4 @@ Here are the primary guidelines to follow when assisting with this project:
     2.  **Bypassing a Rule:** If you must deviate from any of these established rules to fulfill a request, you must add a comment at that location. The comment must identify which rule was bypassed and explain why the exception was necessary.
 
 * **Ruleset Maintenance:** After all code modifications are complete, propose an update to the `.clinerules` file that reflects the guidelines established in this session. Await user confirmation before applying the changes.
+* **Testing Before Completion:** Always run `go test ./...` and ensure all tests pass before attempting to complete the task.
