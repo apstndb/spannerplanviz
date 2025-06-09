@@ -95,24 +95,21 @@ func isRemoteCall(node *sppb.PlanNode, cl *sppb.PlanNode_ChildLink) bool {
 	if !ok {
 		return false
 	}
+
 	callType := metadataFields["call_type"].GetStringValue()
 	if callType == "Local" {
 		return false
 	}
+
 	return subqueryClusterNode.GetStringValue() == strconv.Itoa(int(cl.GetChildIndex()))
 }
 
 type treeNode struct {
 	// Core data field
-	planNodeProto *sppb.PlanNode
+	planNode *sppb.PlanNode
 
 	// Essential fields for graph structure
 	Children []*link
-
-	// Removed fields:
-	// plan *spannerplan.QueryPlan
-	// Name string
-	// Tooltip string
 }
 
 // nodeContent holds the raw, unformatted content extracted from a plan node,
@@ -202,7 +199,7 @@ func (n *treeNode) getNodeContent(qp *spannerplan.QueryPlan, param option.Option
 
 	// Apply heuristic check for ScanInfo double-printing
 	// This logic is moved from MermaidLabel to here to centralize content decision.
-	isScanNode := n.planNodeProto.GetDisplayName() == "Scan"
+	isScanNode := n.planNode.GetDisplayName() == "Scan"
 	if isScanNode && content.ScanInfo != "" && content.ScanInfo == content.ShortRepresentation && content.ShortRepresentation != "" {
 		// If it's a scan node, and ScanInfo is identical to ShortRepresentation, and ShortRepresentation is not empty,
 		// then clear ScanInfo to avoid double-printing.
@@ -214,8 +211,8 @@ func (n *treeNode) getNodeContent(qp *spannerplan.QueryPlan, param option.Option
 
 // MermaidLabel generates the label string for this node, suitable for use in Mermaid diagrams.
 func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
-	if n.planNodeProto == nil {
-		return escapeMermaidLabelContent("Error: nil planNodeProto")
+	if n.planNode == nil {
+		return escapeMermaidLabelContent("Error: nil planNode")
 	}
 
 	content := n.getNodeContent(qp, param, rowType)
@@ -290,28 +287,28 @@ func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options,
 
 // GetName generates the node's unique ID for graph rendering.
 func (n *treeNode) GetName() string {
-	if n.planNodeProto == nil {
-		return "node_unknown" // Fallback for safety, though planNodeProto should always be set
+	if n.planNode == nil {
+		return "node_unknown" // Fallback for safety, though planNode should always be set
 	}
-	return fmt.Sprintf("node%d", n.planNodeProto.GetIndex())
+	return fmt.Sprintf("node%d", n.planNode.GetIndex())
 }
 
-// GetTooltip generates the tooltip string (YAML of the planNodeProto) on demand.
+// GetTooltip generates the tooltip string (YAML of the planNode) on demand.
 func (n *treeNode) GetTooltip() (string, error) {
-	tooltipBytes, err := yaml.Marshal(n.planNodeProto)
+	tooltipBytes, err := yaml.Marshal(n.planNode)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal planNodeProto for tooltip: %w", err)
+		return "", fmt.Errorf("failed to marshal planNode for tooltip: %w", err)
 	}
 	return string(tooltipBytes), nil
 }
 
 func (n *treeNode) GetTitle(param option.Options) string {
 	// Always use HideMetadata() as per user feedback that implies metadata should be hidden from the title string itself.
-	return spannerplan.NodeTitle(n.planNodeProto, spannerplan.HideMetadata())
+	return spannerplan.NodeTitle(n.planNode, spannerplan.HideMetadata())
 }
 
 func (n *treeNode) GetShortRepresentation() string {
-	return n.planNodeProto.GetShortRepresentation().GetDescription()
+	return n.planNode.GetShortRepresentation().GetDescription()
 }
 
 func (n *treeNode) GetScanInfoOutput(param option.Options) string {
@@ -319,7 +316,7 @@ func (n *treeNode) GetScanInfoOutput(param option.Options) string {
 		return ""
 	}
 
-	metadataFields := n.planNodeProto.GetMetadata().GetFields()
+	metadataFields := n.planNode.GetMetadata().GetFields()
 	if scanTypeVal := metadataFields["scan_type"].GetStringValue(); scanTypeVal != "" {
 		return fmt.Sprintf("%s: %s", strings.TrimSuffix(scanTypeVal, "Scan"), metadataFields["scan_target"].GetStringValue())
 	}
@@ -327,24 +324,24 @@ func (n *treeNode) GetScanInfoOutput(param option.Options) string {
 }
 
 func (n *treeNode) GetSerializeResultOutput(qp *spannerplan.QueryPlan, rowType *sppb.StructType) string {
-	if n.planNodeProto.GetDisplayName() != "Serialize Result" {
+	if n.planNode.GetDisplayName() != "Serialize Result" {
 		return ""
 	}
 	// formatSerializeResult expects childLinkGroups which getNonVariableChildLinks provides
-	return formatSerializeResult(rowType, getNonVariableChildLinks(qp, n.planNodeProto))
+	return formatSerializeResult(rowType, getNonVariableChildLinks(qp, n.planNode))
 }
 
 func (n *treeNode) GetNonVarScalarLinksOutput(qp *spannerplan.QueryPlan, param option.Options) string {
-	return formatChildLinks(getNonVariableChildLinks(qp, n.planNodeProto))
+	return formatChildLinks(getNonVariableChildLinks(qp, n.planNode))
 }
 
 func (n *treeNode) GetVarScalarLinksOutput(qp *spannerplan.QueryPlan, param option.Options) string {
-	return formatChildLinks(getVariableChildLinks(qp, n.planNodeProto))
+	return formatChildLinks(getVariableChildLinks(qp, n.planNode))
 }
 
 func (n *treeNode) GetMetadata(param option.Options) map[string]string {
 	result := make(map[string]string)
-	for k, v := range n.planNodeProto.GetMetadata().GetFields() {
+	for k, v := range n.planNode.GetMetadata().GetFields() {
 		if slices.Contains(param.HideMetadata, k) || slices.Contains(internalMetadataKeys, k) {
 			continue
 		}
@@ -359,7 +356,7 @@ func (n *treeNode) GetStats(param option.Options) map[string]string {
 	}
 
 	statsMap := make(map[string]string)
-	for key, valProto := range n.planNodeProto.GetExecutionStats().GetFields() {
+	for key, valProto := range n.planNode.GetExecutionStats().GetFields() {
 		if key == "execution_summary" { // Skip summary for this map
 			continue
 		}
@@ -385,10 +382,10 @@ func (n *treeNode) GetStats(param option.Options) map[string]string {
 }
 
 func (n *treeNode) GetExecutionSummary(param option.Options) string {
-	if n.planNodeProto == nil || n.planNodeProto.GetExecutionStats() == nil {
+	if n.planNode == nil || n.planNode.GetExecutionStats() == nil {
 		return ""
 	}
-	return formatExecutionSummary(n.planNodeProto.GetExecutionStats().GetFields(), param.TypeFlag == "mermaid")
+	return formatExecutionSummary(n.planNode.GetExecutionStats().GetFields(), param.TypeFlag == "mermaid")
 }
 
 // New Metadata() and HTML() methods using on-demand getters
@@ -531,7 +528,7 @@ func buildNode(planNode *sppb.PlanNode) (*treeNode, error) {
 	}
 
 	return &treeNode{
-		planNodeProto: planNode,
+		planNode: planNode,
 	}, nil
 }
 
@@ -620,10 +617,11 @@ func tryToTimestampStr(s string) (string, error) {
 }
 
 func prefixIfNotEmpty(prefix, value string) string {
-	if value != "" {
-		return prefix + value
+	if value == "" {
+		return ""
 	}
-	return ""
+
+	return prefix + value
 }
 
 func formatExecutionStatsValue(v *structpb.Value) string {
@@ -734,6 +732,7 @@ func formatQueryStats(stats map[string]*structpb.Value) string {
 	for k, v := range stats {
 		result = append(result, fmt.Sprintf("%s: %s", k, v.GetStringValue()))
 	}
+
 	sort.Strings(result)
 	return strings.Join(result, "\n")
 }

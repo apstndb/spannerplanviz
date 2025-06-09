@@ -68,7 +68,7 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 			param:                option.Options{TypeFlag: "mermaid"},
 			rowType:              nil,
 			nodesForPlan:         []*sppb.PlanNode{},
-			expectedMermaidLabel: "Error: nil planNodeProto", // Escaped by final ReplaceAll
+			expectedMermaidLabel: "Error: nil planNode", // Escaped by final ReplaceAll
 		},
 		{
 			name: "Simple Node (Title only)",
@@ -283,7 +283,7 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 			// GetSerializeResultOutput, GetNonVarScalarLinksOutput, GetVarScalarLinksOutput do use qp.
 
 			node := &treeNode{
-				planNodeProto: tc.planNodeProto,
+				planNode: tc.planNodeProto,
 				// plan field is not directly part of treeNode anymore
 			}
 
@@ -448,13 +448,13 @@ func TestTreeNodeHTML(t *testing.T) {
 			nodesForPlan := []*sppb.PlanNode{}
 			switch tc.name {
 			case "Serialize Result Node":
-				// tc.planNodeProto (Index 5) links to ChildIndex 0.
-				// For this case, ensure tc.planNodeProto is included, and its direct reference.
+				// tc.planNode (Index 5) links to ChildIndex 0.
+				// For this case, ensure tc.planNode is included, and its direct reference.
 				// If spannerplan is slice-based, this might still be problematic if indices aren't dense.
 				nodesForPlan = append(nodesForPlan, tc.planNodeProto)
 				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: 0, DisplayName: "ChildForSerialize"})
 			case "Node with Scalar Child Links":
-				// tc.planNodeProto (Index 6) links to ChildIndex 7 and 8.
+				// tc.planNode (Index 6) links to ChildIndex 7 and 8.
 				// Re-applying dense slice hack assuming spannerplan might be slice-based.
 				for i := 0; i < 6; i++ { // Dummy nodes for 0-5
 					nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: int32(i), DisplayName: fmt.Sprintf("Dummy %d", i)})
@@ -463,7 +463,7 @@ func TestTreeNodeHTML(t *testing.T) {
 				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: 7, DisplayName: "Scalar Child 1"}) // Actual node at Index 7
 				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: 8, DisplayName: "Scalar Child 2"}) // Actual node at Index 8
 			case "Node with Variable Scalar Child Links":
-				// tc.planNodeProto (Index 9) links to ChildIndex 10.
+				// tc.planNode (Index 9) links to ChildIndex 10.
 				// Apply dense slice hack.
 				for i := 0; i < 9; i++ { // Dummy nodes for 0-8
 					nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: int32(i), DisplayName: fmt.Sprintf("Dummy %d", i)})
@@ -490,7 +490,7 @@ func TestTreeNodeHTML(t *testing.T) {
 			}
 
 			node := &treeNode{
-				planNodeProto: tc.planNodeProto,
+				planNode: tc.planNodeProto,
 				// plan and Name fields removed
 			}
 			// Tooltip is now via GetTooltip, not directly set or checked here unless specific to HTML output.
@@ -790,7 +790,7 @@ func TestTreeNodeGetStats(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			node := &treeNode{planNodeProto: tt.planNode}
+			node := &treeNode{planNode: tt.planNode}
 			got := node.GetStats(tt.param)
 			if diff := cmp.Diff(got, tt.want, cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("GetStats() mismatch (-got +want):\n%s", diff)
