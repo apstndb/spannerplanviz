@@ -26,7 +26,7 @@ import (
 // It is ok to depend on types in the cgraph package, but don't use graphviz.Graph in this file.
 
 func buildTree(qp *spannerplan.QueryPlan, planNode *sppb.PlanNode, rowType *sppb.StructType, param option.Options) (*treeNode, error) {
-	node, err := buildNode(rowType, planNode, qp, param)
+	node, err := buildNode(planNode)
 	if err != nil {
 		return nil, err
 	}
@@ -525,15 +525,11 @@ func formatStructPBValue(value *structpb.Value) (string, error) {
 	}
 }
 
-func buildNode(rowType *sppb.StructType, planNode *sppb.PlanNode, queryPlan *spannerplan.QueryPlan, param option.Options) (*treeNode, error) {
-	// rowType and param are passed for consistency with buildTree, though not directly used in buildNode itself
-	// after the treeNode struct changes. queryPlan is used by the caller buildTree.
+func buildNode(planNode *sppb.PlanNode) (*treeNode, error) {
 	if planNode == nil {
 		return nil, fmt.Errorf("buildNode: received nil planNode")
 	}
 
-	// Name, Tooltip, and plan are no longer fields of treeNode.
-	// Children are populated by the buildTree function.
 	return &treeNode{
 		planNodeProto: planNode,
 	}, nil
