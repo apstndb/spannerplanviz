@@ -3,6 +3,7 @@ package visualize
 import (
 	"fmt"
 	"io"
+
 	// "sort" // For stable output of map iteration - Removed as not used
 	"strings"
 
@@ -19,7 +20,7 @@ func renderMermaid(rootNode *treeNode, writer io.Writer, qp *spannerplan.QueryPl
            "themeVariables": { "wrap": "false" },
            "flowchart": { "curve": "linear",
                           "markdownAutoWrap":"false",
-                          "wrappingWidth": "600" }
+                          "wrappingWidth": "2000" }
            }
 }%%
 `)

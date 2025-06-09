@@ -266,7 +266,7 @@ func TestRenderMermaid(t *testing.T) {
            "themeVariables": { "wrap": "false" },
            "flowchart": { "curve": "linear",
                           "markdownAutoWrap":"false",
-                          "wrappingWidth": "600" }
+                          "wrappingWidth": "2000" }
            }
 }%%`,
 		`graph TD`,

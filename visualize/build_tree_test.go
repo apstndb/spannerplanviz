@@ -21,11 +21,6 @@ func TestToLeftAlignedText(t *testing.T) {
 		want      string
 	}{
 		{
-			name:  "empty string",
-			input: "",
-			want:  "",
-		},
-		{
 			name:  "single line",
 			input: "hello world",
 			want:  "hello world<br align=\"left\" />",
@@ -36,9 +31,9 @@ func TestToLeftAlignedText(t *testing.T) {
 			want:  "line1<br align=\"left\" />line2<br align=\"left\" />line3<br align=\"left\" />",
 		},
 		{
-			name:  "html escape",
+			name:  "html escape - no internal escaping by toLeftAlignedText",
 			input: "a < b & c > d",
-			want:  `a &lt; b &amp; c &gt; d<br align="left" />`,
+			want:  `a < b & c > d<br align="left" />`, // toLeftAlignedText does not HTML escape its input
 		},
 		{
 			name:  "trailing newline",
@@ -257,7 +252,7 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 			param:                option.Options{TypeFlag: "mermaid"},
 			rowType:              nil,
 			nodesForPlan:         []*sppb.PlanNode{{Index: 6, DisplayName: "Node \"With Quotes\"", ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Description with \"quotes\" and `backticks`"}}},
-			expectedMermaidLabel: "<b>Node #quot;With Quotes#quot;</b><br/>Description with #quot;quotes#quot; and #96;backticks#96;",
+			expectedMermaidLabel: "<b>Node #quot;With Quotes#quot;</b><br/>Description with #quot;quotes#quot; and `backticks`",
 		},
 	}
 

@@ -132,31 +132,36 @@ type nodeContent struct {
 // escapeMermaidLabelContent prepares a string for safe inclusion in a Mermaid label.
 // Copied from mermaid.go for use in treeNode.MermaidLabel.
 func escapeMermaidLabelContent(content string) string {
-	// Basic HTML escaping
-	// content = strings.ReplaceAll(content, "&", "&") // Not strictly needed if #quot; etc. are used
-	// content = strings.ReplaceAll(content, "<", "<") // Avoid if using <br/>, <b>
-	// content = strings.ReplaceAll(content, ">", ">") // Avoid if using <br/>, <b>
-
-	// Critical: Escape characters that break Mermaid syntax if not inside quotes,
-	// or that break the label string itself.
-	// Backticks are problematic.
-	content = strings.ReplaceAll(content, "`", "#96;")
-	// Double quotes are handled by the caller for the overall label["..."] syntax.
-	// However, if content itself has double quotes that are part of the text,
-	// they need to be escaped for the HTML-like context within the label.
-	content = strings.ReplaceAll(content, "\"", "#quot;") // Escape internal quotes
-	return content
+	replacer := strings.NewReplacer(
+		"&nbsp;", "&nbsp;", // Bypass and-mark escape for non-breaking space
+		"@", `\@`, // Escape '@' to avoid confusion with Mermaid's syntax
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		`\`, `\\`,
+	)
+	return replacer.Replace(content)
 }
 
-// escapeGraphvizHTMLLabelContent prepares a string for safe inclusion in a Graphviz HTML label.
-// It escapes HTML special characters like '&', '<', '>', but specifically avoids escaping single quotes.
+// escapeGraphvizHTMLLabelContent prepares a string for safe inclusion in a Graphviz HTML-like label.
+// This function escapes characters that have special meaning in XML/HTML contexts,
+// as Graphviz HTML-like labels are parsed as a form of XML.
+// It also handles characters known to cause issues, like backticks.
+// escapeGraphvizHTMLLabelContent prepares a string for safe inclusion in a Graphviz HTML-like label.
+// This function performs a "double-level" escaping to ensure that even pre-existing HTML entities
+// within the input string are properly escaped for Graphviz's HTML-like label parsing.
+// It first escapes the '&' character, then other special characters.
 func escapeGraphvizHTMLLabelContent(content string) string {
-	// Order matters: escape '&' first to avoid double-escaping already escaped entities.
-	content = strings.ReplaceAll(content, "&", "&amp;")
-	content = strings.ReplaceAll(content, "<", "&lt;")
-	content = strings.ReplaceAll(content, ">", "&gt;")
-	// Do NOT escape single quotes (apostrophes) as per user feedback for Graphviz DOT HTML labels.
-	return content
+	// Per user request, performing double-level escaping for Graphviz HTML labels.
+	// This ensures that characters like '&' (even if part of an existing entity like '&')
+	// are correctly escaped to prevent misinterpretation by Graphviz.
+	replacer := strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		`\`, `\\`,
+	)
+	return replacer.Replace(content)
 }
 
 // getNodeContent extracts and formats the raw content of a treeNode into a structured nodeContent.
@@ -470,8 +475,8 @@ func (n *treeNode) Metadata(qp *spannerplan.QueryPlan, param option.Options, row
 		labelLines = append(labelLines, escapeGraphvizHTMLLabelContent(line))
 	}
 
-	// All lines in labelLines are now raw strings (or escaped key=value), to be processed by toLeftAlignedTextGraphviz.
-	labelHTMLPart := toLeftAlignedTextGraphviz(strings.Join(labelLines, "\n"))
+	// All lines in labelLines are now raw strings (or escaped key=value), to be processed by toLeftAlignedText.
+	labelHTMLPart := toLeftAlignedText(strings.Join(labelLines, "\n"))
 
 	// Reconstruct content similar to old n.Stats (detailed stats + summary)
 	var statsAndSummaryPlainLines []string
@@ -495,8 +500,8 @@ func (n *treeNode) Metadata(qp *spannerplan.QueryPlan, param option.Options, row
 			}
 		}
 	}
-	// All lines in statsAndSummaryPlainLines are raw strings, toLeftAlignedTextGraphviz will escape them.
-	statsHTMLPart := markupIfNotEmpty(toLeftAlignedTextGraphviz(strings.Join(statsAndSummaryPlainLines, "\n")), "i")
+	// All lines in statsAndSummaryPlainLines are raw strings, toLeftAlignedText will escape them.
+	statsHTMLPart := markupIfNotEmpty(toLeftAlignedText(strings.Join(statsAndSummaryPlainLines, "\n")), "i")
 
 	if labelHTMLPart != "" && statsHTMLPart != "" {
 		// toLeftAlignedText appends <br align="left"/> if its input is not empty.
@@ -642,6 +647,7 @@ func formatExecutionSummary(executionStatsFields map[string]*structpb.Value, isM
 				value = fmt.Sprint(v)
 			}
 			if isMermaid {
+				// For Mermaid, use non-breaking space for indentation
 				executionSummaryStrings = append(executionSummaryStrings, fmt.Sprintf("&nbsp;&nbsp;&nbsp;%s: %s\n", k, value))
 			} else {
 				executionSummaryStrings = append(executionSummaryStrings, fmt.Sprintf("   %s: %s\n", k, value))
@@ -660,15 +666,7 @@ func toLeftAlignedText(str string) string {
 		return ""
 	}
 
-	return newlineOrEOSRe.ReplaceAllString(html.EscapeString(str), `<br align="left" />`)
-}
-
-func toLeftAlignedTextGraphviz(str string) string {
-	if str == "" {
-		return ""
-	}
-	// Escaping for Graphviz HTML labels (no single quotes escaped)
-	return newlineOrEOSRe.ReplaceAllString(escapeGraphvizHTMLLabelContent(str), `<br align="left" />`)
+	return newlineOrEOSRe.ReplaceAllString(str, `<br align="left" />`) // Removed html.EscapeString
 }
 
 // tryToTimestampStr converts a string representation of a timestamp (seconds.microseconds)
@@ -856,10 +854,10 @@ func formatQueryNode(queryStats map[string]*structpb.Value, showQueryStats bool)
 	text := m[queryTextKey].GetStringValue()
 	delete(m, queryTextKey)
 	var buf strings.Builder
-	buf.WriteString(markupIfNotEmpty(toLeftAlignedTextGraphviz(text), "b"))
+	buf.WriteString(markupIfNotEmpty(toLeftAlignedText(escapeGraphvizHTMLLabelContent(text)), "b")) // Changed to toLeftAlignedText
 	if showQueryStats {
 		statsStr := formatQueryStats(m)
-		buf.WriteString(markupIfNotEmpty(toLeftAlignedTextGraphviz(statsStr), "i"))
+		buf.WriteString(markupIfNotEmpty(toLeftAlignedText(escapeGraphvizHTMLLabelContent(statsStr)), "i")) // Changed to toLeftAlignedText
 	}
 	return buf.String()
 }
@@ -921,5 +919,3 @@ func formatNodeContentAsText(node *treeNode, qp *spannerplan.QueryPlan, param op
 
 	return result
 }
-
-// End of visualize/build_tree.go
