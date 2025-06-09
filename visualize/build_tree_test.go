@@ -11,15 +11,13 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/apstndb/spannerplanviz/option"
-	// "sigs.k8s.io/yaml" // Removed as not used after Tooltip changes
 )
 
 func TestToLeftAlignedText(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     string
-		isMermaid bool
-		want      string
+		name  string
+		input string
+		want  string
 	}{
 		{
 			name:  "single line",
@@ -34,7 +32,7 @@ func TestToLeftAlignedText(t *testing.T) {
 		{
 			name:  "html escape - no internal escaping by toLeftAlignedText",
 			input: "a < b & c > d",
-			want:  `a < b & c > d<br align="left" />`, // toLeftAlignedText does not HTML escape its input
+			want:  `a < b & c > d<br align="left" />`,
 		},
 		{
 			name:  "trailing newline",
@@ -55,10 +53,12 @@ func TestToLeftAlignedText(t *testing.T) {
 
 func TestTreeNodeMermaidLabel(t *testing.T) {
 	testCases := []struct {
-		name                 string
-		planNodeProto        *sppb.PlanNode
-		param                option.Options
-		rowType              *sppb.StructType
+		name          string
+		planNodeProto *sppb.PlanNode
+		param         option.Options
+		rowType       *sppb.StructType
+
+		// TODO: nodesForPlan seems not robust workaround.
 		nodesForPlan         []*sppb.PlanNode // For setting up QueryPlan
 		expectedMermaidLabel string
 	}{
@@ -159,11 +159,6 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 					},
 				},
 			}},
-			// GetTitle uses "Table Scan", GetScanInfoOutput uses "Full Scan: UsersTable".
-			// spannerplan.NodeTitle (called by GetTitle) uses metadata["scan_type"] if available.
-			// GetScanInfoOutput also uses metadata["scan_type"] ("Full Scan") and trims "Scan", becoming "Full ".
-			// NodeTitle likely combines "Full " with "Table Scan" -> "Full  Table Scan" (note double space)
-			// GetScanInfoOutput formats as "Full : UsersTable"
 			expectedMermaidLabel: "<b>Full  Table Scan</b><br/>Full : UsersTable",
 		},
 		{
@@ -310,24 +305,12 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 
 // TestTreeNodeHTML is being re-added here.
 func TestTreeNodeHTML(t *testing.T) {
-	// Ensure necessary imports are present at the top of the file:
-	// import (
-	// 	"fmt"
-	// 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
-	// 	"github.com/apstndb/spannerplan"
-	// 	"github.com/apstndb/spannerplanviz/option"
-	// 	"github.com/google/go-cmp/cmp"
-	// 	"google.golang.org/protobuf/types/known/structpb"
-	// 	"sigs.k8s.io/yaml"
-	// )
-
 	testCases := []struct {
 		name          string
 		planNodeProto *sppb.PlanNode
-		// plan field removed as it's constructed per test run
-		param        option.Options
-		rowType      *sppb.StructType // Can be nil if not testing Serialize Result
-		expectedHTML string
+		param         option.Options
+		rowType       *sppb.StructType // Can be nil if not testing Serialize Result
+		expectedHTML  string
 	}{
 		{
 			name: "Simple Title Only",
