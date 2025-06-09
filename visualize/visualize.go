@@ -149,7 +149,7 @@ func renderNode(graph *cgraph.Graph, node *treeNode, qp *spannerplan.QueryPlan, 
 
 	tooltipStr, ttErr := node.GetTooltip()
 	if ttErr != nil {
-		return fmt.Errorf("Error getting tooltip for node %s: %w", node.GetName(), ttErr)
+		return fmt.Errorf("error getting tooltip for node %s: %w", node.GetName(), ttErr)
 	}
 
 	n.SetTooltip(tooltipStr)

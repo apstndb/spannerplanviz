@@ -59,8 +59,6 @@ func renderMermaid(rootNode *treeNode, writer io.Writer, qp *spannerplan.QueryPl
 			}
 
 			var edgeLabelPart string
-			// ChildType represents node relationship text which doesn't contain special characters
-			// so it's safe to use with %s format directly
 			if edgeLink.ChildType != "" {
 				edgeLabelPart = fmt.Sprintf("|%s|", edgeLink.ChildType)
 			}
