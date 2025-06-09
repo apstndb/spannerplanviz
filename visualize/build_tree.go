@@ -633,18 +633,18 @@ func formatChildLinks(childLinks []*childLinkGroup) string {
 				fmt.Fprintf(&buf, "%s:\n", cl.Type)
 			}
 		}
-		for _, planNode_ := range cl.PlanNodes {
-			if planNode_.Variable == "" && cl.Type == "" {
+		for _, childLinkEntry := range cl.PlanNodes {
+			if childLinkEntry.Variable == "" && cl.Type == "" {
 				continue
 			}
-			description := ""
-			if psr := planNode_.PlanNodes.GetShortRepresentation(); psr != nil {
-				description = psr.GetDescription()
-			}
-			if planNode_.Variable == "" {
+
+			// it is safe even if nil receiver
+			description := childLinkEntry.PlanNodes.GetShortRepresentation().GetDescription()
+
+			if childLinkEntry.Variable == "" {
 				fmt.Fprintf(&buf, "%s%s\n", prefix, description)
 			} else {
-				fmt.Fprintf(&buf, "%s$%s:=%s\n", prefix, planNode_.Variable, description)
+				fmt.Fprintf(&buf, "%s$%s:=%s\n", prefix, childLinkEntry.Variable, description)
 			}
 		}
 	}
