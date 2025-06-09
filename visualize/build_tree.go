@@ -148,13 +148,10 @@ func escapeMermaidLabelContent(content string) string {
 // as Graphviz HTML-like labels are parsed as a form of XML.
 // It also handles characters known to cause issues, like backticks.
 // escapeGraphvizHTMLLabelContent prepares a string for safe inclusion in a Graphviz HTML-like label.
-// This function performs a "double-level" escaping to ensure that even pre-existing HTML entities
-// within the input string are properly escaped for Graphviz's HTML-like label parsing.
-// It first escapes the '&' character, then other special characters.
+// Note: Graphviz's HTML-like label parsing has its own specific rules that differ from standard
+// HTML/XML parsing. This function escapes special characters according to Graphviz's requirements.
+// See: https://graphviz.org/doc/info/shapes.html#html for details on Graphviz HTML-like labels.
 func escapeGraphvizHTMLLabelContent(content string) string {
-	// Per user request, performing double-level escaping for Graphviz HTML labels.
-	// This ensures that characters like '&' (even if part of an existing entity like '&')
-	// are correctly escaped to prevent misinterpretation by Graphviz.
 	replacer := strings.NewReplacer(
 		"&", "&amp;",
 		"<", "&lt;",
