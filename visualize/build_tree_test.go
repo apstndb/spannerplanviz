@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
+	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/apstndb/spannerplan"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -68,7 +69,7 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 			param:                option.Options{TypeFlag: "mermaid"},
 			rowType:              nil,
 			nodesForPlan:         []*sppb.PlanNode{},
-			expectedMermaidLabel: "Error: nil planNode", // Escaped by final ReplaceAll
+			expectedMermaidLabel: `node\_unknown`,
 		},
 		{
 			name: "Simple Node (Title only)",
@@ -79,7 +80,7 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 			param:                option.Options{TypeFlag: "mermaid"},
 			rowType:              nil,
 			nodesForPlan:         []*sppb.PlanNode{{Index: 0, DisplayName: "Test Node"}},
-			expectedMermaidLabel: "<b>Test Node</b>",
+			expectedMermaidLabel: "<b>Test&nbsp;Node</b>",
 		},
 		{
 			name: "Node with Title and Metadata",
@@ -105,7 +106,10 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 					},
 				},
 			}},
-			expectedMermaidLabel: "<b>Meta Node</b><br/>another: 42<br/>meta_key: meta_val",
+			expectedMermaidLabel: heredoc.Doc(`
+<b>Meta&nbsp;Node</b>
+another: 42
+meta\_key: meta\_val`),
 		},
 		{
 			name: "Node with Stats",
@@ -133,7 +137,8 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 					},
 				},
 			}},
-			expectedMermaidLabel: "<b>Stat Node</b><br/><i>latency: 1ms</i>",
+			expectedMermaidLabel: heredoc.Doc(`<b>Stat&nbsp;Node</b>
+<i>latency: 1ms</i>`),
 		},
 		{
 			name: "Scan Node with ScanInfo",
@@ -159,7 +164,9 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 					},
 				},
 			}},
-			expectedMermaidLabel: "<b>Full  Table Scan</b><br/>Full : UsersTable",
+			expectedMermaidLabel: heredoc.Doc(`
+<b>Full&nbsp;&nbsp;Table&nbsp;Scan</b>
+Full&nbsp;\:&nbsp;UsersTable`),
 		},
 		{
 			name: "Serialize Result Node",
@@ -190,7 +197,8 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 					Index: 100, // Original index
 					Kind:  sppb.PlanNode_SCALAR, ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "U_ID"}},
 			},
-			expectedMermaidLabel: "<b>Serialize Result</b><br/>Result.userID:U_ID",
+			expectedMermaidLabel: heredoc.Doc(`<b>Serialize&nbsp;Result</b>
+Result\.userID\:U\_ID`),
 		},
 		{
 			name: "Node with All Elements",
@@ -236,7 +244,13 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 				},
 			}},
 			// Order: Title, ShortRep, (ScanInfo - N/A), (SerializeResult - N/A), (NonVarScalar - N/A), Meta, (VarScalar - N/A), Stats, ExecSummary
-			expectedMermaidLabel: "<b>Complex Node</b><br/>SR: Complex<br/>meta_1: val_1<br/><i>cpu_time: 5ms</i><br/><i>execution_summary:<br/>&nbsp;&nbsp;&nbsp;num_executions: 10</i>",
+			expectedMermaidLabel: heredoc.Doc(`
+<b>Complex&nbsp;Node</b>
+SR\:&nbsp;Complex
+meta\_1: val\_1
+<i>cpu\_time: 5ms</i>
+<i>execution\_summary\:
+&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;10</i>`),
 		},
 		{
 			name: "Node with quotes in content",
@@ -245,10 +259,12 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 				DisplayName:         "Node \"With Quotes\"",
 				ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Description with \"quotes\" and `backticks`"},
 			},
-			param:                option.Options{TypeFlag: "mermaid"},
-			rowType:              nil,
-			nodesForPlan:         []*sppb.PlanNode{{Index: 6, DisplayName: "Node \"With Quotes\"", ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Description with \"quotes\" and `backticks`"}}},
-			expectedMermaidLabel: "<b>Node #quot;With Quotes#quot;</b><br/>Description with #quot;quotes#quot; and `backticks`",
+			param:        option.Options{TypeFlag: "mermaid"},
+			rowType:      nil,
+			nodesForPlan: []*sppb.PlanNode{{Index: 6, DisplayName: "Node \"With Quotes\"", ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Description with \"quotes\" and `backticks`"}}},
+			expectedMermaidLabel: heredoc.Doc(`
+<b>Node&nbsp;&quot;With&nbsp;Quotes&quot;</b>
+Description&nbsp;with&nbsp;&quot;quotes&quot;&nbsp;and&nbsp;`) + "\\`backticks\\`",
 		},
 	}
 
@@ -284,14 +300,14 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 
 			// The MermaidLabel method itself handles the final quote escaping for the overall label.
 			// So, tc.expectedMermaidLabel should represent the content *before* that final step,
-			// but *with* internal #quot; and #96; etc. from escapeMermaidLabelContent.
+			// but *with* internal #quotquot; and #96; etc. from escapeMermaidLabelContent.
 			// The current structure of MermaidLabel in build_tree.go does:
 			// labelContent := strings.Join(labelParts, "<br/>")
 			// ...
-			// return strings.ReplaceAll(labelContent, "\"", "#quot;")
+			// return strings.ReplaceAll(labelContent, "\"", "#quotquot;")
 			// So expectedMermaidLabel should match `labelContent`
 			// Let's adjust expectations to match the actual output of MermaidLabel directly.
-			// This means expectedMermaidLabel already includes the final #quot; transformations if any part had a quote.
+			// This means expectedMermaidLabel already includes the final #quotquot; transformations if any part had a quote.
 
 			gotLabel := node.MermaidLabel(currentPlan, tc.param, tc.rowType)
 

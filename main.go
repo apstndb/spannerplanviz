@@ -24,7 +24,6 @@ import (
 	"os"
 
 	"github.com/apstndb/spannerplan"
-	"github.com/goccy/go-graphviz"
 	"github.com/jessevdk/go-flags"
 
 	"github.com/apstndb/spannerplanviz/option"
@@ -91,7 +90,7 @@ func run(ctx context.Context) error {
 
 	opts.ApplyFullOption()
 
-	err = visualize.RenderImage(ctx, rowType, queryStats, graphviz.Format(opts.TypeFlag), writer, opts)
+	err = visualize.RenderImage(ctx, rowType, queryStats, writer, opts)
 	if err != nil {
 		innerErr := os.Remove(opts.Filename)
 		if innerErr != nil {

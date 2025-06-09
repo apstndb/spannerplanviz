@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func markupIfNotEmpty(s, element string) string {
+func markupIfNotEmpty(element, s string) string {
 	if s == "" {
 		return ""
 	}

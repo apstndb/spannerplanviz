@@ -126,18 +126,63 @@ type nodeContent struct {
 	ExecutionSummary    string
 }
 
-// escapeMermaidLabelContent prepares a string for safe inclusion in a Mermaid label.
-// Copied from mermaid.go for use in treeNode.MermaidLabel.
+// escapeMermaidLabelContent prepares a string for safe inclusion in a Mermaid label when htmlLabels:true is used.
+// This function specifically handles escaping for Mermaid.js HTML-like label syntax.
+// Note: Mermaid.js always processes Markdown-like syntax features in labels (such as backticks
+// for code blocks), regardless of htmlLabels setting.
 func escapeMermaidLabelContent(content string) string {
-	replacer := strings.NewReplacer(
-		"&nbsp;", "&nbsp;", // Bypass and-mark escape for non-breaking space
-		"@", `\@`, // Escape '@' to avoid confusion with Mermaid's syntax
+	return replacerForMermaid[true].Replace(content)
+}
+
+var replacerForMermaid = map[bool]*strings.Replacer{
+	true:  newReplacerForMermaidHTMLLabel(true),
+	false: newReplacerForMermaidHTMLLabel(false),
+}
+
+// newReplacerForMermaidHTMLLabel creates a strings.Replacer for escaping text content in Mermaid diagram labels.
+// It handles both HTML-like character escaping and Mermaid-specific character escaping requirements.
+//
+// Parameters:
+//   - replaceSpaceToNbsp: when true, replaces spaces with &nbsp; entities for preserving whitespace in HTML-like contexts
+//
+// The replacer handles three types of escaping:
+//  1. HTML entity escaping for '<', '>', and '&'
+//  2. Mermaid-specific character escaping for special syntax characters
+//  3. Optional space-to-nbsp conversion
+//
+// The escaping is done in a specific order to prevent interference between different escape sequences.
+func newReplacerForMermaidHTMLLabel(replaceSpaceToNbsp bool) *strings.Replacer {
+	quot := []string{`"`, "&quot;"}
+
+	// HTML entity escapes must be handled in specific order to prevent interference:
+	// 1. & escaped first (prevent double-escaping)
+	// 2. < and > escaped for HTML safety
+	htmlLikeEscapeChars := []string{
 		"&", "&amp;",
 		"<", "&lt;",
 		">", "&gt;",
-		`\`, `\\`,
-	)
-	return replacer.Replace(content)
+	}
+
+	// charsToEscape contains characters that need escaping in Mermaid labels.
+	// These characters match the marked library's escape constant
+	// (https://github.com/markedjs/marked/blob/v15.0.12/src/rules.ts)
+	// and are sorted by ASCII code.
+	// Note: quot and htmlLikeEscapeChars has higher precedence than this list
+	const charsToEscape = `!"#$%&'()*+,-./:;<=>?@[\]^_` + "`" + `{|}~`
+
+	var escapeCharsForReplacer []string
+	for _, r := range charsToEscape {
+		escapeCharsForReplacer = append(escapeCharsForReplacer, string(r), `\`+string(r))
+	}
+
+	var oldNew []string
+	if replaceSpaceToNbsp {
+		oldNew = slices.Concat(quot, []string{" ", "&nbsp;"}, htmlLikeEscapeChars, escapeCharsForReplacer)
+	} else {
+		oldNew = slices.Concat(quot, htmlLikeEscapeChars, escapeCharsForReplacer)
+	}
+
+	return strings.NewReplacer(oldNew...)
 }
 
 // escapeGraphvizHTMLLabelContent prepares a string for safe inclusion in a Graphviz HTML-like label.
@@ -171,7 +216,7 @@ func (n *treeNode) getNodeContent(qp *spannerplan.QueryPlan, param option.Option
 		Metadata:            n.GetMetadata(param),
 		VarScalarLinks:      []string{},
 		Stats:               n.GetStats(param),
-		ExecutionSummary:    n.GetExecutionSummary(param),
+		ExecutionSummary:    n.GetExecutionSummary(),
 	}
 
 	// Handle multi-line outputs
@@ -211,15 +256,11 @@ func (n *treeNode) getNodeContent(qp *spannerplan.QueryPlan, param option.Option
 
 // MermaidLabel generates the label string for this node, suitable for use in Mermaid diagrams.
 func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
-	if n.planNode == nil {
-		return escapeMermaidLabelContent("Error: nil planNode")
-	}
-
 	content := n.getNodeContent(qp, param, rowType)
 	var labelParts []string
 
 	if content.Title != "" {
-		labelParts = append(labelParts, fmt.Sprintf("<b>%s</b>", escapeMermaidLabelContent(content.Title)))
+		labelParts = append(labelParts, markupIfNotEmpty("b", escapeMermaidLabelContent(content.Title)))
 	}
 	if content.ShortRepresentation != "" {
 		labelParts = append(labelParts, escapeMermaidLabelContent(content.ShortRepresentation))
@@ -260,7 +301,7 @@ func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options,
 		}
 		sort.Strings(statKeys)
 		for _, k := range statKeys {
-			statLines = append(statLines, fmt.Sprintf("<i>%s: %s</i>", escapeMermaidLabelContent(k), escapeMermaidLabelContent(content.Stats[k])))
+			statLines = append(statLines, markupIfNotEmpty("i", fmt.Sprintf("%s: %s", escapeMermaidLabelContent(k), escapeMermaidLabelContent(content.Stats[k]))))
 		}
 		labelParts = append(labelParts, statLines...)
 	}
@@ -273,16 +314,17 @@ func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options,
 			}
 		}
 		if len(summaryLines) > 0 {
-			labelParts = append(labelParts, fmt.Sprintf("<i>%s</i>", strings.Join(summaryLines, "<br/>")))
+			labelParts = append(labelParts, markupIfNotEmpty("i", strings.Join(summaryLines, "\n")))
 		}
 	}
 
-	labelContent := strings.Join(labelParts, "<br/>")
+	labelContent := strings.Join(labelParts, "\n")
 	if labelContent == "" {
 		labelContent = escapeMermaidLabelContent(n.GetName())
 	}
 
-	return strings.ReplaceAll(labelContent, "\"", "#quot;")
+	// return strings.ReplaceAll(labelContent, "\"", "#quot;")
+	return labelContent
 }
 
 // GetName generates the node's unique ID for graph rendering.
@@ -376,11 +418,11 @@ func (n *treeNode) GetStats(param option.Options) map[string]string {
 	return statsMap
 }
 
-func (n *treeNode) GetExecutionSummary(param option.Options) string {
+func (n *treeNode) GetExecutionSummary() string {
 	if n.planNode == nil || n.planNode.GetExecutionStats() == nil {
 		return ""
 	}
-	return formatExecutionSummary(n.planNode.GetExecutionStats().GetFields(), param.TypeFlag == "mermaid")
+	return formatExecutionSummary(n.planNode.GetExecutionStats().GetFields())
 }
 
 // Metadata formats node content for GraphViz HTML-like labels.
@@ -445,7 +487,7 @@ func (n *treeNode) Metadata(qp *spannerplan.QueryPlan, param option.Options, row
 		}
 	}
 	// All lines in statsAndSummaryPlainLines are raw strings, toLeftAlignedText will escape them.
-	statsHTMLPart := markupIfNotEmpty(toLeftAlignedText(strings.Join(statsAndSummaryPlainLines, "\n")), "i")
+	statsHTMLPart := markupIfNotEmpty("i", toLeftAlignedText(strings.Join(statsAndSummaryPlainLines, "\n")))
 	return labelHTMLPart + statsHTMLPart
 }
 
@@ -453,7 +495,7 @@ func (n *treeNode) HTML(qp *spannerplan.QueryPlan, param option.Options, rowType
 	titleHTML := ""
 	if t := n.GetTitle(param); t != "" {
 		// n.GetTitle calls spannerplan.NodeTitle which already HTML escapes its content.
-		titleHTML = markupIfNotEmpty(t, "b")
+		titleHTML = markupIfNotEmpty("b", t)
 	}
 
 	metadataHTML := n.Metadata(qp, param, rowType)
@@ -490,7 +532,7 @@ var internalMetadataKeys = []string{
 	"subquery_cluster_node",
 }
 
-func formatExecutionSummary(executionStatsFields map[string]*structpb.Value, isMermaid bool) string {
+func formatExecutionSummary(executionStatsFields map[string]*structpb.Value) string {
 	executionSummary, ok := executionStatsFields["execution_summary"]
 	if !ok {
 		return ""
@@ -514,15 +556,8 @@ func formatExecutionSummary(executionStatsFields map[string]*structpb.Value, isM
 		}
 
 		const indentLevel = 3
-		var indentChar string
-		if isMermaid {
-			// For Mermaid, use non-breaking space for indentation
-			indentChar = "&nbsp;"
-		} else {
-			indentChar = " "
-		}
 		executionSummaryStrings = append(executionSummaryStrings,
-			fmt.Sprintf("%s%s: %s\n", strings.Repeat(indentChar, indentLevel), k, value))
+			fmt.Sprintf("%s%s: %s\n", strings.Repeat(" ", indentLevel), k, value))
 	}
 	sort.Strings(executionSummaryStrings)
 	fmt.Fprint(&executionSummaryBuf, strings.Join(executionSummaryStrings, ""))
@@ -699,10 +734,10 @@ func formatQueryNode(queryStats map[string]*structpb.Value, showQueryStats bool)
 	text := m[queryTextKey].GetStringValue()
 	delete(m, queryTextKey)
 	var buf strings.Builder
-	buf.WriteString(markupIfNotEmpty(toLeftAlignedText(escapeGraphvizHTMLLabelContent(text)), "b")) // Changed to toLeftAlignedText
+	buf.WriteString(markupIfNotEmpty("b", toLeftAlignedText(escapeGraphvizHTMLLabelContent(text)))) // Changed to toLeftAlignedText
 	if showQueryStats {
 		statsStr := formatQueryStats(m)
-		buf.WriteString(markupIfNotEmpty(toLeftAlignedText(escapeGraphvizHTMLLabelContent(statsStr)), "i")) // Changed to toLeftAlignedText
+		buf.WriteString(markupIfNotEmpty("i", toLeftAlignedText(escapeGraphvizHTMLLabelContent(statsStr)))) // Changed to toLeftAlignedText
 	}
 	return buf.String()
 }

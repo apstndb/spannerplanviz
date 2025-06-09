@@ -13,6 +13,11 @@ import (
 	"github.com/apstndb/spannerplanviz/option" // For option.Options
 )
 
+// renderMermaid renders the query plan as a Mermaid diagram.
+// Note: We don't use Mermaid.js Markdown label syntax with backticks because:
+// 1. There's no way to escape backticks within the syntax
+// 2. HTML-like formatting is not properly supported
+// Instead, we use direct string formatting for labels.
 func renderMermaid(rootNode *treeNode, writer io.Writer, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) error {
 	var sb strings.Builder
 	sb.WriteString(`%%{ init: {"theme": "neutral",

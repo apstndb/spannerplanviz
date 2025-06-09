@@ -1,58 +1,3 @@
-# spannerplanviz
-
-Cloud Spanner Query Plan Visualizer using [goccy/go-graphviz](https://github.com/goccy/go-graphviz).
-
-![query plan](docs/plan.png)
-
-(Possibly) remote calls are rendered as dashed lines.
-
-## Install
-
-```sh
-go install github.com/apstndb/spannerplanviz@latest
-```
-
-## Usage
-
-It can read various types in JSON and YAML.
-
-* [QueryPlan](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSetStats?hl=en#QueryPlan)
-    * Can get easily by client libraries
-        * [AnalyzeQuery()](https://pkg.go.dev/cloud.google.com/go/spanner#ReadOnlyTransaction.AnalyzeQuery)
-        * [RowIterator.QueryPlan](https://pkg.go.dev/cloud.google.com/go/spanner#RowIterator)
-* [ResultSetStats](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSetStats?hl=en)
-    * Output of DOWNLOAD JSON in [the official query plan visualizer](https://cloud.google.com/spanner/docs/tune-query-with-visualizer?hl=en)
-* [ResultSet](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSet?hl=en)
-    * Output of `gcloud spanner databases execute-sql` and [execspansql](https://github.com/apstndb/execspansql)
-
-### PLAN
-
-```
-$ gcloud spanner databases execute-sql --instance=sampleinstance sampledb --query-mode=PLAN --format=yaml \
-  --sql="SELECT SongName FROM Songs WHERE STARTS_WITH(SongName, @prefix)" |
-  spannerplanviz --full --type=svg --output plan.svg
-```
-
-### PROFILE
-
-You see verbose profile information. (Currently, `histograph` is not shown.)
-
-```
-$ gcloud spanner databases execute-sql --instance=sampleinstance sampledb --query-mode=PROFILE --format=yaml \
-  --sql "SELECT * FROM Singers JOIN Songs USING(SingerId) WHERE SongName LIKE 'Th%e'" |
-  spannerplanviz --full --type=svg --output profile.svg
-```
-
-![full profile](docs/dca_full.png)
-
-You can emit Mermaid.js using `--type mermaid` (EXPERIMENTAL).
-
-```
-spannerplanviz --full --type=mermaid --output profile.mermaid < dca_profile.json
-```
-
-<!-- visualize/testdata/dca_profile.golden.mermaid -->
-```mermaid
 %%{ init: {"theme": "neutral",
            "themeVariables": { "wrap": "false" },
            "flowchart": { "curve": "linear",
@@ -75,12 +20,12 @@ execution\_method: Row
 &nbsp;&nbsp;&nbsp;execution\_start\_timestamp\:&nbsp;2025\-06\-06T20\:52\:17\.148944Z
 &nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
 &nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>"]
-style node0 text-align:left;
-node1["<b>Create&nbsp;Batch</b>
+    style node0 text-align:left;
+    node1["<b>Create&nbsp;Batch</b>
 execution\_method: Row
 \$v2\.Batch\:\=\$v1"]
-style node1 text-align:left;
-node2["<b>Compute&nbsp;Struct</b>
+    style node1 text-align:left;
+    node2["<b>Compute&nbsp;Struct</b>
 execution\_method: Row
 \$v1\.BirthDate\:\=\$BirthDate
 \$v1\.FirstName\:\=\$FirstName
@@ -94,8 +39,8 @@ execution\_method: Row
 &nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.01&nbsp;msecs
 &nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;1
 &nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>"]
-style node2 text-align:left;
-node3["<b>Distributed&nbsp;Union</b>
+    style node2 text-align:left;
+    node3["<b>Distributed&nbsp;Union</b>
 Split&nbsp;Range\:&nbsp;true
 distribution\_table: Singers
 execution\_method: Row
@@ -108,8 +53,8 @@ split\_ranges\_aligned: false
 &nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.01&nbsp;msecs
 &nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;1
 &nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>"]
-style node3 text-align:left;
-node4["<b>Local&nbsp;Distributed&nbsp;Union</b>
+    style node3 text-align:left;
+    node4["<b>Local&nbsp;Distributed&nbsp;Union</b>
 execution\_method: Row
 <i>cpu\_time: 29\.97&nbsp;msecs</i>
 <i>latency: 77\.8&nbsp;msecs</i>
@@ -121,8 +66,8 @@ execution\_method: Row
 &nbsp;&nbsp;&nbsp;execution\_start\_timestamp\:&nbsp;2025\-06\-06T20\:52\:17\.14899Z
 &nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;1
 &nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>"]
-style node4 text-align:left;
-node5["<b>Table&nbsp;Scan</b>
+    style node4 text-align:left;
+    node5["<b>Table&nbsp;Scan</b>
 Table\:&nbsp;Singers
 Full&nbsp;scan: true
 execution\_method: Row
@@ -143,8 +88,8 @@ scan\_method: Automatic
 &nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0&nbsp;msecs
 &nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;1
 &nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>"]
-style node5 text-align:left;
-node18["<b>Serialize&nbsp;Result</b>
+    style node5 text-align:left;
+    node18["<b>Serialize&nbsp;Result</b>
 Result\.SingerId\:\$batched\_SingerId
 Result\.FirstName\:\$batched\_FirstName
 Result\.LastName\:\$batched\_LastName
@@ -165,8 +110,8 @@ execution\_method: Row
 &nbsp;&nbsp;&nbsp;execution\_start\_timestamp\:&nbsp;2025\-06\-06T20\:52\:17\.229908Z
 &nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
 &nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>"]
-style node18 text-align:left;
-node19["<b>Cross&nbsp;Apply</b>
+    style node18 text-align:left;
+    node19["<b>Cross&nbsp;Apply</b>
 execution\_method: Row
 <i>cpu\_time: 341\.43&nbsp;msecs</i>
 <i>latency: 996\.58&nbsp;msecs</i>
@@ -175,12 +120,12 @@ execution\_method: Row
 &nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.17&nbsp;msecs
 &nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
 &nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>"]
-style node19 text-align:left;
-node20["<b>KeyRangeAccumulator</b>
+    style node19 text-align:left;
+    node20["<b>KeyRangeAccumulator</b>
 execution\_method: Row
 <i>cpu\_time: 0\.62&nbsp;msecs</i>"]
-style node20 text-align:left;
-node21["<b>Batch&nbsp;Scan</b>
+    style node20 text-align:left;
+    node21["<b>Batch&nbsp;Scan</b>
 Batch\:&nbsp;\$v2
 execution\_method: Row
 scan\_method: Row
@@ -189,8 +134,8 @@ scan\_method: Row
 \$batched\_LastName\:\=LastName
 \$batched\_SingerId\:\=SingerId
 \$batched\_SingerInfo\:\=SingerInfo"]
-style node21 text-align:left;
-node27["<b>Local&nbsp;Distributed&nbsp;Union</b>
+    style node21 text-align:left;
+    node27["<b>Local&nbsp;Distributed&nbsp;Union</b>
 execution\_method: Row
 <i>cpu\_time: 340\.03\@0\.34±0\.06&nbsp;msecs</i>
 <i>latency: 995\.19\@1±8\.12&nbsp;msecs</i>
@@ -200,13 +145,13 @@ execution\_method: Row
 &nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.16&nbsp;msecs
 &nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
 &nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1000</i>"]
-style node27 text-align:left;
-node28["<b>Filter&nbsp;Scan</b>
+    style node27 text-align:left;
+    node28["<b>Filter&nbsp;Scan</b>
 Residual&nbsp;Condition\:&nbsp;\(\$SongName&nbsp;LIKE&nbsp;\'Th\%e\'\)
 execution\_method: Row
 seekable\_key\_size: 0"]
-style node28 text-align:left;
-node29["<b>Table&nbsp;Scan</b>
+    style node28 text-align:left;
+    node29["<b>Table&nbsp;Scan</b>
 Table\:&nbsp;Songs
 Seek&nbsp;Condition\:&nbsp;\(\$SingerId\_1&nbsp;\=&nbsp;\$batched\_SingerId\)
 execution\_method: Row
@@ -228,21 +173,16 @@ scan\_method: Row
 &nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.05&nbsp;msecs
 &nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
 &nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1000</i>"]
-style node29 text-align:left;
-node0 -->|Input| node1
-node1 --> node2
-node2 --> node3
-node3 -.-> node4
-node4 --> node5
-node0 -.->|Map| node18
-node18 --> node19
-node19 -->|Input| node20
-node20 --> node21
-node19 -->|Map| node27
-node27 --> node28
-node28 --> node29
-```
-
-## Disclaimer
-
-This tool is Alpha quality.
+    style node29 text-align:left;
+    node0 -->|Input| node1
+    node1 --> node2
+    node2 --> node3
+    node3 -.-> node4
+    node4 --> node5
+    node0 -.->|Map| node18
+    node18 --> node19
+    node19 -->|Input| node20
+    node20 --> node21
+    node19 -->|Map| node27
+    node27 --> node28
+    node28 --> node29
