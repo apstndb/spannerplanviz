@@ -2,6 +2,7 @@ package visualize
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 
@@ -16,6 +17,35 @@ import (
 )
 
 func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, format graphviz.Format, writer io.Writer, param option.Options) error {
+	if queryStats == nil || queryStats.GetQueryPlan() == nil {
+		// This handles cases where the input stats or the plan itself is fundamentally missing.
+		return fmt.Errorf("cannot render image: queryStats or queryPlan is nil")
+	}
+
+	// queryStats and queryStats.GetQueryPlan() are non-nil.
+	// queryStats.GetQueryPlan().GetPlanNodes() could still be empty or nil.
+	// spannerplan.New is expected to handle this (e.g., return an error or an "empty" QueryPlan object).
+	qp, err := spannerplan.New(queryStats.GetQueryPlan().GetPlanNodes())
+	if err != nil {
+		return fmt.Errorf("failed to create QueryPlan: %w", err)
+	}
+
+	rootNode, err := buildTree(qp, qp.GetNodeByIndex(0), rowType, param)
+	if err != nil {
+		return fmt.Errorf("failed to build tree: %w", err)
+	}
+
+	// 2. Fork based on TypeFlag
+	if param.TypeFlag == "mermaid" {
+		return renderMermaid(rootNode, writer, qp, param, rowType)
+	}
+
+	// 3. Graphviz path
+	return renderGraphViz(ctx, rowType, queryStats, format, writer, param, rootNode, qp)
+}
+
+func renderGraphViz(ctx context.Context, rowType *sppb.StructType, queryStats *sppb.ResultSetStats,
+	format graphviz.Format, writer io.Writer, param option.Options, rootNode *treeNode, qp *spannerplan.QueryPlan) error {
 	g, err := graphviz.New(ctx)
 	if err != nil {
 		return err
@@ -31,7 +61,6 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 	if err != nil {
 		return err
 	}
-
 	defer func() {
 		if err := graph.Close(); err != nil {
 			log.Print(err)
@@ -43,31 +72,19 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 	graph.SetStart(graphviz.RegularStart)
 	graph.SetFontName("Times New Roman:style=Bold")
 
-	err = buildAndRenderGraph(graph, rowType, queryStats, param)
+	// Call renderGraph directly with rootNode
+	// renderGraph internally handles setting RankDir, rendering the tree, and adding the query node if needed.
+	err = renderGraph(graph, rootNode, qp, param, queryStats, rowType) // Pass qp
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to render graph content: %w", err) // Wrap error from renderGraph
 	}
 
 	return g.Render(ctx, graph, format, writer)
 }
 
-func buildAndRenderGraph(graph *cgraph.Graph, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, param option.Options) error {
-	qp, err := spannerplan.New(queryStats.GetQueryPlan().GetPlanNodes())
-	if err != nil {
-		return err
-	}
-
-	rootNode, err := buildTree(qp, qp.GetNodeByIndex(0), rowType, param)
-	if err != nil {
-		return err
-	}
-
-	return renderGraph(graph, rootNode, param, queryStats)
-}
-
-func renderGraph(graph *cgraph.Graph, rootNode *treeNode, param option.Options, queryStats *sppb.ResultSetStats) error {
+func renderGraph(graph *cgraph.Graph, rootNode *treeNode, qp *spannerplan.QueryPlan, param option.Options, queryStats *sppb.ResultSetStats, rowType *sppb.StructType) error {
 	graph.SetRankDir(cgraph.BTRank)
-	err := renderTree(graph, rootNode)
+	err := renderTree(graph, rootNode, qp, param, rowType)
 	if err != nil {
 		return err
 	}
@@ -75,7 +92,7 @@ func renderGraph(graph *cgraph.Graph, rootNode *treeNode, param option.Options, 
 	showQueryStats := param.ShowQueryStats
 	needQueryNode := (param.ShowQuery || showQueryStats) && queryStats != nil
 	if needQueryNode {
-		err = renderQueryNodeWithEdge(graph, queryStats, showQueryStats, rootNode.Name)
+		err = renderQueryNodeWithEdge(graph, queryStats, showQueryStats, rootNode.GetName()) // Use GetName()
 		if err != nil {
 			return err
 		}
@@ -103,14 +120,14 @@ func renderQueryNodeWithEdge(graph *cgraph.Graph, queryStats *sppb.ResultSetStat
 	return nil
 }
 
-func renderTree(graph *cgraph.Graph, node *treeNode) error {
-	err := renderNode(graph, node)
+func renderTree(graph *cgraph.Graph, node *treeNode, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) error {
+	err := renderNode(graph, node, qp, param, rowType) // Pass qp
 	if err != nil {
 		return err
 	}
 
 	for _, child := range node.Children {
-		if err := renderTree(graph, child.ChildNode); err != nil {
+		if err := renderTree(graph, child.ChildNode, qp, param, rowType); err != nil {
 			return err
 		}
 
@@ -122,16 +139,23 @@ func renderTree(graph *cgraph.Graph, node *treeNode) error {
 	return nil
 }
 
-func renderNode(graph *cgraph.Graph, node *treeNode) error {
-	n, err := graph.CreateNodeByName(node.Name)
+func renderNode(graph *cgraph.Graph, node *treeNode, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) error {
+	n, err := graph.CreateNodeByName(node.GetName())
 	if err != nil {
 		return err
 	}
 
 	n.SetShape(cgraph.BoxShape)
-	n.SetTooltip(node.Tooltip)
 
-	nodeHTML, err := graph.StrdupHTML(node.HTML())
+	tooltipStr, ttErr := node.GetTooltip()
+	if ttErr != nil {
+		return fmt.Errorf("error getting tooltip for node %s: %w", node.GetName(), ttErr)
+	}
+
+	n.SetTooltip(tooltipStr)
+
+	nodeHTMLStr := node.HTML(qp, param, rowType)
+	nodeHTML, err := graph.StrdupHTML(nodeHTMLStr)
 	if err != nil {
 		return err
 	}

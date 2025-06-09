@@ -1,0 +1,1036 @@
+{
+  "metadata": {
+    "rowType": {
+      "fields": [
+        {
+          "name": "SingerId",
+          "type": {
+            "code": "INT64"
+          }
+        },
+        {
+          "name": "FirstName",
+          "type": {
+            "code": "STRING"
+          }
+        },
+        {
+          "name": "LastName",
+          "type": {
+            "code": "STRING"
+          }
+        },
+        {
+          "name": "SingerInfo",
+          "type": {
+            "code": "BYTES"
+          }
+        },
+        {
+          "name": "BirthDate",
+          "type": {
+            "code": "DATE"
+          }
+        },
+        {
+          "name": "AlbumId",
+          "type": {
+            "code": "INT64"
+          }
+        },
+        {
+          "name": "AlbumTitle",
+          "type": {
+            "code": "STRING"
+          }
+        },
+        {
+          "name": "MarketingBudget",
+          "type": {
+            "code": "INT64"
+          }
+        }
+      ]
+    },
+    "transaction": {
+      "readTimestamp": "2025-06-08T23:51:51.904514Z"
+    },
+    "undeclaredParameters": {}
+  },
+  "stats": {
+    "queryPlan": {
+      "planNodes": [
+        {
+          "childLinks": [
+            {
+              "childIndex": 1
+            },
+            {
+              "childIndex": 62,
+              "type": "Split Range"
+            }
+          ],
+          "displayName": "Distributed Union",
+          "executionStats": {
+            "cpu_time": {
+              "total": "0.04",
+              "unit": "msecs"
+            },
+            "execution_summary": {
+              "execution_end_timestamp": "1749426711.913657",
+              "execution_start_timestamp": "1749426711.913600",
+              "num_executions": "1"
+            },
+            "latency": {
+              "total": "0.04",
+              "unit": "msecs"
+            },
+            "remote_calls": {
+              "total": "0",
+              "unit": "calls"
+            },
+            "rows": {
+              "total": "0",
+              "unit": "rows"
+            }
+          },
+          "kind": "RELATIONAL",
+          "metadata": {
+            "distribution_table": "SingersByFirstLastName",
+            "execution_method": "Row",
+            "split_ranges_aligned": "false",
+            "subquery_cluster_node": "1"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 2
+            },
+            {
+              "childIndex": 17,
+              "type": "Map"
+            },
+            {
+              "childIndex": 59,
+              "type": "Split Range"
+            }
+          ],
+          "displayName": "Distributed Cross Apply",
+          "executionStats": {
+            "Number of Batches": {
+              "total": "0",
+              "unit": "batches"
+            },
+            "cpu_time": {
+              "total": "0.02",
+              "unit": "msecs"
+            },
+            "execution_summary": {
+              "execution_end_timestamp": "1749426711.913655",
+              "execution_start_timestamp": "1749426711.913626",
+              "num_executions": "1"
+            },
+            "latency": {
+              "total": "0.02",
+              "unit": "msecs"
+            },
+            "remote_calls": {
+              "total": "0",
+              "unit": "calls"
+            },
+            "rows": {
+              "total": "0",
+              "unit": "rows"
+            }
+          },
+          "index": 1,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row",
+            "subquery_cluster_node": "17"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 3
+            },
+            {
+              "childIndex": 16,
+              "variable": "v2.Batch"
+            }
+          ],
+          "displayName": "Create Batch",
+          "index": 2,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 4
+            }
+          ],
+          "displayName": "Distributed Union",
+          "executionStats": {
+            "cpu_time": {
+              "total": "0.02",
+              "unit": "msecs"
+            },
+            "execution_summary": {
+              "num_executions": "1"
+            },
+            "latency": {
+              "total": "0.02",
+              "unit": "msecs"
+            },
+            "remote_calls": {
+              "total": "0",
+              "unit": "calls"
+            },
+            "rows": {
+              "total": "0",
+              "unit": "rows"
+            }
+          },
+          "index": 3,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "call_type": "Local",
+            "execution_method": "Row",
+            "subquery_cluster_node": "4"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 5
+            },
+            {
+              "childIndex": 14,
+              "variable": "v1.LastName"
+            },
+            {
+              "childIndex": 15,
+              "variable": "v1.SingerId"
+            }
+          ],
+          "displayName": "Compute Struct",
+          "executionStats": {
+            "cpu_time": {
+              "total": "0.01",
+              "unit": "msecs"
+            },
+            "execution_summary": {
+              "num_executions": "1"
+            },
+            "latency": {
+              "total": "0.01",
+              "unit": "msecs"
+            },
+            "rows": {
+              "total": "0",
+              "unit": "rows"
+            }
+          },
+          "index": 4,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 6
+            }
+          ],
+          "displayName": "Filter Scan",
+          "index": 5,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row",
+            "seekable_key_size": "0"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 7,
+              "variable": "FirstName"
+            },
+            {
+              "childIndex": 8,
+              "variable": "LastName"
+            },
+            {
+              "childIndex": 9,
+              "variable": "SingerId"
+            },
+            {
+              "childIndex": 13,
+              "type": "Seek Condition"
+            }
+          ],
+          "displayName": "Scan",
+          "executionStats": {
+            "cpu_time": {
+              "total": "0.01",
+              "unit": "msecs"
+            },
+            "deleted_rows": {
+              "mean": "0",
+              "std_deviation": "0",
+              "total": "0",
+              "unit": "rows"
+            },
+            "execution_summary": {
+              "num_executions": "1"
+            },
+            "filesystem_delay_seconds": {
+              "mean": "0",
+              "std_deviation": "0",
+              "total": "0",
+              "unit": "msecs"
+            },
+            "filtered_rows": {
+              "mean": "0",
+              "std_deviation": "0",
+              "total": "0",
+              "unit": "rows"
+            },
+            "latency": {
+              "total": "0.01",
+              "unit": "msecs"
+            },
+            "rows": {
+              "total": "0",
+              "unit": "rows"
+            },
+            "scanned_rows": {
+              "mean": "0",
+              "std_deviation": "0",
+              "total": "0",
+              "unit": "rows"
+            }
+          },
+          "index": 6,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row",
+            "scan_method": "Automatic",
+            "scan_target": "SingersByFirstLastName",
+            "scan_type": "IndexScan"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 7,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "FirstName"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 8,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "LastName"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 9,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "SingerId"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 11
+            },
+            {
+              "childIndex": 12
+            }
+          ],
+          "displayName": "Function",
+          "index": 10,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "IS_NOT_DISTINCT_FROM($FirstName, '\\000\\001\\002\\003\\004\\005\\006\\007\\010\\t\\n\\013\\014\\r\\016\\017\\020\\021\\022\\023\\024\\025\\026\\027\\030\\031\\032\\033\\034\\035\\036\\037')"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 11,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$FirstName"
+          }
+        },
+        {
+          "displayName": "Constant",
+          "index": 12,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "'\\000\\001\\002\\003\\004\\005\\006\\007\\010\\t\\n\\013\\014\\r\\016\\017\\020\\021\\022\\023\\024\\025\\026\\027\\030\\031\\032\\033\\034\\035\\036\\037'"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 10
+            }
+          ],
+          "displayName": "Function",
+          "index": 13,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "IS_NOT_DISTINCT_FROM($FirstName, '\\000\\001\\002\\003\\004\\005\\006\\007\\010\\t\\n\\013\\014\\r\\016\\017\\020\\021\\022\\023\\024\\025\\026\\027\\030\\031\\032\\033\\034\\035\\036\\037')"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 14,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$LastName"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 15,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$SingerId"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 16,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$v1"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 18
+            },
+            {
+              "childIndex": 51
+            },
+            {
+              "childIndex": 52
+            },
+            {
+              "childIndex": 53
+            },
+            {
+              "childIndex": 54
+            },
+            {
+              "childIndex": 55
+            },
+            {
+              "childIndex": 56
+            },
+            {
+              "childIndex": 57
+            },
+            {
+              "childIndex": 58
+            }
+          ],
+          "displayName": "Serialize Result",
+          "index": 17,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 19
+            },
+            {
+              "childIndex": 23,
+              "type": "Map"
+            }
+          ],
+          "displayName": "Cross Apply",
+          "index": 18,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 20
+            }
+          ],
+          "displayName": "KeyRangeAccumulator",
+          "index": 19,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 21,
+              "variable": "batched_LastName"
+            },
+            {
+              "childIndex": 22,
+              "variable": "batched_SingerId"
+            }
+          ],
+          "displayName": "Scan",
+          "index": 20,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row",
+            "scan_method": "Row",
+            "scan_target": "$v2",
+            "scan_type": "BatchScan"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 21,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "LastName"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 22,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "SingerId"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 24
+            }
+          ],
+          "displayName": "Distributed Union",
+          "index": 23,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "call_type": "Local",
+            "execution_method": "Row",
+            "subquery_cluster_node": "24"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 25
+            },
+            {
+              "childIndex": 34,
+              "type": "Map"
+            }
+          ],
+          "displayName": "Cross Apply",
+          "index": 24,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 26
+            }
+          ],
+          "displayName": "Filter Scan",
+          "index": 25,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row",
+            "seekable_key_size": "0"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 27,
+              "variable": "BirthDate"
+            },
+            {
+              "childIndex": 28,
+              "variable": "SingerInfo"
+            },
+            {
+              "childIndex": 29,
+              "variable": "SingerId'"
+            },
+            {
+              "childIndex": 33,
+              "type": "Seek Condition"
+            }
+          ],
+          "displayName": "Scan",
+          "index": 26,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row",
+            "scan_method": "Row",
+            "scan_target": "Singers",
+            "scan_type": "TableScan"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 27,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "BirthDate"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 28,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "SingerInfo"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 29,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "SingerId"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 31
+            },
+            {
+              "childIndex": 32
+            }
+          ],
+          "displayName": "Function",
+          "index": 30,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "($SingerId' = $batched_SingerId)"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 31,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$SingerId'"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 32,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$batched_SingerId"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 30
+            }
+          ],
+          "displayName": "Function",
+          "index": 33,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "($SingerId' = $batched_SingerId)"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 35
+            }
+          ],
+          "displayName": "Distributed Union",
+          "index": 34,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "call_type": "Local",
+            "execution_method": "Row",
+            "subquery_cluster_node": "35"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 36
+            },
+            {
+              "childIndex": 50,
+              "type": "Residual Condition"
+            }
+          ],
+          "displayName": "Filter Scan",
+          "index": 35,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row",
+            "seekable_key_size": "0"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 37,
+              "variable": "SingerId_1"
+            },
+            {
+              "childIndex": 38,
+              "variable": "AlbumId"
+            },
+            {
+              "childIndex": 39,
+              "variable": "AlbumTitle"
+            },
+            {
+              "childIndex": 40,
+              "variable": "MarketingBudget"
+            },
+            {
+              "childIndex": 49,
+              "type": "Seek Condition"
+            }
+          ],
+          "displayName": "Scan",
+          "index": 36,
+          "kind": "RELATIONAL",
+          "metadata": {
+            "execution_method": "Row",
+            "scan_method": "Row",
+            "scan_target": "Albums",
+            "scan_type": "TableScan"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 37,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "SingerId"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 38,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "AlbumId"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 39,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "AlbumTitle"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 40,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "MarketingBudget"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 42
+            },
+            {
+              "childIndex": 43
+            }
+          ],
+          "displayName": "Function",
+          "index": 41,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "($SingerId_1 = $batched_SingerId)"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 42,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$SingerId_1"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 43,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$batched_SingerId"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 45
+            },
+            {
+              "childIndex": 46
+            }
+          ],
+          "displayName": "Function",
+          "index": 44,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "($AlbumTitle IN ['!\\\"#$%&\\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\\\]', '^_`abcdefghijklmnopqrstuvwxyz{|}~\\177'])"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 45,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$AlbumTitle"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 47
+            },
+            {
+              "childIndex": 48
+            }
+          ],
+          "displayName": "Array Constructor",
+          "index": 46,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "['!\\\"#$%&\\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\\\]', '^_`abcdefghijklmnopqrstuvwxyz{|}~\\177']"
+          }
+        },
+        {
+          "displayName": "Constant",
+          "index": 47,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "'!\\\"#$%&\\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\\\]'"
+          }
+        },
+        {
+          "displayName": "Constant",
+          "index": 48,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "'^_`abcdefghijklmnopqrstuvwxyz{|}~\\177'"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 41
+            }
+          ],
+          "displayName": "Function",
+          "index": 49,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "($SingerId_1 = $batched_SingerId)"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 44
+            }
+          ],
+          "displayName": "Function",
+          "index": 50,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "($AlbumTitle IN ['!\\\"#$%&\\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\\\]', '^_`abcdefghijklmnopqrstuvwxyz{|}~\\177'])"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 51,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$batched_SingerId"
+          }
+        },
+        {
+          "displayName": "Constant",
+          "index": 52,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "'\\000\\001\\002\\003\\004\\005\\006\\007\\010\\t\\n\\013\\014\\r\\016\\017\\020\\021\\022\\023\\024\\025\\026\\027\\030\\031\\032\\033\\034\\035\\036\\037'"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 53,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$batched_LastName"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 54,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$SingerInfo"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 55,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$BirthDate"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 56,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$AlbumId"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 57,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$AlbumTitle"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 58,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$MarketingBudget"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 60
+            },
+            {
+              "childIndex": 61
+            }
+          ],
+          "displayName": "Function",
+          "index": 59,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "($SingerId' = $SingerId)"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 60,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$SingerId'"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 61,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$SingerId"
+          }
+        },
+        {
+          "childLinks": [
+            {
+              "childIndex": 63
+            },
+            {
+              "childIndex": 64
+            }
+          ],
+          "displayName": "Function",
+          "index": 62,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "($FirstName = '\\000\\001\\002\\003\\004\\005\\006\\007\\010\\t\\n\\013\\014\\r\\016\\017\\020\\021\\022\\023\\024\\025\\026\\027\\030\\031\\032\\033\\034\\035\\036\\037')"
+          }
+        },
+        {
+          "displayName": "Reference",
+          "index": 63,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "$FirstName"
+          }
+        },
+        {
+          "displayName": "Constant",
+          "index": 64,
+          "kind": "SCALAR",
+          "shortRepresentation": {
+            "description": "'\\000\\001\\002\\003\\004\\005\\006\\007\\010\\t\\n\\013\\014\\r\\016\\017\\020\\021\\022\\023\\024\\025\\026\\027\\030\\031\\032\\033\\034\\035\\036\\037'"
+          }
+        }
+      ]
+    },
+    "queryStats": {
+      "bytes_returned": "0",
+      "cpu_time": "9.13 msecs",
+      "data_bytes_read": "0",
+      "deleted_rows_scanned": "0",
+      "elapsed_time": "9.16 msecs",
+      "filesystem_delay_seconds": "0 msecs",
+      "is_graph_query": "false",
+      "locking_delay": "0 msecs",
+      "memory_peak_usage_bytes": "0",
+      "memory_usage_percentage": "0.000",
+      "optimizer_statistics_package": "auto_20250608_07_33_00UTC",
+      "optimizer_version": "8",
+      "query_plan_creation_time": "8.15 msecs",
+      "query_text": "SELECT * FROM (SELECT * FROM Singers WHERE FirstName = \"\\x00\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\x09\\x0a\\x0b\\x0c\\x0d\\x0e\\x0f\\x10\\x11\\x12\\x13\\x14\\x15\\x16\\x17\\x18\\x19\\x1a\\x1b\\x1c\\x1d\\x1e\\x1f\")\nJOIN Albums USING (SingerId) \nWHERE AlbumTitle = \"!\\\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\\\]\" OR AlbumTitle = \"^_`abcdefghijklmnopqrstuvwxyz{|}~\\x7f\";\n",
+      "remote_server_calls": "0/0",
+      "rows_returned": "0",
+      "rows_scanned": "0",
+      "runtime_creation_time": "0.73 msecs",
+      "server_queue_delay": "0.01 msecs",
+      "statistics_load_time": "0",
+      "total_memory_peak_usage_byte": "0"
+    }
+  }
+}

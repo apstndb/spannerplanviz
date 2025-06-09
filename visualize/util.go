@@ -2,12 +2,7 @@ package visualize
 
 import (
 	"fmt"
-	"slices"
 )
-
-func in(s string, set ...string) bool {
-	return slices.Contains(set, s)
-}
 
 func markupIfNotEmpty(s, element string) string {
 	if s == "" {

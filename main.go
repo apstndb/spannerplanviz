@@ -89,14 +89,7 @@ func run(ctx context.Context) error {
 	}
 	defer func() { _ = writer.Close() }()
 
-	if opts.Full {
-		opts.NonVariableScalar = true
-		opts.VariableScalar = true
-		opts.Metadata = true
-		opts.ExecutionStats = true
-		opts.ExecutionSummary = true
-		opts.SerializeResult = true
-	}
+	opts.ApplyFullOption()
 
 	err = visualize.RenderImage(ctx, rowType, queryStats, graphviz.Format(opts.TypeFlag), writer, opts)
 	if err != nil {

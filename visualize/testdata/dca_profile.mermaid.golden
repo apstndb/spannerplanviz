@@ -1,57 +1,3 @@
-# spannerplanviz
-
-Cloud Spanner Query Plan Visualizer using [goccy/go-graphviz](https://github.com/goccy/go-graphviz).
-
-![query plan](docs/plan.png)
-
-(Possibly) remote calls are rendered as dashed lines.
-
-## Install
-
-```sh
-go install github.com/apstndb/spannerplanviz@latest
-```
-
-## Usage
-
-It can read various types in JSON and YAML.
-
-* [QueryPlan](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSetStats?hl=en#QueryPlan)
-    * Can get easily by client libraries
-        * [AnalyzeQuery()](https://pkg.go.dev/cloud.google.com/go/spanner#ReadOnlyTransaction.AnalyzeQuery)
-        * [RowIterator.QueryPlan](https://pkg.go.dev/cloud.google.com/go/spanner#RowIterator)
-* [ResultSetStats](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSetStats?hl=en)
-    * Output of DOWNLOAD JSON in [the official query plan visualizer](https://cloud.google.com/spanner/docs/tune-query-with-visualizer?hl=en)
-* [ResultSet](https://cloud.google.com/spanner/docs/reference/rest/v1/ResultSet?hl=en)
-    * Output of `gcloud spanner databases execute-sql` and [execspansql](https://github.com/apstndb/execspansql)
-
-### PLAN
-
-```
-$ gcloud spanner databases execute-sql --instance=sampleinstance sampledb --query-mode=PLAN --format=yaml \
-  --sql="SELECT SongName FROM Songs WHERE STARTS_WITH(SongName, @prefix)" |
-  spannerplanviz --full --type=svg --output plan.svg
-```
-
-### PROFILE
-
-You see verbose profile information. (Currently, `histograph` is not shown.)
-
-```
-$ gcloud spanner databases execute-sql --instance=sampleinstance sampledb --query-mode=PROFILE --format=yaml \
-  --sql "SELECT * FROM Singers JOIN Songs USING(SingerId) WHERE SongName LIKE 'Th%e'" |
-  spannerplanviz --full --type=svg --output profile.svg
-```
-
-![full profile](docs/dca_full.png)
-
-You can emit Mermaid.js using `--type mermaid` (EXPERIMENTAL).
-
-```
-spannerplanviz --full --type=mermaid --output profile.mermaid < dca_profile.json
-```
-
-```mermaid
 %%{ init: {"theme": "neutral",
            "themeVariables": { "wrap": "false" },
            "flowchart": { "curve": "linear",
@@ -70,7 +16,7 @@ graph TD
     style node3 text-align:left;
     node4["<b>Local Distributed Union</b><br/>execution_method: Row<br/><i>cpu_time: 29.97 msecs</i><br/><i>latency: 77.8 msecs</i><br/><i>remote_calls: 0 calls</i><br/><i>rows: 1000 rows</i><br/><i>execution_summary:<br/>&nbsp;&nbsp;&nbsp;checkpoint_time: 0.01 msecs<br/>&nbsp;&nbsp;&nbsp;execution_end_timestamp: 2025-06-06T20:52:17.228881Z<br/>&nbsp;&nbsp;&nbsp;execution_start_timestamp: 2025-06-06T20:52:17.14899Z<br/>&nbsp;&nbsp;&nbsp;num_checkpoints: 1<br/>&nbsp;&nbsp;&nbsp;num_executions: 1</i>"]
     style node4 text-align:left;
-    node5["<b>Table Scan</b><br/>Table: Singers<br/>Full scan: true<br/>execution_method: Row<br/>scan_method: Automatic<br/>$SingerId:=SingerId<br/>$FirstName:=FirstName<br/>$LastName:=LastName<br/>$SingerInfo:=SingerInfo<br/>$BirthDate:=BirthDate<br/><i>cpu_time: 29.84 msecs</i><br/><i>deleted_rows: 0@0±0 rows</i><br/><i>filesystem_delay_seconds: 48.16@24.08±24.08 msecs</i><br/><i>filtered_rows: 0@0±0 rows</i><br/><i>latency: 77.66 msecs</i><br/><i>rows: 1000 rows</i><br/><i>scanned_rows: 1000@500±500 rows</i><br/><i>execution_summary:<br/>&nbsp;&nbsp;&nbsp;checkpoint_time: 0 msecs<br/>&nbsp;&nbsp;&nbsp;num_checkpoints: 1<br/>&nbsp;&nbsp;&nbsp;num_executions: 1</i>"]
+    node5["<b>Table Scan</b><br/>Table: Singers<br/>Full scan: true<br/>execution_method: Row<br/>scan_method: Automatic<br/>$SingerId:=SingerId<br/>$FirstName:=FirstName<br/>$LastName:=LastName<br/>$SingerInfo:=SingerInfo<br/>$BirthDate:=BirthDate<br/><i>cpu_time: 29.84 msecs</i><br/><i>deleted_rows: 0\@0±0 rows</i><br/><i>filesystem_delay_seconds: 48.16\@24.08±24.08 msecs</i><br/><i>filtered_rows: 0\@0±0 rows</i><br/><i>latency: 77.66 msecs</i><br/><i>rows: 1000 rows</i><br/><i>scanned_rows: 1000\@500±500 rows</i><br/><i>execution_summary:<br/>&nbsp;&nbsp;&nbsp;checkpoint_time: 0 msecs<br/>&nbsp;&nbsp;&nbsp;num_checkpoints: 1<br/>&nbsp;&nbsp;&nbsp;num_executions: 1</i>"]
     style node5 text-align:left;
     node18["<b>Serialize Result</b><br/>Result.SingerId:$batched_SingerId<br/>Result.FirstName:$batched_FirstName<br/>Result.LastName:$batched_LastName<br/>Result.SingerInfo:$batched_SingerInfo<br/>Result.BirthDate:$batched_BirthDate<br/>Result.AlbumId:$AlbumId<br/>Result.TrackId:$TrackId<br/>Result.SongName:$SongName<br/>Result.Duration:$Duration<br/>Result.SongGenre:$SongGenre<br/>execution_method: Row<br/><i>cpu_time: 342.95 msecs</i><br/><i>latency: 998.11 msecs</i><br/><i>rows: 3069 rows</i><br/><i>execution_summary:<br/>&nbsp;&nbsp;&nbsp;checkpoint_time: 0.18 msecs<br/>&nbsp;&nbsp;&nbsp;execution_end_timestamp: 2025-06-06T20:52:18.231497Z<br/>&nbsp;&nbsp;&nbsp;execution_start_timestamp: 2025-06-06T20:52:17.229908Z<br/>&nbsp;&nbsp;&nbsp;num_checkpoints: 19<br/>&nbsp;&nbsp;&nbsp;num_executions: 1</i>"]
     style node18 text-align:left;
@@ -80,11 +26,11 @@ graph TD
     style node20 text-align:left;
     node21["<b>Batch Scan</b><br/>Batch: $v2<br/>execution_method: Row<br/>scan_method: Row<br/>$batched_BirthDate:=BirthDate<br/>$batched_FirstName:=FirstName<br/>$batched_LastName:=LastName<br/>$batched_SingerId:=SingerId<br/>$batched_SingerInfo:=SingerInfo"]
     style node21 text-align:left;
-    node27["<b>Local Distributed Union</b><br/>execution_method: Row<br/><i>cpu_time: 340.03@0.34±0.06 msecs</i><br/><i>latency: 995.19@1±8.12 msecs</i><br/><i>remote_calls: 0@0±0 calls</i><br/><i>rows: 3069@3.07±1.72 rows</i><br/><i>execution_summary:<br/>&nbsp;&nbsp;&nbsp;checkpoint_time: 0.16 msecs<br/>&nbsp;&nbsp;&nbsp;num_checkpoints: 19<br/>&nbsp;&nbsp;&nbsp;num_executions: 1000</i>"]
+    node27["<b>Local Distributed Union</b><br/>execution_method: Row<br/><i>cpu_time: 340.03\@0.34±0.06 msecs</i><br/><i>latency: 995.19\@1±8.12 msecs</i><br/><i>remote_calls: 0\@0±0 calls</i><br/><i>rows: 3069\@3.07±1.72 rows</i><br/><i>execution_summary:<br/>&nbsp;&nbsp;&nbsp;checkpoint_time: 0.16 msecs<br/>&nbsp;&nbsp;&nbsp;num_checkpoints: 19<br/>&nbsp;&nbsp;&nbsp;num_executions: 1000</i>"]
     style node27 text-align:left;
     node28["<b>Filter Scan</b><br/>Residual Condition: ($SongName LIKE 'Th%e')<br/>execution_method: Row<br/>seekable_key_size: 0"]
     style node28 text-align:left;
-    node29["<b>Table Scan</b><br/>Table: Songs<br/>Seek Condition: ($SingerId_1 = $batched_SingerId)<br/>execution_method: Row<br/>scan_method: Row<br/>$SingerId_1:=SingerId<br/>$AlbumId:=AlbumId<br/>$TrackId:=TrackId<br/>$SongName:=SongName<br/>$Duration:=Duration<br/>$SongGenre:=SongGenre<br/><i>cpu_time: 339.21@0.34±0.06 msecs</i><br/><i>deleted_rows: 0 rows</i><br/><i>filesystem_delay_seconds: 521.29 msecs</i><br/><i>filtered_rows: 1020931 rows</i><br/><i>latency: 994.3@0.99±8.12 msecs</i><br/><i>rows: 3069@3.07±1.72 rows</i><br/><i>scanned_rows: 1024000 rows</i><br/><i>execution_summary:<br/>&nbsp;&nbsp;&nbsp;checkpoint_time: 0.05 msecs<br/>&nbsp;&nbsp;&nbsp;num_checkpoints: 19<br/>&nbsp;&nbsp;&nbsp;num_executions: 1000</i>"]
+    node29["<b>Table Scan</b><br/>Table: Songs<br/>Seek Condition: ($SingerId_1 = $batched_SingerId)<br/>execution_method: Row<br/>scan_method: Row<br/>$SingerId_1:=SingerId<br/>$AlbumId:=AlbumId<br/>$TrackId:=TrackId<br/>$SongName:=SongName<br/>$Duration:=Duration<br/>$SongGenre:=SongGenre<br/><i>cpu_time: 339.21\@0.34±0.06 msecs</i><br/><i>deleted_rows: 0 rows</i><br/><i>filesystem_delay_seconds: 521.29 msecs</i><br/><i>filtered_rows: 1020931 rows</i><br/><i>latency: 994.3\@0.99±8.12 msecs</i><br/><i>rows: 3069\@3.07±1.72 rows</i><br/><i>scanned_rows: 1024000 rows</i><br/><i>execution_summary:<br/>&nbsp;&nbsp;&nbsp;checkpoint_time: 0.05 msecs<br/>&nbsp;&nbsp;&nbsp;num_checkpoints: 19<br/>&nbsp;&nbsp;&nbsp;num_executions: 1000</i>"]
     style node29 text-align:left;
     node0 -->|Input| node1
     node1 --> node2
@@ -98,8 +44,3 @@ graph TD
     node19 -->|Map| node27
     node27 --> node28
     node28 --> node29
-```
-
-## Disclaimer
-
-This tool is Alpha quality.

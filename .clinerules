@@ -1,0 +1,17 @@
+### **Golden Rules for Code Generation**
+
+Here are the primary guidelines to follow when assisting with this project:
+
+* **Preserve Existing Comments:** Do not remove or alter comments from the original code if they remain accurate and relevant after your changes.
+
+* **Simplify Protocol Buffer Handling:** You can remove `nil` checks on Protocol Buffer message pointers before calling their getter methods. The generated getters are nil-safe and return the field's zero value if the receiver is `nil`. Use this to simplify code and reduce branching.
+
+* **Do Not Modify Tests:** Do not change existing test files, including test logic, test cases, or golden files, unless explicitly instructed to do so.
+
+* **Document Decisions and Exceptions:** You must add code comments to provide context for significant implementation choices. This is required in two main situations:
+    1.  **Following a User Directive:** When implementing a specific design instruction from the user, add a comment explaining the change and its origin.
+        * *Example:* `// Per user request, defaulting to SVG format for better browser compatibility.`
+    2.  **Bypassing a Rule:** If you must deviate from any of these established rules to fulfill a request, you must add a comment at that location. The comment must identify which rule was bypassed and explain why the exception was necessary.
+
+* **Ruleset Maintenance:** After all code modifications are complete, propose an update to the `.clinerules` file that reflects the guidelines established in this session. Await user confirmation before applying the changes.
+* **Testing Before Completion:** Always run `go test ./...` and ensure all tests pass before attempting to complete the task.
