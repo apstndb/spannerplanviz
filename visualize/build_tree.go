@@ -536,7 +536,7 @@ func toLeftAlignedText(str string) string {
 		return ""
 	}
 
-	return newlineOrEOSRe.ReplaceAllString(str, `<br align="left" />`) // Removed html.EscapeString
+	return newlineOrEOSRe.ReplaceAllString(str, `<br align="left" />`)
 }
 
 // tryToTimestampStr converts a string representation of a timestamp (seconds.microseconds)
@@ -576,18 +576,21 @@ func formatExecutionStatsValue(v *structpb.Value) string {
 	fields := v.GetStructValue().GetFields()
 	total := fields["total"].GetStringValue()
 	unit := fields["unit"].GetStringValue()
-	stdDev := fields["std_deviation"].GetStringValue()
 	mean := fields["mean"].GetStringValue()
+	stdDev := fields["std_deviation"].GetStringValue()
 
 	stdDevStr := prefixIfNotEmpty("±", stdDev)
-	meanAndStdDevPart := prefixIfNotEmpty("@", mean+stdDevStr)
-	return total + meanAndStdDevPart + prefixIfNotEmpty(" ", unit)
+	meanStr := prefixIfNotEmpty("@", mean+stdDevStr)
+	unitStr := prefixIfNotEmpty(" ", unit)
+
+	return fmt.Sprintf("%s%s%s", total, meanStr, unitStr)
 }
 
 type childLinkEntry struct {
 	Variable  string
 	PlanNodes *sppb.PlanNode
 }
+
 type childLinkGroup struct {
 	Type      string
 	PlanNodes []*childLinkEntry
@@ -599,6 +602,7 @@ func getScalarChildLinks(qp *spannerplan.QueryPlan, node *sppb.PlanNode, filter 
 	for _, cl := range node.GetChildLinks() {
 		childNode := qp.GetNodeByChildLink(cl)
 		childType := cl.GetType()
+
 		if !filter(cl) || childNode.GetKind() != sppb.PlanNode_SCALAR {
 			continue
 		}
@@ -607,18 +611,22 @@ func getScalarChildLinks(qp *spannerplan.QueryPlan, node *sppb.PlanNode, filter 
 			typeToChildLinks[childType] = newEntry
 			result = append(result, newEntry)
 		}
-		childLinks_ := typeToChildLinks[childType]
-		childLinks_.PlanNodes = append(childLinks_.PlanNodes, &childLinkEntry{cl.GetVariable(), childNode})
+		childLinks := typeToChildLinks[childType]
+		childLinks.PlanNodes = append(childLinks.PlanNodes, &childLinkEntry{cl.GetVariable(), childNode})
 	}
 	return result
 }
 
 func getNonVariableChildLinks(plan *spannerplan.QueryPlan, node *sppb.PlanNode) []*childLinkGroup {
-	return getScalarChildLinks(plan, node, func(node *sppb.PlanNode_ChildLink) bool { return node.GetVariable() == "" })
+	return getScalarChildLinks(plan, node, func(node *sppb.PlanNode_ChildLink) bool {
+		return node.GetVariable() == ""
+	})
 }
 
 func getVariableChildLinks(plan *spannerplan.QueryPlan, node *sppb.PlanNode) []*childLinkGroup {
-	return getScalarChildLinks(plan, node, func(node *sppb.PlanNode_ChildLink) bool { return node.GetVariable() != "" })
+	return getScalarChildLinks(plan, node, func(node *sppb.PlanNode_ChildLink) bool {
+		return node.GetVariable() != ""
+	})
 }
 
 func formatChildLinks(childLinks []*childLinkGroup) string {
