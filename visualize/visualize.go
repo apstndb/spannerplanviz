@@ -82,10 +82,9 @@ func renderGraphViz(ctx context.Context, rowType *sppb.StructType, queryStats *s
 	return g.Render(ctx, graph, format, writer)
 }
 
-// renderGraph now accepts QueryPlan (qp)
 func renderGraph(graph *cgraph.Graph, rootNode *treeNode, qp *spannerplan.QueryPlan, param option.Options, queryStats *sppb.ResultSetStats, rowType *sppb.StructType) error {
 	graph.SetRankDir(cgraph.BTRank)
-	err := renderTree(graph, rootNode, qp, param, rowType) // Pass qp
+	err := renderTree(graph, rootNode, qp, param, rowType)
 	if err != nil {
 		return err
 	}
@@ -121,7 +120,6 @@ func renderQueryNodeWithEdge(graph *cgraph.Graph, queryStats *sppb.ResultSetStat
 	return nil
 }
 
-// renderTree now accepts QueryPlan (qp)
 func renderTree(graph *cgraph.Graph, node *treeNode, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) error {
 	err := renderNode(graph, node, qp, param, rowType) // Pass qp
 	if err != nil {
@@ -129,7 +127,7 @@ func renderTree(graph *cgraph.Graph, node *treeNode, qp *spannerplan.QueryPlan, 
 	}
 
 	for _, child := range node.Children {
-		if err := renderTree(graph, child.ChildNode, qp, param, rowType); err != nil { // Pass qp
+		if err := renderTree(graph, child.ChildNode, qp, param, rowType); err != nil {
 			return err
 		}
 
@@ -141,23 +139,22 @@ func renderTree(graph *cgraph.Graph, node *treeNode, qp *spannerplan.QueryPlan, 
 	return nil
 }
 
-// renderNode now accepts QueryPlan (qp)
 func renderNode(graph *cgraph.Graph, node *treeNode, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) error {
-	n, err := graph.CreateNodeByName(node.GetName()) // Use GetName()
+	n, err := graph.CreateNodeByName(node.GetName())
 	if err != nil {
 		return err
 	}
 
 	n.SetShape(cgraph.BoxShape)
+
 	tooltipStr, ttErr := node.GetTooltip()
 	if ttErr != nil {
-		// Log error or use a default tooltip string if desired
-		tooltipStr = "Error generating tooltip"
-		log.Printf("Error getting tooltip for node %s: %v", node.GetName(), ttErr)
+		return fmt.Errorf("Error getting tooltip for node %s: %w", node.GetName(), ttErr)
 	}
+
 	n.SetTooltip(tooltipStr)
 
-	nodeHTMLStr := node.HTML(qp, param, rowType) // Pass qp
+	nodeHTMLStr := node.HTML(qp, param, rowType)
 	nodeHTML, err := graph.StrdupHTML(nodeHTMLStr)
 	if err != nil {
 		return err
