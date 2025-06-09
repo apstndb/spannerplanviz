@@ -13,7 +13,6 @@ import (
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/apstndb/spannerplan"
-	"github.com/goccy/go-graphviz"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -61,7 +60,7 @@ func TestRenderImage(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = RenderImage(context.Background(), rowTypeToRender, statsToRender, graphviz.SVG, &buf, param)
+	err = RenderImage(context.Background(), rowTypeToRender, statsToRender, &buf, param)
 	if err != nil {
 		t.Fatalf("RenderImage failed: %v", err)
 	}
@@ -126,7 +125,7 @@ func TestRenderImage_WithQueryStats(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = RenderImage(context.Background(), rowTypeToRender, statsToRender, graphviz.SVG, &buf, param)
+	err = RenderImage(context.Background(), rowTypeToRender, statsToRender, &buf, param)
 	if err != nil {
 		t.Fatalf("RenderImage failed: %v", err)
 	}
@@ -254,7 +253,7 @@ func TestRenderMermaid(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = RenderImage(context.Background(), rowType, stats, graphviz.SVG, &buf, param)
+	err = RenderImage(context.Background(), rowType, stats, &buf, param)
 
 	if err != nil {
 		t.Fatalf("TestRenderMermaid failed: expected no error, but got: %v. Output: %s", err, buf.String())
@@ -269,19 +268,25 @@ func TestRenderMermaid(t *testing.T) {
            }
 }%%`,
 		`graph TD`,
-		`    node0["<b>Union</b><br/><i>latency: 3ms</i><br/><i>rows: 20</i>"]`,
+		`    node0["<b>Union</b>
+<i>latency: 3ms</i>
+<i>rows: 20</i>"]`,
 		`    style node0 text-align:left;`,
-		`    node1["<b>Scan1</b><br/><i>latency: 2ms</i><br/><i>rows: 20</i>"]`,
+		`    node1["<b>Scan1</b>
+<i>latency: 2ms</i>
+<i>rows: 20</i>"]`,
 		`    style node1 text-align:left;`,
-		`    node2["<b>Scan2</b><br/><i>latency: 1ms</i><br/><i>rows: 10</i>"]`,
+		`    node2["<b>Scan2</b>
+<i>latency: 1ms</i>
+<i>rows: 10</i>"]`,
 		`    style node2 text-align:left;`,
 		`    node0 -->|Input| node1`,
 		`    node0 -->|Input| node2`,
 		``,
 	}, "\n")
 
-	actualOutput := strings.ReplaceAll(buf.String(), "\r\n", "\n")
-	expectedOutputNormalized := strings.ReplaceAll(expectedMermaidOutput, "\r\n", "\n")
+	actualOutput := strings.ReplaceAll(buf.String(), "\n", "\n")
+	expectedOutputNormalized := strings.ReplaceAll(expectedMermaidOutput, "\n", "\n")
 
 	if strings.TrimSpace(actualOutput) != strings.TrimSpace(expectedOutputNormalized) {
 		t.Errorf("TestRenderMermaid output mismatch:\nExpected:\n%s\nActual:\n%s", expectedOutputNormalized, actualOutput)
@@ -447,7 +452,7 @@ func TestRenderMermaid_Golden(t *testing.T) {
 	actualMermaid := buf.String()
 
 	// 10. Define the golden file path
-	goldenMermaidPath := "testdata/dca_profile.mermaid.golden"
+	goldenMermaidPath := "testdata/dca_profile.golden.mermaid"
 
 	// 11. Implement the golden file update logic
 	if os.Getenv("UPDATE_GOLDEN_FILES") == "true" {

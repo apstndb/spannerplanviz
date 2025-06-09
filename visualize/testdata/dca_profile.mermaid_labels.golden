@@ -1,13 +1,155 @@
-<b>Batch Scan</b><br/>Batch: $v2<br/>execution_method: Row<br/>scan_method: Row<br/>$batched_BirthDate:=BirthDate<br/>$batched_FirstName:=FirstName<br/>$batched_LastName:=LastName<br/>$batched_SingerId:=SingerId<br/>$batched_SingerInfo:=SingerInfo
-<b>Compute Struct</b><br/>execution_method: Row<br/>$v1.BirthDate:=$BirthDate<br/>$v1.FirstName:=$FirstName<br/>$v1.LastName:=$LastName<br/>$v1.SingerId:=$SingerId<br/>$v1.SingerInfo:=$SingerInfo<br/><i>cpu_time: 31.2 msecs</i><br/><i>latency: 79.04 msecs</i><br/><i>rows: 1000 rows</i><br/><i>execution_summary:<br/>   checkpoint_time: 0.01 msecs<br/>   num_checkpoints: 1<br/>   num_executions: 1</i>
-<b>Create Batch</b><br/>execution_method: Row<br/>$v2.Batch:=$v1
-<b>Cross Apply</b><br/>execution_method: Row<br/><i>cpu_time: 341.43 msecs</i><br/><i>latency: 996.58 msecs</i><br/><i>rows: 3069 rows</i><br/><i>execution_summary:<br/>   checkpoint_time: 0.17 msecs<br/>   num_checkpoints: 19<br/>   num_executions: 1</i>
-<b>Distributed Cross Apply</b><br/>Split Range: ($SingerId_1 = $SingerId)<br/>execution_method: Row<br/><i>Number of Batches: 1 batches</i><br/><i>cpu_time: 376.8 msecs</i><br/><i>latency: 1.08 secs</i><br/><i>remote_calls: 0 calls</i><br/><i>rows: 3069 rows</i><br/><i>execution_summary:<br/>   checkpoint_time: 0.28 msecs<br/>   execution_end_timestamp: 2025-06-06T20:52:18.231573Z<br/>   execution_start_timestamp: 2025-06-06T20:52:17.148944Z<br/>   num_checkpoints: 19<br/>   num_executions: 1</i>
-<b>Distributed Union</b><br/>Split Range: true<br/>distribution_table: Singers<br/>execution_method: Row<br/>split_ranges_aligned: false<br/><i>cpu_time: 30.2 msecs</i><br/><i>latency: 78.03 msecs</i><br/><i>remote_calls: 0 calls</i><br/><i>rows: 1000 rows</i><br/><i>execution_summary:<br/>   checkpoint_time: 0.01 msecs<br/>   num_checkpoints: 1<br/>   num_executions: 1</i>
-<b>Filter Scan</b><br/>Residual Condition: ($SongName LIKE 'Th%e')<br/>execution_method: Row<br/>seekable_key_size: 0
-<b>KeyRangeAccumulator</b><br/>execution_method: Row<br/><i>cpu_time: 0.62 msecs</i>
-<b>Local Distributed Union</b><br/>execution_method: Row<br/><i>cpu_time: 29.97 msecs</i><br/><i>latency: 77.8 msecs</i><br/><i>remote_calls: 0 calls</i><br/><i>rows: 1000 rows</i><br/><i>execution_summary:<br/>   checkpoint_time: 0.01 msecs<br/>   execution_end_timestamp: 2025-06-06T20:52:17.228881Z<br/>   execution_start_timestamp: 2025-06-06T20:52:17.14899Z<br/>   num_checkpoints: 1<br/>   num_executions: 1</i>
-<b>Local Distributed Union</b><br/>execution_method: Row<br/><i>cpu_time: 340.03\@0.34±0.06 msecs</i><br/><i>latency: 995.19\@1±8.12 msecs</i><br/><i>remote_calls: 0\@0±0 calls</i><br/><i>rows: 3069\@3.07±1.72 rows</i><br/><i>execution_summary:<br/>   checkpoint_time: 0.16 msecs<br/>   num_checkpoints: 19<br/>   num_executions: 1000</i>
-<b>Serialize Result</b><br/>Result.SingerId:$batched_SingerId<br/>Result.FirstName:$batched_FirstName<br/>Result.LastName:$batched_LastName<br/>Result.SingerInfo:$batched_SingerInfo<br/>Result.BirthDate:$batched_BirthDate<br/>Result.AlbumId:$AlbumId<br/>Result.TrackId:$TrackId<br/>Result.SongName:$SongName<br/>Result.Duration:$Duration<br/>Result.SongGenre:$SongGenre<br/>execution_method: Row<br/><i>cpu_time: 342.95 msecs</i><br/><i>latency: 998.11 msecs</i><br/><i>rows: 3069 rows</i><br/><i>execution_summary:<br/>   checkpoint_time: 0.18 msecs<br/>   execution_end_timestamp: 2025-06-06T20:52:18.231497Z<br/>   execution_start_timestamp: 2025-06-06T20:52:17.229908Z<br/>   num_checkpoints: 19<br/>   num_executions: 1</i>
-<b>Table Scan</b><br/>Table: Singers<br/>Full scan: true<br/>execution_method: Row<br/>scan_method: Automatic<br/>$SingerId:=SingerId<br/>$FirstName:=FirstName<br/>$LastName:=LastName<br/>$SingerInfo:=SingerInfo<br/>$BirthDate:=BirthDate<br/><i>cpu_time: 29.84 msecs</i><br/><i>deleted_rows: 0\@0±0 rows</i><br/><i>filesystem_delay_seconds: 48.16\@24.08±24.08 msecs</i><br/><i>filtered_rows: 0\@0±0 rows</i><br/><i>latency: 77.66 msecs</i><br/><i>rows: 1000 rows</i><br/><i>scanned_rows: 1000\@500±500 rows</i><br/><i>execution_summary:<br/>   checkpoint_time: 0 msecs<br/>   num_checkpoints: 1<br/>   num_executions: 1</i>
-<b>Table Scan</b><br/>Table: Songs<br/>Seek Condition: ($SingerId_1 = $batched_SingerId)<br/>execution_method: Row<br/>scan_method: Row<br/>$SingerId_1:=SingerId<br/>$AlbumId:=AlbumId<br/>$TrackId:=TrackId<br/>$SongName:=SongName<br/>$Duration:=Duration<br/>$SongGenre:=SongGenre<br/><i>cpu_time: 339.21\@0.34±0.06 msecs</i><br/><i>deleted_rows: 0 rows</i><br/><i>filesystem_delay_seconds: 521.29 msecs</i><br/><i>filtered_rows: 1020931 rows</i><br/><i>latency: 994.3\@0.99±8.12 msecs</i><br/><i>rows: 3069\@3.07±1.72 rows</i><br/><i>scanned_rows: 1024000 rows</i><br/><i>execution_summary:<br/>   checkpoint_time: 0.05 msecs<br/>   num_checkpoints: 19<br/>   num_executions: 1000</i>
+<b>Batch&nbsp;Scan</b>
+Batch\:&nbsp;\$v2
+execution\_method: Row
+scan\_method: Row
+\$batched\_BirthDate\:\=BirthDate
+\$batched\_FirstName\:\=FirstName
+\$batched\_LastName\:\=LastName
+\$batched\_SingerId\:\=SingerId
+\$batched\_SingerInfo\:\=SingerInfo
+<b>Compute&nbsp;Struct</b>
+execution\_method: Row
+\$v1\.BirthDate\:\=\$BirthDate
+\$v1\.FirstName\:\=\$FirstName
+\$v1\.LastName\:\=\$LastName
+\$v1\.SingerId\:\=\$SingerId
+\$v1\.SingerInfo\:\=\$SingerInfo
+<i>cpu\_time: 31\.2&nbsp;msecs</i>
+<i>latency: 79\.04&nbsp;msecs</i>
+<i>rows: 1000&nbsp;rows</i>
+<i>execution\_summary\:
+&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.01&nbsp;msecs
+&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;1
+&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<b>Create&nbsp;Batch</b>
+execution\_method: Row
+\$v2\.Batch\:\=\$v1
+<b>Cross&nbsp;Apply</b>
+execution\_method: Row
+<i>cpu\_time: 341\.43&nbsp;msecs</i>
+<i>latency: 996\.58&nbsp;msecs</i>
+<i>rows: 3069&nbsp;rows</i>
+<i>execution\_summary\:
+&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.17&nbsp;msecs
+&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
+&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<b>Distributed&nbsp;Cross&nbsp;Apply</b>
+Split&nbsp;Range\:&nbsp;\(\$SingerId\_1&nbsp;\=&nbsp;\$SingerId\)
+execution\_method: Row
+<i>Number&nbsp;of&nbsp;Batches: 1&nbsp;batches</i>
+<i>cpu\_time: 376\.8&nbsp;msecs</i>
+<i>latency: 1\.08&nbsp;secs</i>
+<i>remote\_calls: 0&nbsp;calls</i>
+<i>rows: 3069&nbsp;rows</i>
+<i>execution\_summary\:
+&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.28&nbsp;msecs
+&nbsp;&nbsp;&nbsp;execution\_end\_timestamp\:&nbsp;2025\-06\-06T20\:52\:18\.231573Z
+&nbsp;&nbsp;&nbsp;execution\_start\_timestamp\:&nbsp;2025\-06\-06T20\:52\:17\.148944Z
+&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
+&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<b>Distributed&nbsp;Union</b>
+Split&nbsp;Range\:&nbsp;true
+distribution\_table: Singers
+execution\_method: Row
+split\_ranges\_aligned: false
+<i>cpu\_time: 30\.2&nbsp;msecs</i>
+<i>latency: 78\.03&nbsp;msecs</i>
+<i>remote\_calls: 0&nbsp;calls</i>
+<i>rows: 1000&nbsp;rows</i>
+<i>execution\_summary\:
+&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.01&nbsp;msecs
+&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;1
+&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<b>Filter&nbsp;Scan</b>
+Residual&nbsp;Condition\:&nbsp;\(\$SongName&nbsp;LIKE&nbsp;\'Th\%e\'\)
+execution\_method: Row
+seekable\_key\_size: 0
+<b>KeyRangeAccumulator</b>
+execution\_method: Row
+<i>cpu\_time: 0\.62&nbsp;msecs</i>
+<b>Local&nbsp;Distributed&nbsp;Union</b>
+execution\_method: Row
+<i>cpu\_time: 29\.97&nbsp;msecs</i>
+<i>latency: 77\.8&nbsp;msecs</i>
+<i>remote\_calls: 0&nbsp;calls</i>
+<i>rows: 1000&nbsp;rows</i>
+<i>execution\_summary\:
+&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.01&nbsp;msecs
+&nbsp;&nbsp;&nbsp;execution\_end\_timestamp\:&nbsp;2025\-06\-06T20\:52\:17\.228881Z
+&nbsp;&nbsp;&nbsp;execution\_start\_timestamp\:&nbsp;2025\-06\-06T20\:52\:17\.14899Z
+&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;1
+&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<b>Local&nbsp;Distributed&nbsp;Union</b>
+execution\_method: Row
+<i>cpu\_time: 340\.03\@0\.34±0\.06&nbsp;msecs</i>
+<i>latency: 995\.19\@1±8\.12&nbsp;msecs</i>
+<i>remote\_calls: 0\@0±0&nbsp;calls</i>
+<i>rows: 3069\@3\.07±1\.72&nbsp;rows</i>
+<i>execution\_summary\:
+&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.16&nbsp;msecs
+&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
+&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1000</i>
+<b>Serialize&nbsp;Result</b>
+Result\.SingerId\:\$batched\_SingerId
+Result\.FirstName\:\$batched\_FirstName
+Result\.LastName\:\$batched\_LastName
+Result\.SingerInfo\:\$batched\_SingerInfo
+Result\.BirthDate\:\$batched\_BirthDate
+Result\.AlbumId\:\$AlbumId
+Result\.TrackId\:\$TrackId
+Result\.SongName\:\$SongName
+Result\.Duration\:\$Duration
+Result\.SongGenre\:\$SongGenre
+execution\_method: Row
+<i>cpu\_time: 342\.95&nbsp;msecs</i>
+<i>latency: 998\.11&nbsp;msecs</i>
+<i>rows: 3069&nbsp;rows</i>
+<i>execution\_summary\:
+&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.18&nbsp;msecs
+&nbsp;&nbsp;&nbsp;execution\_end\_timestamp\:&nbsp;2025\-06\-06T20\:52\:18\.231497Z
+&nbsp;&nbsp;&nbsp;execution\_start\_timestamp\:&nbsp;2025\-06\-06T20\:52\:17\.229908Z
+&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
+&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<b>Table&nbsp;Scan</b>
+Table\:&nbsp;Singers
+Full&nbsp;scan: true
+execution\_method: Row
+scan\_method: Automatic
+\$SingerId\:\=SingerId
+\$FirstName\:\=FirstName
+\$LastName\:\=LastName
+\$SingerInfo\:\=SingerInfo
+\$BirthDate\:\=BirthDate
+<i>cpu\_time: 29\.84&nbsp;msecs</i>
+<i>deleted\_rows: 0\@0±0&nbsp;rows</i>
+<i>filesystem\_delay\_seconds: 48\.16\@24\.08±24\.08&nbsp;msecs</i>
+<i>filtered\_rows: 0\@0±0&nbsp;rows</i>
+<i>latency: 77\.66&nbsp;msecs</i>
+<i>rows: 1000&nbsp;rows</i>
+<i>scanned\_rows: 1000\@500±500&nbsp;rows</i>
+<i>execution\_summary\:
+&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0&nbsp;msecs
+&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;1
+&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<b>Table&nbsp;Scan</b>
+Table\:&nbsp;Songs
+Seek&nbsp;Condition\:&nbsp;\(\$SingerId\_1&nbsp;\=&nbsp;\$batched\_SingerId\)
+execution\_method: Row
+scan\_method: Row
+\$SingerId\_1\:\=SingerId
+\$AlbumId\:\=AlbumId
+\$TrackId\:\=TrackId
+\$SongName\:\=SongName
+\$Duration\:\=Duration
+\$SongGenre\:\=SongGenre
+<i>cpu\_time: 339\.21\@0\.34±0\.06&nbsp;msecs</i>
+<i>deleted\_rows: 0&nbsp;rows</i>
+<i>filesystem\_delay\_seconds: 521\.29&nbsp;msecs</i>
+<i>filtered\_rows: 1020931&nbsp;rows</i>
+<i>latency: 994\.3\@0\.99±8\.12&nbsp;msecs</i>
+<i>rows: 3069\@3\.07±1\.72&nbsp;rows</i>
+<i>scanned\_rows: 1024000&nbsp;rows</i>
+<i>execution\_summary\:
+&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.05&nbsp;msecs
+&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
+&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1000</i>

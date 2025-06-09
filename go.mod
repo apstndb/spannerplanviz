@@ -6,6 +6,7 @@ toolchain go1.24.0
 
 require (
 	cloud.google.com/go/spanner v1.48.0
+	github.com/MakeNowJust/heredoc/v2 v2.0.1
 	github.com/apstndb/lox v0.0.0-20230530141045-98c1efebcde8
 	github.com/apstndb/spannerplan v0.1.3
 	github.com/goccy/go-graphviz v0.2.9

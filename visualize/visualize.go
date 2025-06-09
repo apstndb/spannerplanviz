@@ -16,7 +16,7 @@ import (
 	"github.com/goccy/go-graphviz/cgraph"
 )
 
-func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, format graphviz.Format, writer io.Writer, param option.Options) error {
+func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, writer io.Writer, param option.Options) error {
 	if queryStats == nil || queryStats.GetQueryPlan() == nil {
 		// This handles cases where the input stats or the plan itself is fundamentally missing.
 		return fmt.Errorf("cannot render image: queryStats or queryPlan is nil")
@@ -41,11 +41,12 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 	}
 
 	// 3. Graphviz path
-	return renderGraphViz(ctx, rowType, queryStats, format, writer, param, rootNode, qp)
+	return renderGraphViz(ctx, rowType, queryStats, writer, param, rootNode, qp)
 }
 
 func renderGraphViz(ctx context.Context, rowType *sppb.StructType, queryStats *sppb.ResultSetStats,
-	format graphviz.Format, writer io.Writer, param option.Options, rootNode *treeNode, qp *spannerplan.QueryPlan) error {
+	writer io.Writer, param option.Options, rootNode *treeNode, qp *spannerplan.QueryPlan) error {
+	format := graphviz.Format(param.TypeFlag)
 	g, err := graphviz.New(ctx)
 	if err != nil {
 		return err
