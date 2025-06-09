@@ -5,7 +5,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-
 	"os"
 	"path/filepath"
 	"sort"
@@ -571,4 +570,63 @@ func TestMermaidLabel_Golden(t *testing.T) {
 	if diff := cmp.Diff(expectedLabelsContent, actualLabelsContent); diff != "" {
 		t.Errorf("Generated Mermaid labels do not match %s. Diff (-expected +actual):\n%s", goldenLabelsPath, diff)
 	}
+}
+
+// formatNodeContentAsText formats node.getNodeContent for test.
+func formatNodeContentAsText(node *treeNode, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) []string {
+	if node == nil {
+		return nil
+	}
+	content := node.getNodeContent(qp, param, rowType)
+	var result []string
+
+	if content.Title != "" {
+		result = append(result, fmt.Sprintf("Title: %s", content.Title))
+	}
+	if content.ShortRepresentation != "" {
+		result = append(result, fmt.Sprintf("ShortRepresentation: %s", content.ShortRepresentation))
+	}
+	if content.ScanInfo != "" {
+		result = append(result, fmt.Sprintf("ScanInfo: %s", content.ScanInfo))
+	}
+
+	for _, line := range content.SerializeResult {
+		result = append(result, fmt.Sprintf("SerializeResult: %s", line))
+	}
+
+	for _, line := range content.NonVarScalarLinks {
+		result = append(result, fmt.Sprintf("NonVarScalarLink: %s", line))
+	}
+
+	if len(content.Metadata) > 0 {
+		var metaLines []string
+		for k, v := range content.Metadata {
+			metaLines = append(metaLines, fmt.Sprintf("Metadata: %s = %s", k, v))
+		}
+		sort.Strings(metaLines) // Ensure deterministic order for golden files
+		result = append(result, metaLines...)
+	}
+
+	for _, line := range content.VarScalarLinks {
+		result = append(result, fmt.Sprintf("VarScalarLink: %s", line))
+	}
+
+	if len(content.Stats) > 0 {
+		var statLines []string
+		for k, v := range content.Stats {
+			statLines = append(statLines, fmt.Sprintf("Stat: %s: %s", k, v))
+		}
+		sort.Strings(statLines) // Ensure deterministic order for golden files
+		result = append(result, statLines...)
+	}
+
+	if content.ExecutionSummary != "" {
+		for _, line := range strings.Split(strings.TrimSuffix(content.ExecutionSummary, "\n"), "\n") {
+			if line != "" {
+				result = append(result, fmt.Sprintf("ExecutionSummary: %s", line))
+			}
+		}
+	}
+
+	return result
 }

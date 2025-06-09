@@ -335,24 +335,15 @@ func (n *treeNode) GetSerializeResultOutput(qp *spannerplan.QueryPlan, rowType *
 }
 
 func (n *treeNode) GetNonVarScalarLinksOutput(qp *spannerplan.QueryPlan, param option.Options) string {
-	if n.planNodeProto == nil || qp == nil {
-		return ""
-	}
 	return formatChildLinks(getNonVariableChildLinks(qp, n.planNodeProto))
 }
 
 func (n *treeNode) GetVarScalarLinksOutput(qp *spannerplan.QueryPlan, param option.Options) string {
-	if n.planNodeProto == nil || qp == nil {
-		return ""
-	}
 	return formatChildLinks(getVariableChildLinks(qp, n.planNodeProto))
 }
 
 func (n *treeNode) GetMetadata(param option.Options) map[string]string {
 	mdMap := make(map[string]string)
-	if n.planNodeProto == nil || n.planNodeProto.GetMetadata() == nil {
-		return mdMap
-	}
 	for key, valProto := range n.planNodeProto.GetMetadata().GetFields() {
 		if slices.Contains(internalMetadataKeys, key) || slices.Contains(param.HideMetadata, key) {
 			continue
@@ -473,16 +464,7 @@ func (n *treeNode) Metadata(qp *spannerplan.QueryPlan, param option.Options, row
 	}
 	// All lines in statsAndSummaryPlainLines are raw strings, toLeftAlignedText will escape them.
 	statsHTMLPart := markupIfNotEmpty(toLeftAlignedText(strings.Join(statsAndSummaryPlainLines, "\n")), "i")
-
-	if labelHTMLPart != "" && statsHTMLPart != "" {
-		// toLeftAlignedText appends <br align="left"/> if its input is not empty.
-		// So labelHTMLPart might end with it.
-		return labelHTMLPart + statsHTMLPart
-	}
-	if labelHTMLPart != "" {
-		return labelHTMLPart
-	}
-	return statsHTMLPart
+	return labelHTMLPart + statsHTMLPart
 }
 
 func (n *treeNode) HTML(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
@@ -597,36 +579,41 @@ func formatMetadata(metadataFields map[string]*structpb.Value, hideMetadata []st
 }
 
 func formatExecutionSummary(executionStatsFields map[string]*structpb.Value, isMermaid bool) string {
-	if executionStatsFields == nil {
+	executionSummary, ok := executionStatsFields["execution_summary"]
+	if !ok {
 		return ""
 	}
+
 	var executionSummaryBuf bytes.Buffer
-	if executionSummary, ok := executionStatsFields["execution_summary"]; ok {
-		fmt.Fprintln(&executionSummaryBuf, "execution_summary:")
-		var executionSummaryStrings []string
-		for k, v := range executionSummary.GetStructValue().AsMap() {
-			var value string
-			// Only apply tryToTimestampStr to specific timestamp fields
-			if k == "execution_start_timestamp" || k == "execution_end_timestamp" {
-				formattedValue, err := tryToTimestampStr(fmt.Sprint(v))
-				if err != nil {
-					value = fmt.Sprintf("%s (error: %v)", fmt.Sprint(v), err)
-				} else {
-					value = formattedValue
-				}
+	fmt.Fprintln(&executionSummaryBuf, "execution_summary:")
+	var executionSummaryStrings []string
+	for k, v := range executionSummary.GetStructValue().AsMap() {
+		var value string
+		// Only apply tryToTimestampStr to specific timestamp fields
+		if k == "execution_start_timestamp" || k == "execution_end_timestamp" {
+			formattedValue, err := tryToTimestampStr(fmt.Sprint(v))
+			if err != nil {
+				value = fmt.Sprintf("%s (error: %v)", fmt.Sprint(v), err)
 			} else {
-				value = fmt.Sprint(v)
+				value = formattedValue
 			}
-			if isMermaid {
-				// For Mermaid, use non-breaking space for indentation
-				executionSummaryStrings = append(executionSummaryStrings, fmt.Sprintf("&nbsp;&nbsp;&nbsp;%s: %s\n", k, value))
-			} else {
-				executionSummaryStrings = append(executionSummaryStrings, fmt.Sprintf("   %s: %s\n", k, value))
-			}
+		} else {
+			value = fmt.Sprint(v)
 		}
-		sort.Strings(executionSummaryStrings)
-		fmt.Fprint(&executionSummaryBuf, strings.Join(executionSummaryStrings, ""))
+
+		const indentLevel = 3
+		var indentChar string
+		if isMermaid {
+			// For Mermaid, use non-breaking space for indentation
+			indentChar = "&nbsp;"
+		} else {
+			indentChar = " "
+		}
+		executionSummaryStrings = append(executionSummaryStrings,
+			fmt.Sprintf("%s%s: %s\n", strings.Repeat(indentChar, indentLevel), k, value))
 	}
+	sort.Strings(executionSummaryStrings)
+	fmt.Fprint(&executionSummaryBuf, strings.Join(executionSummaryStrings, ""))
 	return executionSummaryBuf.String()
 }
 
@@ -672,50 +659,16 @@ func prefixIfNotEmpty(prefix, value string) string {
 	return ""
 }
 
-func formatExecutionStatsValue(v_struct *structpb.Value) string {
-	if v_struct == nil || v_struct.GetStructValue() == nil {
-		return ""
-	}
-	fields := v_struct.GetStructValue().GetFields()
-	total := ""
-	if totalVal, ok := fields["total"]; ok {
-		total = totalVal.GetStringValue()
-	}
-	unit := ""
-	if unitVal, ok := fields["unit"]; ok {
-		unit = unitVal.GetStringValue()
-	}
-	mean := ""
-	if meanVal, ok := fields["mean"]; ok {
-		mean = meanVal.GetStringValue()
-	}
-	stdDev := ""
-	if stdDevVal, okS := fields["std_deviation"]; okS {
-		stdDev = stdDevVal.GetStringValue()
-	}
-	if total == "" && unit == "" && mean == "" && stdDev == "" {
-		return ""
-	}
-	if total == "" && mean == "" && stdDev == "" && unit != "" {
-		return ""
-	}
+func formatExecutionStatsValue(v *structpb.Value) string {
+	fields := v.GetStructValue().GetFields()
+	total := fields["total"].GetStringValue()
+	unit := fields["unit"].GetStringValue()
+	stdDev := fields["std_deviation"].GetStringValue()
+	mean := fields["mean"].GetStringValue()
+
 	stdDevStr := prefixIfNotEmpty("±", stdDev)
-	meanAndStdDevPart := ""
-	if mean != "" {
-		meanAndStdDevPart = "@" + mean + stdDevStr
-	} else if stdDev != "" {
-		meanAndStdDevPart = "@" + stdDevStr
-	}
-	value := total
-	if meanAndStdDevPart != "" {
-		value += meanAndStdDevPart
-	}
-	if unit != "" {
-		if value != "" {
-			value += " " + unit
-		}
-	}
-	return value
+	meanAndStdDevPart := prefixIfNotEmpty("@", mean+stdDevStr)
+	return total + meanAndStdDevPart + prefixIfNotEmpty(" ", unit)
 }
 
 type childLinkEntry struct {
@@ -791,6 +744,7 @@ func formatSerializeResult(rowType *sppb.StructType, childLinks []*childLinkGrou
 		if cl.Type != "" {
 			continue
 		}
+
 		for i, planNodeEntry := range cl.PlanNodes {
 			if rowType == nil || i >= len(rowType.GetFields()) {
 				continue
@@ -799,10 +753,8 @@ func formatSerializeResult(rowType *sppb.StructType, childLinks []*childLinkGrou
 			if name == "" {
 				name = fmt.Sprintf("no_name<%d>", i)
 			}
-			description := ""
-			if psr := planNodeEntry.PlanNodes.GetShortRepresentation(); psr != nil {
-				description = psr.GetDescription()
-			}
+
+			description := planNodeEntry.PlanNodes.GetShortRepresentation().GetDescription()
 			text := fmt.Sprintf("Result.%s:%s", name, description)
 			fmt.Fprintln(&result, text)
 		}
@@ -831,62 +783,4 @@ func formatQueryNode(queryStats map[string]*structpb.Value, showQueryStats bool)
 		buf.WriteString(markupIfNotEmpty(toLeftAlignedText(escapeGraphvizHTMLLabelContent(statsStr)), "i")) // Changed to toLeftAlignedText
 	}
 	return buf.String()
-}
-
-func formatNodeContentAsText(node *treeNode, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) []string {
-	if node == nil {
-		return nil
-	}
-	content := node.getNodeContent(qp, param, rowType)
-	var result []string
-
-	if content.Title != "" {
-		result = append(result, fmt.Sprintf("Title: %s", content.Title))
-	}
-	if content.ShortRepresentation != "" {
-		result = append(result, fmt.Sprintf("ShortRepresentation: %s", content.ShortRepresentation))
-	}
-	if content.ScanInfo != "" {
-		result = append(result, fmt.Sprintf("ScanInfo: %s", content.ScanInfo))
-	}
-
-	for _, line := range content.SerializeResult {
-		result = append(result, fmt.Sprintf("SerializeResult: %s", line))
-	}
-
-	for _, line := range content.NonVarScalarLinks {
-		result = append(result, fmt.Sprintf("NonVarScalarLink: %s", line))
-	}
-
-	if len(content.Metadata) > 0 {
-		var metaLines []string
-		for k, v := range content.Metadata {
-			metaLines = append(metaLines, fmt.Sprintf("Metadata: %s = %s", k, v))
-		}
-		sort.Strings(metaLines) // Ensure deterministic order for golden files
-		result = append(result, metaLines...)
-	}
-
-	for _, line := range content.VarScalarLinks {
-		result = append(result, fmt.Sprintf("VarScalarLink: %s", line))
-	}
-
-	if len(content.Stats) > 0 {
-		var statLines []string
-		for k, v := range content.Stats {
-			statLines = append(statLines, fmt.Sprintf("Stat: %s: %s", k, v))
-		}
-		sort.Strings(statLines) // Ensure deterministic order for golden files
-		result = append(result, statLines...)
-	}
-
-	if content.ExecutionSummary != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(content.ExecutionSummary, "\n"), "\n") {
-			if line != "" {
-				result = append(result, fmt.Sprintf("ExecutionSummary: %s", line))
-			}
-		}
-	}
-
-	return result
 }
