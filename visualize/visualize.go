@@ -30,16 +30,7 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 		return fmt.Errorf("failed to create QueryPlan: %w", err)
 	}
 
-	// At this point, qp is a valid QueryPlan object returned by spannerplan.New (if err was nil).
-	// Now, try to get the root node. If GetNodeByIndex(0) returns nil,
-	// it implies the plan is empty or has no node at index 0 (which is assumed to be the root).
-	physicalRootNode := qp.GetNodeByIndex(0)
-	if physicalRootNode == nil {
-		return fmt.Errorf("cannot render image: query plan has no actionable root node (e.g., empty or rootless)")
-	}
-
-	// Proceed with physicalRootNode, which is non-nil here.
-	rootNode, err := buildTree(qp, physicalRootNode, rowType, param)
+	rootNode, err := buildTree(qp, qp.GetNodeByIndex(0), rowType, param)
 	if err != nil {
 		return fmt.Errorf("failed to build tree: %w", err)
 	}
@@ -50,10 +41,16 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 	}
 
 	// 3. Graphviz path
+	return renderGraphViz(ctx, rowType, queryStats, format, writer, param, rootNode, qp)
+}
+
+func renderGraphViz(ctx context.Context, rowType *sppb.StructType, queryStats *sppb.ResultSetStats,
+	format graphviz.Format, writer io.Writer, param option.Options, rootNode *treeNode, qp *spannerplan.QueryPlan) error {
 	g, err := graphviz.New(ctx)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if err := g.Close(); err != nil {
 			log.Print(err)
