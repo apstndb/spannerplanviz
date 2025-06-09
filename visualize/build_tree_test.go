@@ -7,6 +7,7 @@ import (
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/apstndb/spannerplan"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/apstndb/spannerplanviz/option"
@@ -468,7 +469,7 @@ func TestTreeNodeHTML(t *testing.T) {
 					nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: int32(i), DisplayName: fmt.Sprintf("Dummy %d", i)})
 				}
 				nodesForPlan = append(nodesForPlan, tc.planNodeProto) // Actual node at Index 9
-				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{   // Actual Scalar Child for Var
+				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{ // Actual Scalar Child for Var
 					Index:               10,
 					Kind:                sppb.PlanNode_SCALAR,
 					DisplayName:         "ScalarFunc",
@@ -862,7 +863,7 @@ func TestTreeNodeGetStats(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			node := &treeNode{planNodeProto: tt.planNode}
 			got := node.GetStats(tt.param)
-			if diff := cmp.Diff(got, tt.want); diff != "" {
+			if diff := cmp.Diff(got, tt.want, cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("GetStats() mismatch (-got +want):\n%s", diff)
 			}
 		})

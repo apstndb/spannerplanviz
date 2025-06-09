@@ -165,10 +165,6 @@ func escapeGraphvizHTMLLabelContent(content string) string {
 // This function centralizes the logic for gathering all relevant displayable information
 // from a plan node, before any Mermaid-specific or plain-text-specific formatting.
 func (n *treeNode) getNodeContent(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) nodeContent {
-	if n.planNodeProto == nil {
-		return nodeContent{} // Return empty struct for nil proto
-	}
-
 	content := nodeContent{
 		Title:               n.GetTitle(param),
 		ShortRepresentation: n.GetShortRepresentation(),
@@ -182,7 +178,7 @@ func (n *treeNode) getNodeContent(qp *spannerplan.QueryPlan, param option.Option
 	}
 
 	// Handle multi-line outputs
-	if sroVal := n.GetSerializeResultOutput(qp, param, rowType); sroVal != "" {
+	if sroVal := n.GetSerializeResultOutput(qp, rowType); sroVal != "" {
 		for _, line := range strings.Split(strings.TrimSuffix(sroVal, "\n"), "\n") {
 			if line != "" {
 				content.SerializeResult = append(content.SerializeResult, line)
@@ -206,7 +202,7 @@ func (n *treeNode) getNodeContent(qp *spannerplan.QueryPlan, param option.Option
 
 	// Apply heuristic check for ScanInfo double-printing
 	// This logic is moved from MermaidLabel to here to centralize content decision.
-	isScanNode := n.planNodeProto.GetDisplayName() == "Scan" || strings.Contains(n.planNodeProto.GetDisplayName(), "Scan")
+	isScanNode := n.planNodeProto.GetDisplayName() == "Scan"
 	if isScanNode && content.ScanInfo != "" && content.ScanInfo == content.ShortRepresentation && content.ShortRepresentation != "" {
 		// If it's a scan node, and ScanInfo is identical to ShortRepresentation, and ShortRepresentation is not empty,
 		// then clear ScanInfo to avoid double-printing.
@@ -302,9 +298,6 @@ func (n *treeNode) GetName() string {
 
 // GetTooltip generates the tooltip string (YAML of the planNodeProto) on demand.
 func (n *treeNode) GetTooltip() (string, error) {
-	if n.planNodeProto == nil {
-		return "", fmt.Errorf("cannot generate tooltip for nil planNodeProto")
-	}
 	tooltipBytes, err := yaml.Marshal(n.planNodeProto)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal planNodeProto for tooltip: %w", err)
@@ -312,49 +305,29 @@ func (n *treeNode) GetTooltip() (string, error) {
 	return string(tooltipBytes), nil
 }
 
-// New on-demand formatting methods for treeNode
-func (n *treeNode) GetTitle(param option.Options) string { // param is now unused by this specific method
-	if n.planNodeProto == nil {
-		return ""
-	}
+func (n *treeNode) GetTitle(param option.Options) string {
 	// Always use HideMetadata() as per user feedback that implies metadata should be hidden from the title string itself.
 	return spannerplan.NodeTitle(n.planNodeProto, spannerplan.HideMetadata())
 }
 
 func (n *treeNode) GetShortRepresentation() string {
-	if n.planNodeProto == nil || n.planNodeProto.GetShortRepresentation() == nil {
-		return ""
-	}
 	return n.planNodeProto.GetShortRepresentation().GetDescription()
 }
 
 func (n *treeNode) GetScanInfoOutput(param option.Options) string {
-	if n.planNodeProto == nil || n.planNodeProto.GetMetadata() == nil || param.HideScanTarget {
+	if param.HideScanTarget {
 		return ""
 	}
 
 	metadataFields := n.planNodeProto.GetMetadata().GetFields()
-	scanTypeVal, okType := metadataFields["scan_type"]
-	scanTargetVal, okTarget := metadataFields["scan_target"]
-
-	if okType && okTarget {
-		scanTypeString := scanTypeVal.GetStringValue()
-
-		processedScanType := strings.TrimSuffix(scanTypeString, "Scan")
-		// If TrimSuffix results in an empty string (e.g. scanTypeString was "Scan"),
-		// and the original string was not empty, use the original string.
-		if processedScanType == "" && scanTypeString != "" {
-			processedScanType = scanTypeString
-		}
-
-		scanTarget := scanTargetVal.GetStringValue()
-		return fmt.Sprintf("%s: %s", processedScanType, scanTarget)
+	if scanTypeVal := metadataFields["scan_type"].GetStringValue(); scanTypeVal != "" {
+		return fmt.Sprintf("%s: %s", strings.TrimSuffix(scanTypeVal, "Scan"), metadataFields["scan_target"].GetStringValue())
 	}
 	return ""
 }
 
-func (n *treeNode) GetSerializeResultOutput(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
-	if n.planNodeProto == nil || n.planNodeProto.GetDisplayName() != "Serialize Result" || rowType == nil || qp == nil {
+func (n *treeNode) GetSerializeResultOutput(qp *spannerplan.QueryPlan, rowType *sppb.StructType) string {
+	if n.planNodeProto.GetDisplayName() != "Serialize Result" {
 		return ""
 	}
 	// formatSerializeResult expects childLinkGroups which getNonVariableChildLinks provides
@@ -388,6 +361,7 @@ func (n *treeNode) GetMetadata(param option.Options) map[string]string {
 		if key == "scan_type" || key == "scan_target" {
 			continue
 		}
+
 		formattedVal, err := formatStructPBValue(valProto)
 		if err != nil {
 			mdMap[key] = fmt.Sprintf("[unsupported_metadata_type:%T err:%v]", valProto.GetKind(), err)
@@ -399,11 +373,11 @@ func (n *treeNode) GetMetadata(param option.Options) map[string]string {
 }
 
 func (n *treeNode) GetStats(param option.Options) map[string]string {
-	statsMap := make(map[string]string)
-	if n.planNodeProto == nil || n.planNodeProto.GetExecutionStats() == nil || !param.ExecutionStats {
-		return statsMap
+	if !param.ExecutionStats {
+		return nil
 	}
 
+	statsMap := make(map[string]string)
 	for key, valProto := range n.planNodeProto.GetExecutionStats().GetFields() {
 		if key == "execution_summary" { // Skip summary for this map
 			continue
