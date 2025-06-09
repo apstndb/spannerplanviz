@@ -343,24 +343,14 @@ func (n *treeNode) GetVarScalarLinksOutput(qp *spannerplan.QueryPlan, param opti
 }
 
 func (n *treeNode) GetMetadata(param option.Options) map[string]string {
-	mdMap := make(map[string]string)
-	for key, valProto := range n.planNodeProto.GetMetadata().GetFields() {
-		if slices.Contains(internalMetadataKeys, key) || slices.Contains(param.HideMetadata, key) {
+	result := make(map[string]string)
+	for k, v := range n.planNodeProto.GetMetadata().GetFields() {
+		if slices.Contains(param.HideMetadata, k) || slices.Contains(internalMetadataKeys, k) {
 			continue
 		}
-		// Exclude scan_type and scan_target as they are handled by GetScanInfoOutput
-		if key == "scan_type" || key == "scan_target" {
-			continue
-		}
-
-		formattedVal, err := formatStructPBValue(valProto)
-		if err != nil {
-			mdMap[key] = fmt.Sprintf("[unsupported_metadata_type:%T err:%v]", valProto.GetKind(), err)
-		} else {
-			mdMap[key] = formattedVal
-		}
+		result[k] = fmt.Sprint(v.AsInterface())
 	}
-	return mdMap
+	return result
 }
 
 func (n *treeNode) GetStats(param option.Options) map[string]string {
@@ -557,25 +547,6 @@ var internalMetadataKeys = []string{
 	"scan_target",
 	"iterator_type",
 	"subquery_cluster_node",
-}
-
-func formatMetadata(metadataFields map[string]*structpb.Value, hideMetadata []string) string {
-	if metadataFields == nil {
-		return ""
-	}
-	var metadataStrs []string
-	for k, v := range metadataFields {
-		if slices.Contains(hideMetadata, k) || slices.Contains(internalMetadataKeys, k) {
-			continue
-		}
-		metadataStrs = append(metadataStrs, fmt.Sprintf("%s=%v", k, v.AsInterface()))
-	}
-	slices.Sort(metadataStrs)
-	metadataStr := strings.Join(metadataStrs, "\n")
-	if metadataStr == "" {
-		return ""
-	}
-	return metadataStr + "\n"
 }
 
 func formatExecutionSummary(executionStatsFields map[string]*structpb.Value, isMermaid bool) string {
