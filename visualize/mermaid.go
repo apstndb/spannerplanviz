@@ -3,7 +3,6 @@ package visualize
 import (
 	"fmt"
 	"io"
-
 	// "sort" // For stable output of map iteration - Removed as not used
 	"strings"
 
@@ -59,17 +58,11 @@ func renderMermaid(rootNode *treeNode, writer io.Writer, qp *spannerplan.QueryPl
 				arrow = "-->" // Default to solid
 			}
 
-			// escapeMermaidLabelContent is now part of MermaidLabel or its helpers.
-			// ChildType itself might need escaping if it can contain " or backtick,
-			// but typically it's a simple string like "Input" or "SCALAR".
-			// For now, assume ChildType is safe or pre-escaped if needed.
-			// If ChildType needs robust escaping, a separate simple escaper for Mermaid edge labels might be needed.
-			// Let's use a basic escape for ChildType here for quotes, as it's for the edge label.
-			edgeLabel := strings.ReplaceAll(edgeLink.ChildType, "\"", "#quot;")
-
 			var edgeLabelPart string
-			if edgeLabel != "" {
-				edgeLabelPart = fmt.Sprintf("|%s|", edgeLabel)
+			// ChildType represents node relationship text which doesn't contain special characters
+			// so it's safe to use with %s format directly
+			if edgeLink.ChildType != "" {
+				edgeLabelPart = fmt.Sprintf("|%s|", edgeLink.ChildType)
 			}
 			edgeStr := fmt.Sprintf("    %s %s%s %s\n", nodeName, arrow, edgeLabelPart, edgeLink.ChildNode.GetName())
 			edgesToRender = append(edgesToRender, edgeStr)
