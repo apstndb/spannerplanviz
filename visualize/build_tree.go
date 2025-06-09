@@ -360,6 +360,7 @@ func (n *treeNode) GetStats(param option.Options) map[string]string {
 		if key == "execution_summary" { // Skip summary for this map
 			continue
 		}
+
 		// Directly use formatExecutionStatsValue, assuming it's robust for stat structs
 		// formatExecutionStatsValue returns a string, not an error.
 		// It handles various fields within a stat struct.
@@ -369,13 +370,7 @@ func (n *treeNode) GetStats(param option.Options) map[string]string {
 			statsMap[key] = formatExecutionStatsValue(valProto)
 		} else {
 			// If a top-level field in ExecutionStats is not a struct, it's unusual.
-			// Use formatStructPBValue for simple types if they can appear here.
-			simpleVal, err := formatStructPBValue(valProto) // Use the modified formatStructPBValue
-			if err != nil {
-				statsMap[key] = fmt.Sprintf("[unsupported_stat_field_type:%T]", valProto.GetKind())
-			} else {
-				statsMap[key] = simpleVal
-			}
+			statsMap[key] = fmt.Sprint(valProto.AsInterface())
 		}
 	}
 	return statsMap
@@ -388,7 +383,7 @@ func (n *treeNode) GetExecutionSummary(param option.Options) string {
 	return formatExecutionSummary(n.planNode.GetExecutionStats().GetFields(), param.TypeFlag == "mermaid")
 }
 
-// New Metadata() and HTML() methods using on-demand getters
+// Metadata formats node content for GraphViz HTML-like labels.
 func (n *treeNode) Metadata(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
 	content := n.getNodeContent(qp, param, rowType)
 	var labelLines []string
@@ -473,53 +468,6 @@ func (n *treeNode) HTML(qp *spannerplan.QueryPlan, param option.Options, rowType
 		return titleHTML
 	}
 	return fmt.Sprintf(`%s<br align="CENTER"/>%s`, titleHTML, metadataHTML)
-}
-
-// formatStructPBValue converts a structpb.Value to a string representation.
-// It's used for metadata and potentially for direct stat values that aren't complex structs.
-func formatStructPBValue(value *structpb.Value) (string, error) {
-	if value == nil {
-		return "", fmt.Errorf("formatStructPBValue: received nil Value")
-	}
-	switch v := value.GetKind().(type) {
-	case *structpb.Value_NullValue:
-		return "NULL", nil
-	case *structpb.Value_NumberValue:
-		return fmt.Sprintf("%g", v.NumberValue), nil
-	case *structpb.Value_StringValue:
-		return v.StringValue, nil
-	case *structpb.Value_BoolValue:
-		return fmt.Sprintf("%t", v.BoolValue), nil
-	case *structpb.Value_StructValue:
-		// No longer tries to parse as ExecutionStatValue.
-		// Return a placeholder for generic structs in metadata.
-		return "[Struct]", nil
-		// Alternative: could try a shallow string representation if needed later:
-		// var parts []string
-		// for sk, sv := range v.StructValue.GetFields() {
-		//    svStr, err := formatStructPBValue(sv) // Recursive, careful with depth
-		//    if err != nil { parts = append(parts, fmt.Sprintf("%s:[error]", sk)) }
-		//    else { parts = append(parts, fmt.Sprintf("%s:%s", sk, svStr)) }
-		// }
-		// return "{ " + strings.Join(parts, ", ") + " }", nil
-	case *structpb.Value_ListValue:
-		var items []string
-		for i, itemVal := range v.ListValue.GetValues() {
-			if i > 2 && len(v.ListValue.GetValues()) > 3 { // Limit displayed items for long lists
-				items = append(items, "...")
-				break
-			}
-			itemStr, err := formatStructPBValue(itemVal) // Recursive call
-			if err != nil {
-				items = append(items, "[error]")
-			} else {
-				items = append(items, itemStr)
-			}
-		}
-		return "[" + strings.Join(items, ", ") + "]", nil
-	default:
-		return "", fmt.Errorf("unknown Value kind: %T", v)
-	}
 }
 
 func buildNode(planNode *sppb.PlanNode) (*treeNode, error) {
