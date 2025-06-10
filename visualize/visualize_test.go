@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
+	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/apstndb/spannerplan"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -259,37 +260,31 @@ func TestRenderMermaid(t *testing.T) {
 		t.Fatalf("TestRenderMermaid failed: expected no error, but got: %v. Output: %s", err, buf.String())
 	}
 
-	expectedMermaidOutput := strings.Join([]string{
-		`%%{ init: {"theme": "neutral",
-           "themeVariables": { "wrap": "false" },
-           "flowchart": { "curve": "linear",
-                          "markdownAutoWrap":"false",
-                          "wrappingWidth": "2000" }
-           }
-}%%`,
-		`graph TD`,
-		`    node0["<b>Union</b>
+	expectedMermaidOutput := heredoc.Doc(`
+%%{ init: {"flowchart":{"curve":"linear","markdownAutoWrap":false,"wrappingWidth":2000},"theme":null,"themeVariables":{"wrap":false}} }%%
+graph TD
+    node0["<b>Union</b>
 <i>latency: 3ms</i>
-<i>rows: 20</i>"]`,
-		`    style node0 text-align:left;`,
-		`    node1["<b>Scan1</b>
+<i>rows: 20</i>"]
+    style node0 text-align:left;
+    node1["<b>Scan1</b>
 <i>latency: 2ms</i>
-<i>rows: 20</i>"]`,
-		`    style node1 text-align:left;`,
-		`    node2["<b>Scan2</b>
+<i>rows: 20</i>"]
+    style node1 text-align:left;
+    node2["<b>Scan2</b>
 <i>latency: 1ms</i>
-<i>rows: 10</i>"]`,
-		`    style node2 text-align:left;`,
-		`    node0 -->|Input| node1`,
-		`    node0 -->|Input| node2`,
-		``,
-	}, "\n")
+<i>rows: 10</i>"]
+    style node2 text-align:left;
+    node0 -->|Input| node1
+    node0 -->|Input| node2
+`,
+	)
 
 	actualOutput := strings.ReplaceAll(buf.String(), "\n", "\n")
 	expectedOutputNormalized := strings.ReplaceAll(expectedMermaidOutput, "\n", "\n")
 
-	if strings.TrimSpace(actualOutput) != strings.TrimSpace(expectedOutputNormalized) {
-		t.Errorf("TestRenderMermaid output mismatch:\nExpected:\n%s\nActual:\n%s", expectedOutputNormalized, actualOutput)
+	if diff := cmp.Diff(expectedOutputNormalized, actualOutput); diff != "" {
+		t.Errorf("Mermaid output mismatch (-expected +actual):\n%s", diff)
 	}
 }
 

@@ -1,6 +1,7 @@
 package visualize
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	// "sort" // For stable output of map iteration - Removed as not used
@@ -9,6 +10,7 @@ import (
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb" // For sppb.StructType
 	"github.com/apstndb/spannerplan"                   // For spannerplan.QueryPlan
 	"github.com/goccy/go-graphviz/cgraph"              // For EdgeStyle constants
+	"github.com/samber/lo"
 
 	"github.com/apstndb/spannerplanviz/option" // For option.Options
 )
@@ -19,15 +21,28 @@ import (
 // 2. HTML-like formatting is not properly supported
 // Instead, we use direct string formatting for labels.
 func renderMermaid(rootNode *treeNode, writer io.Writer, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) error {
+	// `nil` is better because GitHub handles light/dark theme differently.
+	// This behavior is not performed except `nil`, even if it is "default".
+	var theme = ""
+	config := map[string]any{
+		"theme": lo.EmptyableToPtr(theme),
+		"themeVariables": map[string]any{
+			"wrap": false,
+		},
+		"flowchart": map[string]any{
+			"curve":            "linear",
+			"markdownAutoWrap": false,
+			"wrappingWidth":    2000,
+		},
+	}
+
+	b, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+
 	var sb strings.Builder
-	sb.WriteString(`%%{ init: {"theme": "neutral",
-           "themeVariables": { "wrap": "false" },
-           "flowchart": { "curve": "linear",
-                          "markdownAutoWrap":"false",
-                          "wrappingWidth": "2000" }
-           }
-}%%
-`)
+	fmt.Fprintln(&sb, `%%{ init: `+string(b)+` }%%`)
 	sb.WriteString("graph TD\n") // Top-Down direction
 
 	renderedNodes := make(map[string]bool) // To track rendered nodes and avoid duplicates
@@ -81,7 +96,7 @@ func renderMermaid(rootNode *treeNode, writer io.Writer, qp *spannerplan.QueryPl
 		sb.WriteString(edgeStr)
 	}
 
-	_, err := writer.Write([]byte(sb.String()))
+	_, err = writer.Write([]byte(sb.String()))
 	return err
 }
 
