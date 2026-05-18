@@ -4,3 +4,6 @@
 # Local editor and OS metadata.
 .DS_Store
 .idea/
+
+# Local Go build output.
+spannerplanviz

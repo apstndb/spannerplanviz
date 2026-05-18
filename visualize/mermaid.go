@@ -53,8 +53,8 @@ func renderMermaid(rootNode *treeNode, writer io.Writer, qp *spannerplan.QueryPl
 		// Use the new MermaidLabel method
 		finalLabel := node.MermaidLabel(qp, param, rowType) // Pass qp, param, rowType
 
-		sb.WriteString(fmt.Sprintf("    %s[\"%s\"]\n", nodeName, finalLabel))
-		sb.WriteString(fmt.Sprintf("    style %s text-align:left;\n", nodeName))
+		fmt.Fprintf(&sb, "    %s[\"%s\"]\n", nodeName, finalLabel)
+		fmt.Fprintf(&sb, "    style %s text-align:left;\n", nodeName)
 
 		// Edges
 		for _, edgeLink := range node.Children {

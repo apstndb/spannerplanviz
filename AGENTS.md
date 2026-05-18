@@ -81,8 +81,8 @@ Sample files in `visualize/testdata/` for testing:
 ## Code Conventions
 
 - Standard Go formatting with gofmt
-- Use struct methods for node operations (GetName(), HTML(), MermaidLabel())
-- Error wrapping with fmt.Errorf() for context
+- Follow existing tree node helper methods for node operations, such as GetName(), HTML(), and MermaidLabel()
+- Wrap errors with fmt.Errorf() and %w when preserving the underlying cause
 - Defer cleanup for resources (files, graphviz objects)
 - Use cgraph.EdgeStyle constants for edge styling
 - Mermaid output uses structured JSON configuration for theming
