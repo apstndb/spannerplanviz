@@ -1,0 +1,6 @@
+# Local scratch space for generated artifacts and temporary notes.
+.tmp/
+
+# Local editor and OS metadata.
+.DS_Store
+.idea/
