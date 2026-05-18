@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to Codex and other coding agents when working with code in this repository.
+This file provides guidance to AI coding agents when working with code in this repository.
 
 ## Project Overview
 
@@ -15,7 +15,7 @@ spannerplanviz is a Cloud Spanner Query Plan Visualizer that converts Spanner qu
 - **visualize/**: Core visualization logic
   - **visualize.go**: Main rendering coordinator, handles both Graphviz and Mermaid output paths
   - **mermaid.go**: Mermaid.js-specific rendering logic with structured configuration
-  - **build_tree.go**: Converts Spanner plan nodes into internal tree structure
+  - **build_tree.go**: Converts Spanner plan nodes into internal tree structure and defines node formatting logic for HTML and Mermaid labels
   - **util.go**: Utility functions for formatting and text processing
 
 ### Dependencies
