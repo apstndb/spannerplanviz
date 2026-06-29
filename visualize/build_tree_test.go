@@ -9,10 +9,37 @@ import (
 	"github.com/apstndb/spannerplan"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/apstndb/spannerplanviz/option"
 )
+
+func newTestQueryPlan(nodes []*sppb.PlanNode) (*spannerplan.QueryPlan, error) {
+	if len(nodes) == 0 {
+		return nil, spannerplan.ErrEmptyPlanNodes
+	}
+
+	indexToPos := make(map[int32]int32, len(nodes))
+	for i, node := range nodes {
+		indexToPos[node.GetIndex()] = int32(i)
+	}
+
+	normalized := make([]*sppb.PlanNode, len(nodes))
+	for i, node := range nodes {
+		clone := proto.Clone(node).(*sppb.PlanNode)
+		clone.Index = int32(i)
+		for _, childLink := range clone.ChildLinks {
+			if childLink == nil {
+				continue
+			}
+			childLink.ChildIndex = indexToPos[childLink.ChildIndex]
+		}
+		normalized[i] = clone
+	}
+
+	return spannerplan.New(normalized)
+}
 
 func TestToLeftAlignedText(t *testing.T) {
 	tests := []struct {
@@ -284,7 +311,7 @@ Description&nbsp;with&nbsp;&quot;quotes&quot;&nbsp;and&nbsp;`) + "\\`backticks\\
 			var currentPlan *spannerplan.QueryPlan
 			var err error
 			if len(nodesInTestPlan) > 0 || tc.name == "Serialize Result Node" { // Serialize Result needs QueryPlan even if node list is simple
-				currentPlan, err = spannerplan.New(nodesInTestPlan)
+				currentPlan, err = newTestQueryPlan(nodesInTestPlan)
 				if err != nil {
 					t.Fatalf("spannerplan.New failed for test case %q: %v", tc.name, err)
 				}
@@ -479,7 +506,7 @@ func TestTreeNodeHTML(t *testing.T) {
 				nodesForPlan = append(nodesForPlan, tc.planNodeProto)
 			}
 
-			currentPlan, err := spannerplan.New(nodesForPlan)
+			currentPlan, err := newTestQueryPlan(nodesForPlan)
 			if err != nil {
 				nodeIndicesInPlan := []int32{}
 				for _, n := range nodesForPlan {

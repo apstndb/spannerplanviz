@@ -13,7 +13,6 @@ import (
 	"time"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
-	"github.com/apstndb/lox"
 	"github.com/apstndb/spannerplan"
 	"github.com/goccy/go-graphviz/cgraph"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -46,10 +45,14 @@ func buildTree(qp *spannerplan.QueryPlan, planNode *sppb.PlanNode, rowType *sppb
 }
 
 func buildLink(qp *spannerplan.QueryPlan, cl *sppb.PlanNode_ChildLink, node *sppb.PlanNode, child *treeNode) *link {
+	style := cgraph.EdgeStyle("")
+	if isRemoteCall(node, cl) {
+		style = cgraph.DashedEdgeStyle
+	}
 	return &link{
 		ChildType: qp.GetLinkType(cl),
 		// If it's a remote call, the connection will be rendered as a dashed line in the visualization.
-		Style:     lox.IfOrEmpty(isRemoteCall(node, cl), cgraph.DashedEdgeStyle),
+		Style:     style,
 		ChildNode: child,
 	}
 }

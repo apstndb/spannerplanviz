@@ -7,17 +7,19 @@ toolchain go1.24.0
 require (
 	cloud.google.com/go/spanner v1.48.0
 	github.com/MakeNowJust/heredoc/v2 v2.0.1
-	github.com/apstndb/lox v0.0.0-20230530141045-98c1efebcde8
-	github.com/apstndb/spannerplan v0.1.3
+	github.com/apstndb/spannerplan v0.1.11
 	github.com/goccy/go-graphviz v0.2.9
 	github.com/google/go-cmp v0.5.9
 	github.com/jessevdk/go-flags v1.6.1
+	github.com/samber/lo v1.53.0
 	google.golang.org/protobuf v1.33.0
 	sigs.k8s.io/yaml v1.2.0
 )
 
 require (
-	github.com/apstndb/treeprint v0.0.0-20250529153958-e82576b37da6 // indirect
+	github.com/apstndb/go-tabwrap v0.1.3 // indirect
+	github.com/clipperhouse/displaywidth v0.11.0 // indirect
+	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/flopp/go-findfont v0.1.0 // indirect
@@ -29,13 +31,11 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
-	github.com/olekukonko/errors v0.0.0-20250405072817-4e6d85265da6 // indirect
-	github.com/olekukonko/ll v0.0.6-0.20250511102614-9564773e9d27 // indirect
-	github.com/olekukonko/tablewriter v1.0.1 // indirect
+	github.com/olekukonko/errors v1.1.0 // indirect
+	github.com/olekukonko/ll v0.0.9 // indirect
+	github.com/olekukonko/tablewriter v1.0.9 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/samber/lo v1.47.0 // indirect
 	github.com/tetratelabs/wazero v1.8.1 // indirect
-	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/image v0.21.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
@@ -46,5 +46,4 @@ require (
 	google.golang.org/grpc v1.56.3 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
