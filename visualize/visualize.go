@@ -17,7 +17,9 @@ import (
 )
 
 func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, writer io.Writer, param option.Options) error {
-	param.ApplyFullOption()
+	if err := param.Normalize(); err != nil {
+		return err
+	}
 
 	if queryStats == nil || queryStats.GetQueryPlan() == nil {
 		// This handles cases where the input stats or the plan itself is fundamentally missing.
@@ -162,7 +164,7 @@ func renderNode(graph *cgraph.Graph, node *treeNode, qp *spannerplan.QueryPlan, 
 
 	n.SetTooltip(tooltipStr)
 
-	nodeHTMLStr := node.HTML(qp, param, rowType)
+	nodeHTMLStr := node.HTML(param, rowType)
 	nodeHTML, err := graph.StrdupHTML(nodeHTMLStr)
 	if err != nil {
 		return err

@@ -1,5 +1,7 @@
 package option
 
+import "fmt"
+
 type Options struct {
 	Positional struct {
 		Input string
@@ -27,5 +29,19 @@ func (o *Options) ApplyFullOption() {
 		o.ExecutionStats = true
 		o.ExecutionSummary = true
 		o.SerializeResult = true
+	}
+}
+
+// Normalize applies derived options and validates output settings for library callers.
+func (o *Options) Normalize() error {
+	o.ApplyFullOption()
+	if o.TypeFlag == "" {
+		o.TypeFlag = "svg"
+	}
+	switch o.TypeFlag {
+	case "svg", "dot", "png", "mermaid":
+		return nil
+	default:
+		return fmt.Errorf("unsupported output type %q", o.TypeFlag)
 	}
 }

@@ -88,14 +88,14 @@ func run(ctx context.Context) error {
 	}
 	defer func() { _ = writer.Close() }()
 
-	opts.ApplyFullOption()
-
 	err = visualize.RenderImage(ctx, rowType, queryStats, writer, opts)
 	if err != nil {
-		innerErr := os.Remove(opts.Filename)
-		if innerErr != nil {
-			return errors.Join(err, innerErr)
+		if opts.Filename != "" {
+			if innerErr := os.Remove(opts.Filename); innerErr != nil && !os.IsNotExist(innerErr) {
+				return errors.Join(err, innerErr)
+			}
 		}
+		return err
 	}
-	return err
+	return nil
 }

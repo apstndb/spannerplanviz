@@ -35,7 +35,7 @@ $ gcloud spanner databases execute-sql --instance=sampleinstance sampledb --quer
 
 ### PROFILE
 
-You see verbose profile information. (Currently, `histograph` is not shown.)
+You see verbose profile information. (Currently, `histogram` is not shown.)
 
 ```
 $ gcloud spanner databases execute-sql --instance=sampleinstance sampledb --query-mode=PROFILE --format=yaml \
@@ -242,6 +242,13 @@ node19 -->|Map| node27
 node27 --> node28
 node28 --> node29
 ```
+
+## Stability
+
+- The `spannerplanviz` CLI flags and behavior are treated as stable.
+- The Go library API (`visualize.RenderImage` and related types) is experimental and may change between releases.
+- This module follows v0 semver: breaking changes may appear in minor releases. See GitHub release notes for details.
+- Text plan rendering moved to [`spannerplan/cmd/rendertree`](https://github.com/apstndb/spannerplan/tree/main/cmd/rendertree); the deprecated shim in this repository has been removed.
 
 ## Disclaimer
 

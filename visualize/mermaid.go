@@ -66,7 +66,7 @@ func renderMermaid(rootNode *treeNode, writer io.Writer, qp *spannerplan.QueryPl
 		renderedNodes[nodeName] = true
 
 		// Use the new MermaidLabel method
-		finalLabel := node.MermaidLabel(qp, param, rowType) // Pass qp, param, rowType
+		finalLabel := node.MermaidLabel(param, rowType)
 
 		fmt.Fprintf(&sb, "    %s[\"%s\"]\n", nodeName, finalLabel)
 		fmt.Fprintf(&sb, "    style %s text-align:left;\n", nodeName)

@@ -329,7 +329,7 @@ func TestGetNodeContent_optionGating(t *testing.T) {
 	}
 
 	t.Run("all disabled", func(t *testing.T) {
-		content := node.getNodeContent(nil, option.Options{}, rowType)
+		content := node.getNodeContent(option.Options{}, rowType)
 		if len(content.Metadata) != 0 {
 			t.Errorf("Metadata = %v, want empty", content.Metadata)
 		}
@@ -351,7 +351,7 @@ func TestGetNodeContent_optionGating(t *testing.T) {
 	})
 
 	t.Run("all enabled", func(t *testing.T) {
-		content := node.getNodeContent(nil, option.Options{
+		content := node.getNodeContent(option.Options{
 			Metadata:          true,
 			SerializeResult:   true,
 			NonVariableScalar: true,
