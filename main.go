@@ -79,13 +79,14 @@ func run(ctx context.Context) error {
 	}
 
 	var writer io.WriteCloser
-	needsClose := opts.Filename != ""
+	needsClose := false
 	if opts.Filename == "" {
 		writer = os.Stdout
 	} else if file, err := os.Create(opts.Filename); err != nil {
 		return err
 	} else {
 		writer = file
+		needsClose = true
 	}
 	defer func() {
 		if needsClose {
