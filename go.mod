@@ -2,6 +2,8 @@ module github.com/apstndb/spannerplanviz
 
 go 1.23.0
 
+retract v0.7.1 // Incorrect patch release; breaking changes belong in v0.8.x.
+
 toolchain go1.24.0
 
 require (
