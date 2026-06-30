@@ -11,6 +11,7 @@ const (
 
 // Options configures Graphviz rendering.
 type Options struct {
+	// Format is required (SVG, PNG, or DOT). The CLI always sets this from --type.
 	Format         Format
 	ShowQuery      bool
 	ShowQueryStats bool
