@@ -26,6 +26,8 @@ import (
 	"github.com/apstndb/spannerplan"
 	"github.com/jessevdk/go-flags"
 
+	"github.com/apstndb/spannerplanviz/graphviz"
+	"github.com/apstndb/spannerplanviz/mermaid"
 	"github.com/apstndb/spannerplanviz/option"
 	"github.com/apstndb/spannerplanviz/visualize"
 )
@@ -47,6 +49,10 @@ func run(ctx context.Context) error {
 	if len(args) > 0 {
 		p.WriteHelp(os.Stderr)
 		os.Exit(1)
+	}
+
+	if err := opts.Normalize(); err != nil {
+		return err
 	}
 
 	var input io.ReadCloser
@@ -94,7 +100,19 @@ func run(ctx context.Context) error {
 		}
 	}()
 
-	err = visualize.RenderImage(ctx, rowType, queryStats, writer, opts)
+	plan, err := visualize.BuildPlan(rowType, queryStats, opts.BuildOptions())
+	if err != nil {
+		if opts.Filename != "" && needsClose {
+			needsClose = false
+			_ = writer.Close()
+			if innerErr := os.Remove(opts.Filename); innerErr != nil && !os.IsNotExist(innerErr) {
+				return errors.Join(err, innerErr)
+			}
+		}
+		return err
+	}
+
+	err = render(ctx, writer, plan, opts)
 	if err != nil {
 		if opts.Filename != "" {
 			needsClose = false
@@ -106,4 +124,19 @@ func run(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func render(ctx context.Context, w io.Writer, plan *visualize.Plan, opts option.Options) error {
+	switch opts.TypeFlag {
+	case "mermaid":
+		return mermaid.NewRenderer(mermaid.Options{BuildOptions: plan.Build}).Render(ctx, w, plan)
+	case "svg", "png", "dot":
+		return graphviz.NewRenderer(graphviz.Options{
+			Format:         graphviz.Format(opts.TypeFlag),
+			ShowQuery:      opts.ShowQuery,
+			ShowQueryStats: opts.ShowQueryStats,
+		}).Render(ctx, w, plan)
+	default:
+		return errors.New("unsupported output type")
+	}
 }

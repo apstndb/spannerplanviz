@@ -1,6 +1,10 @@
 package option
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/apstndb/spannerplanviz/visualize"
+)
 
 type Options struct {
 	Positional struct {
@@ -19,6 +23,22 @@ type Options struct {
 	ShowQueryStats    bool     `long:"show-query-stats"`
 	Full              bool     `long:"full" description:"full output"`
 	HideMetadata      []string `long:"hide-metadata"`
+}
+
+// BuildOptions maps CLI flags to library build settings.
+func (o *Options) BuildOptions() visualize.BuildOptions {
+	o.ApplyFullOption()
+	return visualize.BuildOptions{
+		Full:              o.Full,
+		NonVariableScalar: o.NonVariableScalar,
+		VariableScalar:    o.VariableScalar,
+		Metadata:          o.Metadata,
+		ExecutionStats:    o.ExecutionStats,
+		ExecutionSummary:  o.ExecutionSummary,
+		SerializeResult:   o.SerializeResult,
+		HideScanTarget:    o.HideScanTarget,
+		HideMetadata:      o.HideMetadata,
+	}
 }
 
 func (o *Options) ApplyFullOption() {

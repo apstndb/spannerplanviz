@@ -14,23 +14,20 @@ import (
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/apstndb/spannerplan"
 	"github.com/apstndb/spannerplan/plantree"
-	"github.com/goccy/go-graphviz/cgraph"
 	"google.golang.org/protobuf/types/known/structpb"
 	"sigs.k8s.io/yaml"
 
-	"github.com/apstndb/spannerplanviz/option"
 )
 
 // This file contains logics which are purely formatting strings and building tree structures.
-// It is ok to depend on types in the cgraph package, but don't use graphviz.Graph in this file.
 
-func buildTree(qp *spannerplan.QueryPlan, planNode *sppb.PlanNode, rowType *sppb.StructType, param option.Options, rowsByID map[int32]plantree.RowWithPredicates) (*treeNode, error) {
+func buildTree(qp *spannerplan.QueryPlan, planNode *sppb.PlanNode, rowType *sppb.StructType, param BuildOptions, rowsByID map[int32]plantree.RowWithPredicates) (*TreeNode, error) {
 	node, err := buildNode(planNode, rowsByID)
 	if err != nil {
 		return nil, err
 	}
 
-	var edges []*link
+	var edges []*Link
 	for _, cl := range qp.VisibleChildLinks(planNode) {
 		childNode, err := buildTree(qp, qp.GetNodeByChildLink(cl), rowType, param, rowsByID)
 		if err != nil {
@@ -44,44 +41,22 @@ func buildTree(qp *spannerplan.QueryPlan, planNode *sppb.PlanNode, rowType *sppb
 	return node, nil
 }
 
-func buildLink(qp *spannerplan.QueryPlan, cl *sppb.PlanNode_ChildLink, node *sppb.PlanNode, child *treeNode) *link {
-	style := cgraph.EdgeStyle("")
+func buildLink(qp *spannerplan.QueryPlan, cl *sppb.PlanNode_ChildLink, node *sppb.PlanNode, child *TreeNode) *Link {
+	style := EdgeStyleSolid
 	if isRemoteCall(node, cl) {
-		style = cgraph.DashedEdgeStyle
+		style = EdgeStyleDashed
 	}
-	return &link{
+	return &Link{
 		ChildType: qp.GetLinkType(cl),
-		// If it's a remote call, the connection will be rendered as a dashed line in the visualization.
 		Style:     style,
 		ChildNode: child,
 	}
 }
 
-type link struct {
+type Link struct {
 	ChildType string
-	Style     cgraph.EdgeStyle
-	ChildNode *treeNode
-}
-
-func renderEdge(graph *cgraph.Graph, parent *treeNode, edge *link) error {
-	gvChildNode, err := graph.NodeByName(edge.ChildNode.GetName())
-	if err != nil {
-		return err
-	}
-
-	gvNode, err := graph.NodeByName(parent.GetName())
-	if err != nil {
-		return err
-	}
-
-	ed, err := graph.CreateEdgeByName("", gvChildNode, gvNode)
-	if err != nil {
-		return err
-	}
-
-	ed.SetStyle(edge.Style)
-	ed.SetLabel(edge.ChildType)
-	return nil
+	Style     EdgeStyle
+	ChildNode *TreeNode
 }
 
 // isRemoteCall determines if a link between nodes represents a remote call in the Spanner query plan.
@@ -107,13 +82,13 @@ func isRemoteCall(node *sppb.PlanNode, cl *sppb.PlanNode_ChildLink) bool {
 	return subqueryClusterNode.GetStringValue() == strconv.Itoa(int(cl.GetChildIndex()))
 }
 
-type treeNode struct {
+type TreeNode struct {
 	// Core data field
 	planNode *sppb.PlanNode
 	planRow  *plantree.RowWithPredicates
 
 	// Essential fields for graph structure
-	Children []*link
+	Children []*Link
 }
 
 // nodeContent holds the raw, unformatted content extracted from a plan node,
@@ -130,64 +105,21 @@ type nodeContent struct {
 	ExecutionSummary    string
 }
 
-// escapeMermaidLabelContent prepares a string for safe inclusion in a Mermaid label when htmlLabels:true is used.
-// This function specifically handles escaping for Mermaid.js HTML-like label syntax.
-// Note: Mermaid.js always processes Markdown-like syntax features in labels (such as backticks
-// for code blocks), regardless of htmlLabels setting.
+// escapeMermaidLabelContent prepares a string for safe inclusion in a Mermaid HTML label.
+// HTML labels use entity escaping only; markdown-style backslash escaping would render
+// literally in the browser and is not needed when htmlLabels is enabled.
 func escapeMermaidLabelContent(content string) string {
-	return replacerForMermaid[true].Replace(content)
+	return mermaidHTMLLabelReplacer.Replace(content)
 }
 
-var replacerForMermaid = map[bool]*strings.Replacer{
-	true:  newReplacerForMermaidHTMLLabel(true),
-	false: newReplacerForMermaidHTMLLabel(false),
-}
-
-// newReplacerForMermaidHTMLLabel creates a strings.Replacer for escaping text content in Mermaid diagram labels.
-// It handles both HTML-like character escaping and Mermaid-specific character escaping requirements.
-//
-// Parameters:
-//   - replaceSpaceToNbsp: when true, replaces spaces with &nbsp; entities for preserving whitespace in HTML-like contexts
-//
-// The replacer handles three types of escaping:
-//  1. HTML entity escaping for '<', '>', and '&'
-//  2. Mermaid-specific character escaping for special syntax characters
-//  3. Optional space-to-nbsp conversion
-//
-// The escaping is done in a specific order to prevent interference between different escape sequences.
-func newReplacerForMermaidHTMLLabel(replaceSpaceToNbsp bool) *strings.Replacer {
-	quot := []string{`"`, "&quot;"}
-
-	// HTML entity escapes must be handled in specific order to prevent interference:
-	// 1. & escaped first (prevent double-escaping)
-	// 2. < and > escaped for HTML safety
-	htmlLikeEscapeChars := []string{
-		"&", "&amp;",
-		"<", "&lt;",
-		">", "&gt;",
-	}
-
-	// charsToEscape contains characters that need escaping in Mermaid labels.
-	// These characters match the marked library's escape constant
-	// (https://github.com/markedjs/marked/blob/v15.0.12/src/rules.ts)
-	// and are sorted by ASCII code.
-	// Note: quot and htmlLikeEscapeChars has higher precedence than this list
-	const charsToEscape = `!"#$%&'()*+,-./:;<=>?@[\]^_` + "`" + `{|}~`
-
-	var escapeCharsForReplacer []string
-	for _, r := range charsToEscape {
-		escapeCharsForReplacer = append(escapeCharsForReplacer, string(r), `\`+string(r))
-	}
-
-	var oldNew []string
-	if replaceSpaceToNbsp {
-		oldNew = slices.Concat(quot, []string{" ", "&nbsp;"}, htmlLikeEscapeChars, escapeCharsForReplacer)
-	} else {
-		oldNew = slices.Concat(quot, htmlLikeEscapeChars, escapeCharsForReplacer)
-	}
-
-	return strings.NewReplacer(oldNew...)
-}
+var mermaidHTMLLabelReplacer = strings.NewReplacer(
+	`\`, `\\`,
+	`"`, "&quot;",
+	" ", "&nbsp;",
+	"&", "&amp;",
+	"<", "&lt;",
+	">", "&gt;",
+)
 
 // escapeGraphvizHTMLLabelContent prepares a string for safe inclusion in a Graphviz HTML-like label.
 // Note: Graphviz's HTML-like label parsing has its own specific rules that differ from standard
@@ -206,7 +138,7 @@ func escapeGraphvizHTMLLabelContent(content string) string {
 // getNodeContent extracts and formats the raw content of a treeNode into a structured nodeContent.
 // This function centralizes the logic for gathering all relevant displayable information
 // from a plan node, before any Mermaid-specific or plain-text-specific formatting.
-func (n *treeNode) getNodeContent(param option.Options, rowType *sppb.StructType) nodeContent {
+func (n *TreeNode) getNodeContent(param BuildOptions, rowType *sppb.StructType) nodeContent {
 	content := nodeContent{
 		Title:               n.GetTitle(),
 		ShortRepresentation: n.GetShortRepresentation(),
@@ -254,7 +186,7 @@ func (n *treeNode) getNodeContent(param option.Options, rowType *sppb.StructType
 }
 
 // MermaidLabel generates the label string for this node, suitable for use in Mermaid diagrams.
-func (n *treeNode) MermaidLabel(param option.Options, rowType *sppb.StructType) string {
+func (n *TreeNode) MermaidLabel(param BuildOptions, rowType *sppb.StructType) string {
 	content := n.getNodeContent(param, rowType)
 	var labelParts []string
 
@@ -327,7 +259,7 @@ func (n *treeNode) MermaidLabel(param option.Options, rowType *sppb.StructType) 
 }
 
 // GetName generates the node's unique ID for graph rendering.
-func (n *treeNode) GetName() string {
+func (n *TreeNode) GetName() string {
 	if n.planNode == nil {
 		return "node_unknown" // Fallback for safety, though planNode should always be set
 	}
@@ -335,7 +267,7 @@ func (n *treeNode) GetName() string {
 }
 
 // GetTooltip generates the tooltip string (YAML of the planNode) on demand.
-func (n *treeNode) GetTooltip() (string, error) {
+func (n *TreeNode) GetTooltip() (string, error) {
 	tooltipBytes, err := yaml.Marshal(n.planNode)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal planNode for tooltip: %w", err)
@@ -343,15 +275,15 @@ func (n *treeNode) GetTooltip() (string, error) {
 	return string(tooltipBytes), nil
 }
 
-func (n *treeNode) GetTitle() string {
+func (n *TreeNode) GetTitle() string {
 	return spannerplan.NodeTitle(n.planNode, spannerplan.HideMetadata())
 }
 
-func (n *treeNode) GetShortRepresentation() string {
+func (n *TreeNode) GetShortRepresentation() string {
 	return n.planNode.GetShortRepresentation().GetDescription()
 }
 
-func (n *treeNode) GetScanInfoOutput(param option.Options) string {
+func (n *TreeNode) GetScanInfoOutput(param BuildOptions) string {
 	if param.HideScanTarget {
 		return ""
 	}
@@ -363,28 +295,28 @@ func (n *treeNode) GetScanInfoOutput(param option.Options) string {
 	return ""
 }
 
-func (n *treeNode) GetSerializeResultOutput(rowType *sppb.StructType) string {
+func (n *TreeNode) GetSerializeResultOutput(rowType *sppb.StructType) string {
 	if n.planNode.GetDisplayName() != "Serialize Result" || n.planRow == nil {
 		return ""
 	}
 	return formatSerializeResultFromLinks(rowType, n.planRow.ScalarChildLinks)
 }
 
-func (n *treeNode) GetNonVarScalarLinksOutput() string {
+func (n *TreeNode) GetNonVarScalarLinksOutput() string {
 	if n.planRow == nil {
 		return ""
 	}
 	return formatScalarChildLinks(filterScalarChildLinks(n.planRow.ScalarChildLinks, false))
 }
 
-func (n *treeNode) GetVarScalarLinksOutput() string {
+func (n *TreeNode) GetVarScalarLinksOutput() string {
 	if n.planRow == nil {
 		return ""
 	}
 	return formatScalarChildLinks(filterScalarChildLinks(n.planRow.ScalarChildLinks, true))
 }
 
-func (n *treeNode) GetMetadata(param option.Options) map[string]string {
+func (n *TreeNode) GetMetadata(param BuildOptions) map[string]string {
 	result := make(map[string]string)
 	for k, v := range n.planNode.GetMetadata().GetFields() {
 		if slices.Contains(param.HideMetadata, k) || slices.Contains(internalMetadataKeys, k) {
@@ -395,7 +327,7 @@ func (n *treeNode) GetMetadata(param option.Options) map[string]string {
 	return result
 }
 
-func (n *treeNode) GetStats(param option.Options) map[string]string {
+func (n *TreeNode) GetStats(param BuildOptions) map[string]string {
 	if !param.ExecutionStats || n.planNode == nil {
 		return nil
 	}
@@ -407,7 +339,7 @@ func (n *treeNode) GetStats(param option.Options) map[string]string {
 	return executionStatsToMap(n.planNode, es)
 }
 
-func (n *treeNode) GetExecutionSummary(param option.Options) string {
+func (n *TreeNode) GetExecutionSummary(param BuildOptions) string {
 	if !param.ExecutionSummary || n.planNode == nil {
 		return ""
 	}
@@ -420,7 +352,7 @@ func (n *treeNode) GetExecutionSummary(param option.Options) string {
 }
 
 // Metadata formats node content for GraphViz HTML-like labels.
-func (n *treeNode) Metadata(param option.Options, rowType *sppb.StructType) string {
+func (n *TreeNode) Metadata(param BuildOptions, rowType *sppb.StructType) string {
 	content := n.getNodeContent(param, rowType)
 	var labelLines []string
 
@@ -485,7 +417,7 @@ func (n *treeNode) Metadata(param option.Options, rowType *sppb.StructType) stri
 	return labelHTMLPart + statsHTMLPart
 }
 
-func (n *treeNode) HTML(param option.Options, rowType *sppb.StructType) string {
+func (n *TreeNode) HTML(param BuildOptions, rowType *sppb.StructType) string {
 	titleHTML := ""
 	if t := n.GetTitle(); t != "" {
 		// n.GetTitle calls spannerplan.NodeTitle which already HTML escapes its content.
@@ -506,12 +438,12 @@ func (n *treeNode) HTML(param option.Options, rowType *sppb.StructType) string {
 	return fmt.Sprintf(`%s<br align="CENTER"/>%s`, titleHTML, metadataHTML)
 }
 
-func buildNode(planNode *sppb.PlanNode, rowsByID map[int32]plantree.RowWithPredicates) (*treeNode, error) {
+func buildNode(planNode *sppb.PlanNode, rowsByID map[int32]plantree.RowWithPredicates) (*TreeNode, error) {
 	if planNode == nil {
 		return nil, fmt.Errorf("buildNode: received nil planNode")
 	}
 
-	node := &treeNode{
+	node := &TreeNode{
 		planNode: planNode,
 	}
 	attachPlanRow(node, rowsByID)
@@ -581,7 +513,7 @@ func formatQueryStats(stats map[string]*structpb.Value) string {
 	return strings.Join(result, "\n")
 }
 
-func formatQueryNode(queryStats map[string]*structpb.Value, showQueryStats bool) string {
+func FormatQueryNode(queryStats map[string]*structpb.Value, showQueryStats bool) string {
 	m := maps.Clone(queryStats)
 	const queryTextKey = "query_text"
 	text := m[queryTextKey].GetStringValue()

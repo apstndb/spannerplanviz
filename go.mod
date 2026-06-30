@@ -10,10 +10,9 @@ require (
 	cloud.google.com/go/spanner v1.48.0
 	github.com/MakeNowJust/heredoc/v2 v2.0.1
 	github.com/apstndb/spannerplan v0.1.11
-	github.com/goccy/go-graphviz v0.2.9
+	github.com/goccy/go-graphviz v0.2.10
 	github.com/google/go-cmp v0.5.9
 	github.com/jessevdk/go-flags v1.6.1
-	github.com/samber/lo v1.53.0
 	google.golang.org/protobuf v1.33.0
 	sigs.k8s.io/yaml v1.2.0
 )
@@ -29,7 +28,8 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/tetratelabs/wazero v1.8.1 // indirect
+	github.com/samber/lo v1.53.0 // indirect
+	github.com/tetratelabs/wazero v1.10.1 // indirect
 	golang.org/x/image v0.21.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect

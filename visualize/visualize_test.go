@@ -1,8 +1,6 @@
 package visualize
 
 import (
-	"bytes"
-	"context"
 	"embed"
 	"fmt"
 	"os"
@@ -12,281 +10,13 @@ import (
 	"testing"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
-	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/apstndb/spannerplan"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/types/known/structpb"
-
-	"github.com/apstndb/spannerplanviz/option"
 )
 
 //go:embed testdata/*
 var testdataFS embed.FS
-
-func TestRenderImage(t *testing.T) {
-	// 1. Read dca_profile.json
-	jsonBytes, err := testdataFS.ReadFile("testdata/dca_profile.json")
-	if err != nil {
-		t.Fatalf("Failed to read dca_profile.json from embed.FS: %v", err)
-	}
-
-	// 2. Unmarshal into sppb.ResultSet
-	var resultSet sppb.ResultSet
-	unmarshalOpts := protojson.UnmarshalOptions{DiscardUnknown: true}
-	err = unmarshalOpts.Unmarshal(jsonBytes, &resultSet)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal dca_profile.json into sppb.ResultSet: %v", err)
-	}
-
-	// 3. Extract stats and rowType
-	statsToRender := resultSet.GetStats()
-	rowTypeToRender := resultSet.GetMetadata().GetRowType()
-
-	if statsToRender == nil || statsToRender.GetQueryPlan() == nil || len(statsToRender.GetQueryPlan().GetPlanNodes()) == 0 {
-		t.Fatalf("dca_profile.json (via ResultSet.Stats) does not contain any plan nodes.")
-	}
-
-	param := option.Options{
-		TypeFlag:          "svg",
-		Full:              true,
-		NonVariableScalar: true,
-		VariableScalar:    true,
-		Metadata:          true,
-		ExecutionStats:    true,
-		ExecutionSummary:  true,
-		SerializeResult:   true,
-		ShowQuery:         false,
-		ShowQueryStats:    false,
-	}
-
-	var buf bytes.Buffer
-	err = RenderImage(context.Background(), rowTypeToRender, statsToRender, &buf, param)
-	if err != nil {
-		t.Fatalf("RenderImage failed: %v", err)
-	}
-	actualSVG := buf.String()
-
-	expectedSVGBytes, err := testdataFS.ReadFile("testdata/full.svg")
-	if err != nil {
-		t.Fatalf("Failed to read testdata/full.svg from embed.FS: %v", err)
-	}
-	expectedSVG := string(expectedSVGBytes)
-
-	if os.Getenv("UPDATE_GOLDEN_FILES") == "true" {
-		// This block is for updating the golden file if the env var is set.
-		// It assumes actualSVG holds the new correct content.
-		goldenSVGPath := "testdata/full.svg" // Define path for clarity
-		errWrite := os.WriteFile(goldenSVGPath, []byte(actualSVG), 0644)
-		if errWrite != nil {
-			t.Fatalf("Failed to write updated golden file %s: %v", goldenSVGPath, errWrite)
-		}
-		t.Logf("Successfully updated golden file %s. Please re-run tests without UPDATE_GOLDEN_FILES.", goldenSVGPath)
-		t.Fatalf("Golden file updated. Re-run tests.")
-	}
-
-	if diff := cmp.Diff(strings.TrimSpace(expectedSVG), strings.TrimSpace(actualSVG)); diff != "" {
-		t.Logf("SVG diff (-expected +actual):\n%s", diff)
-		t.Errorf("Generated SVG does not match testdata/full.svg.")
-		// t.Skip("Skipping SVG diff check as golden file update is required due to scan type formatting changes.") // Remove skip
-	}
-}
-
-func TestRenderImage_WithQueryStats(t *testing.T) {
-	jsonBytes, err := testdataFS.ReadFile("testdata/dca_profile.json")
-	if err != nil {
-		t.Fatalf("Failed to read dca_profile.json from embed.FS: %v", err)
-	}
-
-	var resultSet sppb.ResultSet
-	unmarshalOpts := protojson.UnmarshalOptions{DiscardUnknown: true}
-	err = unmarshalOpts.Unmarshal(jsonBytes, &resultSet)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal dca_profile.json into sppb.ResultSet: %v", err)
-	}
-
-	statsToRender := resultSet.GetStats()
-	rowTypeToRender := resultSet.GetMetadata().GetRowType()
-
-	if statsToRender == nil || statsToRender.GetQueryPlan() == nil || len(statsToRender.GetQueryPlan().GetPlanNodes()) == 0 {
-		t.Fatalf("dca_profile.json (via ResultSet.Stats) does not contain any plan nodes.")
-	}
-
-	param := option.Options{
-		TypeFlag:          "svg",
-		Full:              true,
-		NonVariableScalar: true,
-		VariableScalar:    true,
-		Metadata:          true,
-		ExecutionStats:    true,
-		ExecutionSummary:  true,
-		SerializeResult:   true,
-		ShowQuery:         true,
-		ShowQueryStats:    true,
-	}
-
-	var buf bytes.Buffer
-	err = RenderImage(context.Background(), rowTypeToRender, statsToRender, &buf, param)
-	if err != nil {
-		t.Fatalf("RenderImage failed: %v", err)
-	}
-	actualSVG := buf.String()
-
-	goldenSVGPath := "testdata/full_with_query_stats.svg"
-	expectedSVGBytes, err := testdataFS.ReadFile(goldenSVGPath)
-	if err != nil {
-		t.Fatalf("Failed to read %s from embed.FS: %v", goldenSVGPath, err)
-	}
-	expectedSVG := string(expectedSVGBytes)
-
-	if os.Getenv("UPDATE_GOLDEN_FILES") == "true" {
-		// This block is for updating the golden file if the env var is set.
-		// It assumes actualSVG holds the new correct content.
-		errWrite := os.WriteFile(goldenSVGPath, []byte(actualSVG), 0644)
-		if errWrite != nil {
-			t.Fatalf("Failed to write updated golden file %s: %v", goldenSVGPath, errWrite)
-		}
-		t.Logf("Successfully updated golden file %s. Please re-run tests without UPDATE_GOLDEN_FILES.", goldenSVGPath)
-		t.Fatalf("Golden file updated. Re-run tests.")
-	}
-
-	if diff := cmp.Diff(strings.TrimSpace(expectedSVG), strings.TrimSpace(actualSVG)); diff != "" {
-		t.Logf("SVG diff (-expected +actual) for %s:\n%s", goldenSVGPath, diff)
-		t.Errorf("Generated SVG does not match %s.", goldenSVGPath)
-		// t.Skipf("Skipping SVG diff check for %s as golden file update is required due to scan type formatting changes.", goldenSVGPath) // Remove skip
-	}
-}
-
-func TestRenderMermaid(t *testing.T) {
-	node2Stats, _ := structpb.NewStruct(map[string]interface{}{
-		"rows":    map[string]interface{}{"total": "10", "unit": "rows"},
-		"latency": map[string]interface{}{"total": "1ms"},
-	})
-	node1Stats, _ := structpb.NewStruct(map[string]interface{}{
-		"rows":    map[string]interface{}{"total": "20", "unit": "rows"},
-		"latency": map[string]interface{}{"total": "2ms"},
-	})
-	node0Stats, _ := structpb.NewStruct(map[string]interface{}{
-		"rows":    map[string]interface{}{"total": "20", "unit": "rows"},
-		"latency": map[string]interface{}{"total": "3ms"},
-	})
-
-	stats := &sppb.ResultSetStats{
-		QueryPlan: &sppb.QueryPlan{
-			PlanNodes: []*sppb.PlanNode{
-				{
-					Index:       0,
-					DisplayName: "Union",
-					Kind:        sppb.PlanNode_RELATIONAL,
-					ChildLinks: []*sppb.PlanNode_ChildLink{
-						{ChildIndex: 1, Type: "Input"},
-						{ChildIndex: 2, Type: "Input"},
-					},
-					ExecutionStats: node0Stats,
-					Metadata:       &structpb.Struct{},
-				},
-				{
-					Index:          1,
-					DisplayName:    "Scan1",
-					Kind:           sppb.PlanNode_RELATIONAL,
-					ExecutionStats: node1Stats,
-					Metadata:       &structpb.Struct{},
-				},
-				{
-					Index:          2,
-					DisplayName:    "Scan2",
-					Kind:           sppb.PlanNode_RELATIONAL,
-					ExecutionStats: node2Stats,
-					Metadata:       &structpb.Struct{},
-				},
-			},
-		},
-		QueryStats: &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"query_text": structpb.NewStringValue("SELECT 1"),
-			},
-		},
-	}
-
-	var rowType *sppb.StructType = nil
-
-	param := option.Options{
-		TypeFlag:  "mermaid",
-		Full:      true,
-		ShowQuery: true,
-	}
-	param = applyTestOptions(param)
-
-	qp, err := spannerplan.New(stats.GetQueryPlan().GetPlanNodes())
-	if err != nil {
-		t.Fatalf("Failed to create QueryPlan: %v", err)
-	}
-	rootNode := testBuildTree(t, qp, rowType, param)
-
-	t.Logf("Logging HTML output for treeNodes using param: %+v", param)
-	var logHTML func(n *treeNode)
-	logHTML = func(n *treeNode) {
-		if n == nil {
-			return
-		}
-		t.Logf("Node %s HTML: [%s]", n.GetName(), n.HTML(param, nil))
-		for _, childLink := range n.Children {
-			logHTML(childLink.ChildNode)
-		}
-	}
-	if rootNode != nil {
-		t.Logf("Number of children for rootNode (node0) in treeNode: %d", len(rootNode.Children))
-		if len(rootNode.Children) == 0 {
-			physicalRootNode := qp.GetNodeByIndex(0)
-			if physicalRootNode != nil {
-				visibleLinks := qp.VisibleChildLinks(physicalRootNode)
-				t.Logf("Number of visible child links for physical node 0 from qp.VisibleChildLinks: %d", len(visibleLinks))
-				for i, link := range visibleLinks {
-					t.Logf("Visible Link %d: Type=%s, ChildIndex=%d, Variable=%s", i, link.GetType(), link.GetChildIndex(), link.GetVariable())
-				}
-			} else {
-				t.Logf("Could not get physical node 0 from qp for VisibleChildLinks check.")
-			}
-		}
-		logHTML(rootNode)
-	} else {
-		t.Logf("rootNode is nil after buildTree.")
-	}
-
-	var buf bytes.Buffer
-	err = RenderImage(context.Background(), rowType, stats, &buf, param)
-
-	if err != nil {
-		t.Fatalf("TestRenderMermaid failed: expected no error, but got: %v. Output: %s", err, buf.String())
-	}
-
-	expectedMermaidOutput := heredoc.Doc(`
-%%{ init: {"flowchart":{"curve":"linear","markdownAutoWrap":false,"wrappingWidth":2000},"theme":null,"themeVariables":{"wrap":false}} }%%
-graph TD
-    node0["<b>Union</b>
-<i>latency: 3ms</i>
-<i>rows: 20&nbsp;rows</i>"]
-    style node0 text-align:left;
-    node1["<b>Scan1</b>
-<i>latency: 2ms</i>
-<i>rows: 20&nbsp;rows</i>"]
-    style node1 text-align:left;
-    node2["<b>Scan2</b>
-<i>latency: 1ms</i>
-<i>rows: 10&nbsp;rows</i>"]
-    style node2 text-align:left;
-    node0 -->|Input| node1
-    node0 -->|Input| node2
-`,
-	)
-
-	actualOutput := strings.ReplaceAll(buf.String(), "\n", "\n")
-	expectedOutputNormalized := strings.ReplaceAll(expectedMermaidOutput, "\n", "\n")
-
-	if diff := cmp.Diff(expectedOutputNormalized, actualOutput); diff != "" {
-		t.Errorf("Mermaid output mismatch (-expected +actual):\n%s", diff)
-	}
-}
 
 func TestRenderMermaid_TextContent(t *testing.T) {
 	// 1. Load dca_profile.json using embed.FS
@@ -309,9 +39,8 @@ func TestRenderMermaid_TextContent(t *testing.T) {
 		t.Fatalf("dca_profile.json (via ResultSet.Stats) does not contain any plan nodes.")
 	}
 
-	// 2. Build the treeNode structure
-	param := option.Options{Full: true}
-	param.ApplyFullOption()
+	// 2. Build the TreeNode structure
+	param := applyTestOptions(BuildOptions{Full: true})
 
 	qp, err := spannerplan.New(statsToProcess.GetQueryPlan().GetPlanNodes())
 	if err != nil {
@@ -321,8 +50,8 @@ func TestRenderMermaid_TextContent(t *testing.T) {
 	rootTreeNode := testBuildTree(t, qp, rowTypeForProcessing, param)
 
 	var allNodesTextContent []string
-	var traverseAndFormat func(n *treeNode) // treeNode is visualize.treeNode
-	traverseAndFormat = func(n *treeNode) {
+	var traverseAndFormat func(n *TreeNode) // TreeNode is visualize.TreeNode
+	traverseAndFormat = func(n *TreeNode) {
 		if n == nil {
 			return
 		}
@@ -379,83 +108,6 @@ func TestRenderMermaid_TextContent(t *testing.T) {
 	}
 }
 
-func TestRenderMermaid_Golden(t *testing.T) {
-	// 1. Read dca_profile.json
-	jsonBytes, err := testdataFS.ReadFile("testdata/dca_profile.json")
-	if err != nil {
-		t.Fatalf("Failed to read dca_profile.json from embed.FS: %v", err)
-	}
-
-	// 2. Unmarshal into sppb.ResultSet
-	var resultSet sppb.ResultSet
-	unmarshalOpts := protojson.UnmarshalOptions{DiscardUnknown: true}
-	err = unmarshalOpts.Unmarshal(jsonBytes, &resultSet)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal dca_profile.json into sppb.ResultSet: %v", err)
-	}
-
-	// 3. Extract stats and rowType
-	statsToRender := resultSet.GetStats()
-	rowTypeToRender := resultSet.GetMetadata().GetRowType()
-
-	if statsToRender == nil || statsToRender.GetQueryPlan() == nil || len(statsToRender.GetQueryPlan().GetPlanNodes()) == 0 {
-		t.Fatalf("dca_profile.json (via ResultSet.Stats) does not contain any plan nodes.")
-	}
-
-	// 4. Define option.Options
-	param := applyTestOptions(option.Options{
-		TypeFlag:  "mermaid",
-		Full:      true,
-		ShowQuery: true,
-	})
-
-	// 5. Create a spannerplan.QueryPlan instance
-	qp, err := spannerplan.New(statsToRender.GetQueryPlan().GetPlanNodes())
-	if err != nil {
-		t.Fatalf("Failed to create QueryPlan: %v", err)
-	}
-
-	// 6. Build the treeNode structure
-	rootTreeNode := testBuildTree(t, qp, rowTypeToRender, param)
-
-	// 7. Create a bytes.Buffer to capture the output
-	var buf bytes.Buffer
-
-	// 8. Call visualize.renderMermaid
-	err = renderMermaid(rootTreeNode, &buf, qp, param, rowTypeToRender)
-	if err != nil {
-		t.Fatalf("renderMermaid failed: %v", err)
-	}
-
-	// 9. Get the actual Mermaid output string
-	actualMermaid := buf.String()
-
-	// 10. Define the golden file path
-	goldenMermaidPath := "testdata/dca_profile.golden.mermaid"
-
-	// 11. Implement the golden file update logic
-	if os.Getenv("UPDATE_GOLDEN_FILES") == "true" {
-		errWrite := os.WriteFile(goldenMermaidPath, []byte(actualMermaid), 0644)
-		if errWrite != nil {
-			t.Fatalf("Failed to write updated golden file %s: %v", goldenMermaidPath, errWrite)
-		}
-		t.Logf("Successfully updated golden file %s. Please re-run tests without UPDATE_GOLDEN_FILES.", goldenMermaidPath)
-		t.Fatalf("Golden file updated. Re-run tests.") // Or t.SkipNow()
-	}
-
-	// 12. If not updating golden files, read the expected content
-	expectedMermaidBytes, err := os.ReadFile(goldenMermaidPath)
-	if err != nil {
-		t.Fatalf("Failed to read golden file %s: %v. (Try running with UPDATE_GOLDEN_FILES=true env var)", goldenMermaidPath, err)
-	}
-	expectedMermaid := string(expectedMermaidBytes)
-
-	// 13. Compare the actualMermaid string with the expectedMermaid string
-	if diff := cmp.Diff(strings.TrimSpace(expectedMermaid), strings.TrimSpace(actualMermaid)); diff != "" {
-		t.Errorf("Generated Mermaid output does not match %s. Diff (-expected +actual):\n%s", goldenMermaidPath, diff)
-	}
-}
-
 func TestMermaidLabel_Golden(t *testing.T) {
 	// 1. Read dca_profile.json
 	jsonBytes, err := testdataFS.ReadFile("testdata/dca_profile.json")
@@ -479,8 +131,8 @@ func TestMermaidLabel_Golden(t *testing.T) {
 		t.Fatalf("dca_profile.json (via ResultSet.Stats) does not contain any plan nodes.")
 	}
 
-	// 4. Define option.Options
-	param := applyTestOptions(option.Options{Full: true})
+	// 4. Define build options
+	param := applyTestOptions(BuildOptions{Full: true})
 
 	// 5. Create spannerplan.QueryPlan
 	qp, err := spannerplan.New(statsToProcess.GetQueryPlan().GetPlanNodes())
@@ -488,15 +140,15 @@ func TestMermaidLabel_Golden(t *testing.T) {
 		t.Fatalf("Failed to create QueryPlan: %v", err)
 	}
 
-	// 6. Build the treeNode structure
+	// 6. Build the TreeNode structure
 	rootTreeNode := testBuildTree(t, qp, rowTypeForProcessing, param)
 
 	// 7. Create a slice to store all Mermaid labels
 	var allLabels []string
 
-	// 8. Implement a recursive function to traverse the treeNode structure
-	var traverseAndCollectLabels func(n *treeNode)
-	traverseAndCollectLabels = func(n *treeNode) {
+	// 8. Implement a recursive function to traverse the TreeNode structure
+	var traverseAndCollectLabels func(n *TreeNode)
+	traverseAndCollectLabels = func(n *TreeNode) {
 		if n == nil {
 			return
 		}
@@ -543,7 +195,7 @@ func TestMermaidLabel_Golden(t *testing.T) {
 }
 
 // formatNodeContentAsText formats node.getNodeContent for test.
-func formatNodeContentAsText(node *treeNode, qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) []string {
+func formatNodeContentAsText(node *TreeNode, qp *spannerplan.QueryPlan, param BuildOptions, rowType *sppb.StructType) []string {
 	if node == nil {
 		return nil
 	}
@@ -599,43 +251,4 @@ func formatNodeContentAsText(node *treeNode, qp *spannerplan.QueryPlan, param op
 	}
 
 	return result
-}
-
-func TestRenderImage_normalizeOptions(t *testing.T) {
-	jsonBytes, err := testdataFS.ReadFile("testdata/dca_profile.json")
-	if err != nil {
-		t.Fatalf("read testdata: %v", err)
-	}
-
-	var resultSet sppb.ResultSet
-	unmarshalOpts := protojson.UnmarshalOptions{DiscardUnknown: true}
-	if err := unmarshalOpts.Unmarshal(jsonBytes, &resultSet); err != nil {
-		t.Fatalf("unmarshal testdata: %v", err)
-	}
-
-	stats := resultSet.GetStats()
-	rowType := resultSet.GetMetadata().GetRowType()
-
-	t.Run("defaults empty type to svg", func(t *testing.T) {
-		var buf bytes.Buffer
-		err := RenderImage(context.Background(), rowType, stats, &buf, option.Options{})
-		if err != nil {
-			t.Fatalf("RenderImage() error = %v", err)
-		}
-		if !strings.Contains(buf.String(), "<svg") {
-			preview := buf.String()
-			if len(preview) > 80 {
-				preview = preview[:80]
-			}
-			t.Fatalf("RenderImage() output does not look like SVG: %q", preview)
-		}
-	})
-
-	t.Run("rejects unsupported type", func(t *testing.T) {
-		var buf bytes.Buffer
-		err := RenderImage(context.Background(), rowType, stats, &buf, option.Options{TypeFlag: "pdf"})
-		if err == nil {
-			t.Fatal("RenderImage() error = nil, want unsupported type error")
-		}
-	})
 }
