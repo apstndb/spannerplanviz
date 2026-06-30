@@ -17,6 +17,8 @@ import (
 )
 
 func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb.ResultSetStats, writer io.Writer, param option.Options) error {
+	param.ApplyFullOption()
+
 	if queryStats == nil || queryStats.GetQueryPlan() == nil {
 		// This handles cases where the input stats or the plan itself is fundamentally missing.
 		return fmt.Errorf("cannot render image: queryStats or queryPlan is nil")
@@ -30,7 +32,12 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 		return fmt.Errorf("failed to create QueryPlan: %w", err)
 	}
 
-	rootNode, err := buildTree(qp, qp.GetNodeByIndex(0), rowType, param)
+	rowsByID, err := buildScalarLinkRowIndex(qp, param)
+	if err != nil {
+		return fmt.Errorf("failed to process plan rows: %w", err)
+	}
+
+	rootNode, err := buildTree(qp, qp.GetNodeByIndex(0), rowType, param, rowsByID)
 	if err != nil {
 		return fmt.Errorf("failed to build tree: %w", err)
 	}

@@ -1,7 +1,6 @@
 package visualize
 
 import (
-	"bytes"
 	"fmt"
 	"html"
 	"maps"
@@ -14,6 +13,7 @@ import (
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/apstndb/spannerplan"
+	"github.com/apstndb/spannerplan/plantree"
 	"github.com/goccy/go-graphviz/cgraph"
 	"google.golang.org/protobuf/types/known/structpb"
 	"sigs.k8s.io/yaml"
@@ -24,15 +24,15 @@ import (
 // This file contains logics which are purely formatting strings and building tree structures.
 // It is ok to depend on types in the cgraph package, but don't use graphviz.Graph in this file.
 
-func buildTree(qp *spannerplan.QueryPlan, planNode *sppb.PlanNode, rowType *sppb.StructType, param option.Options) (*treeNode, error) {
-	node, err := buildNode(planNode)
+func buildTree(qp *spannerplan.QueryPlan, planNode *sppb.PlanNode, rowType *sppb.StructType, param option.Options, rowsByID map[int32]plantree.RowWithPredicates) (*treeNode, error) {
+	node, err := buildNode(planNode, rowsByID)
 	if err != nil {
 		return nil, err
 	}
 
 	var edges []*link
 	for _, cl := range qp.VisibleChildLinks(planNode) {
-		childNode, err := buildTree(qp, qp.GetNodeByChildLink(cl), rowType, param)
+		childNode, err := buildTree(qp, qp.GetNodeByChildLink(cl), rowType, param, rowsByID)
 		if err != nil {
 			return nil, err
 		}
@@ -110,6 +110,7 @@ func isRemoteCall(node *sppb.PlanNode, cl *sppb.PlanNode_ChildLink) bool {
 type treeNode struct {
 	// Core data field
 	planNode *sppb.PlanNode
+	planRow  *plantree.RowWithPredicates
 
 	// Essential fields for graph structure
 	Children []*link
@@ -214,35 +215,34 @@ func (n *treeNode) getNodeContent(qp *spannerplan.QueryPlan, param option.Option
 		Title:               n.GetTitle(param),
 		ShortRepresentation: n.GetShortRepresentation(),
 		ScanInfo:            n.GetScanInfoOutput(param),
-		SerializeResult:     []string{}, // Initialize as empty slice
+		SerializeResult:     []string{},
 		NonVarScalarLinks:   []string{},
-		Metadata:            n.GetMetadata(param),
+		Metadata:            map[string]string{},
 		VarScalarLinks:      []string{},
 		Stats:               n.GetStats(param),
-		ExecutionSummary:    n.GetExecutionSummary(),
+		ExecutionSummary:    n.GetExecutionSummary(param),
 	}
 
-	// Handle multi-line outputs
-	if sroVal := n.GetSerializeResultOutput(qp, rowType); sroVal != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(sroVal, "\n"), "\n") {
+	if param.Metadata {
+		content.Metadata = n.GetMetadata(param)
+	}
+
+	appendMultiline := func(target *[]string, value string) {
+		for _, line := range strings.Split(strings.TrimSuffix(value, "\n"), "\n") {
 			if line != "" {
-				content.SerializeResult = append(content.SerializeResult, line)
+				*target = append(*target, line)
 			}
 		}
 	}
-	if nvslVal := n.GetNonVarScalarLinksOutput(qp, param); nvslVal != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(nvslVal, "\n"), "\n") {
-			if line != "" {
-				content.NonVarScalarLinks = append(content.NonVarScalarLinks, line)
-			}
-		}
+
+	if param.SerializeResult {
+		appendMultiline(&content.SerializeResult, n.GetSerializeResultOutput(rowType))
 	}
-	if vslVal := n.GetVarScalarLinksOutput(qp, param); vslVal != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(vslVal, "\n"), "\n") {
-			if line != "" {
-				content.VarScalarLinks = append(content.VarScalarLinks, line)
-			}
-		}
+	if param.NonVariableScalar {
+		appendMultiline(&content.NonVarScalarLinks, n.GetNonVarScalarLinksOutput())
+	}
+	if param.VariableScalar {
+		appendMultiline(&content.VarScalarLinks, n.GetVarScalarLinksOutput())
 	}
 
 	// Apply heuristic check for ScanInfo double-printing
@@ -368,20 +368,25 @@ func (n *treeNode) GetScanInfoOutput(param option.Options) string {
 	return ""
 }
 
-func (n *treeNode) GetSerializeResultOutput(qp *spannerplan.QueryPlan, rowType *sppb.StructType) string {
-	if n.planNode.GetDisplayName() != "Serialize Result" {
+func (n *treeNode) GetSerializeResultOutput(rowType *sppb.StructType) string {
+	if n.planNode.GetDisplayName() != "Serialize Result" || n.planRow == nil {
 		return ""
 	}
-	// formatSerializeResult expects childLinkGroups which getNonVariableChildLinks provides
-	return formatSerializeResult(rowType, getNonVariableChildLinks(qp, n.planNode))
+	return formatSerializeResultFromLinks(rowType, n.planRow.ScalarChildLinks)
 }
 
-func (n *treeNode) GetNonVarScalarLinksOutput(qp *spannerplan.QueryPlan, param option.Options) string {
-	return formatChildLinks(getNonVariableChildLinks(qp, n.planNode))
+func (n *treeNode) GetNonVarScalarLinksOutput() string {
+	if n.planRow == nil {
+		return ""
+	}
+	return formatScalarChildLinks(filterScalarChildLinks(n.planRow.ScalarChildLinks, false))
 }
 
-func (n *treeNode) GetVarScalarLinksOutput(qp *spannerplan.QueryPlan, param option.Options) string {
-	return formatChildLinks(getVariableChildLinks(qp, n.planNode))
+func (n *treeNode) GetVarScalarLinksOutput() string {
+	if n.planRow == nil {
+		return ""
+	}
+	return formatScalarChildLinks(filterScalarChildLinks(n.planRow.ScalarChildLinks, true))
 }
 
 func (n *treeNode) GetMetadata(param option.Options) map[string]string {
@@ -396,36 +401,27 @@ func (n *treeNode) GetMetadata(param option.Options) map[string]string {
 }
 
 func (n *treeNode) GetStats(param option.Options) map[string]string {
-	if !param.ExecutionStats {
+	if !param.ExecutionStats || n.planNode == nil {
 		return nil
 	}
 
-	statsMap := make(map[string]string)
-	for key, valProto := range n.planNode.GetExecutionStats().GetFields() {
-		if key == "execution_summary" { // Skip summary for this map
-			continue
-		}
-
-		// Directly use formatExecutionStatsValue, assuming it's robust for stat structs
-		// formatExecutionStatsValue returns a string, not an error.
-		// It handles various fields within a stat struct.
-		// If valProto itself is not a struct, formatExecutionStatsValue might misbehave.
-		// It expects valProto to be the structpb.Value that IS the struct.
-		if valProto.GetStructValue() != nil {
-			statsMap[key] = formatExecutionStatsValue(valProto)
-		} else {
-			// If a top-level field in ExecutionStats is not a struct, it's unusual.
-			statsMap[key] = fmt.Sprint(valProto.AsInterface())
-		}
+	es, err := extractExecutionStats(n.planNode)
+	if err != nil || es == nil {
+		return nil
 	}
-	return statsMap
+	return executionStatsToMap(n.planNode, es)
 }
 
-func (n *treeNode) GetExecutionSummary() string {
-	if n.planNode == nil || n.planNode.GetExecutionStats() == nil {
+func (n *treeNode) GetExecutionSummary(param option.Options) string {
+	if !param.ExecutionSummary || n.planNode == nil {
 		return ""
 	}
-	return formatExecutionSummary(n.planNode.GetExecutionStats().GetFields())
+
+	es, err := extractExecutionStats(n.planNode)
+	if err != nil || es == nil {
+		return ""
+	}
+	return formatExecutionSummary(n.planNode, es.ExecutionSummary)
 }
 
 // Metadata formats node content for GraphViz HTML-like labels.
@@ -515,14 +511,16 @@ func (n *treeNode) HTML(qp *spannerplan.QueryPlan, param option.Options, rowType
 	return fmt.Sprintf(`%s<br align="CENTER"/>%s`, titleHTML, metadataHTML)
 }
 
-func buildNode(planNode *sppb.PlanNode) (*treeNode, error) {
+func buildNode(planNode *sppb.PlanNode, rowsByID map[int32]plantree.RowWithPredicates) (*treeNode, error) {
 	if planNode == nil {
 		return nil, fmt.Errorf("buildNode: received nil planNode")
 	}
 
-	return &treeNode{
+	node := &treeNode{
 		planNode: planNode,
-	}, nil
+	}
+	attachPlanRow(node, rowsByID)
+	return node, nil
 }
 
 // internalMetadataKeys lists metadata keys that are considered internal
@@ -533,38 +531,6 @@ var internalMetadataKeys = []string{
 	"scan_target",
 	"iterator_type",
 	"subquery_cluster_node",
-}
-
-func formatExecutionSummary(executionStatsFields map[string]*structpb.Value) string {
-	executionSummary, ok := executionStatsFields["execution_summary"]
-	if !ok {
-		return ""
-	}
-
-	var executionSummaryBuf bytes.Buffer
-	fmt.Fprintln(&executionSummaryBuf, "execution_summary:")
-	var executionSummaryStrings []string
-	for k, v := range executionSummary.GetStructValue().AsMap() {
-		var value string
-		// Only apply tryToTimestampStr to specific timestamp fields
-		if k == "execution_start_timestamp" || k == "execution_end_timestamp" {
-			formattedValue, err := tryToTimestampStr(fmt.Sprint(v))
-			if err != nil {
-				value = fmt.Sprintf("%s (error: %v)", fmt.Sprint(v), err)
-			} else {
-				value = formattedValue
-			}
-		} else {
-			value = fmt.Sprint(v)
-		}
-
-		const indentLevel = 3
-		executionSummaryStrings = append(executionSummaryStrings,
-			fmt.Sprintf("%s%s: %s\n", strings.Repeat(" ", indentLevel), k, value))
-	}
-	sort.Strings(executionSummaryStrings)
-	fmt.Fprint(&executionSummaryBuf, strings.Join(executionSummaryStrings, ""))
-	return executionSummaryBuf.String()
 }
 
 var newlineOrEOSRe = regexp.MustCompile(`\n?$|\n`)
@@ -608,117 +574,6 @@ func prefixIfNotEmpty(prefix, value string) string {
 	}
 
 	return prefix + value
-}
-
-func formatExecutionStatsValue(v *structpb.Value) string {
-	fields := v.GetStructValue().GetFields()
-	total := fields["total"].GetStringValue()
-	unit := fields["unit"].GetStringValue()
-	mean := fields["mean"].GetStringValue()
-	stdDev := fields["std_deviation"].GetStringValue()
-
-	stdDevStr := prefixIfNotEmpty("±", stdDev)
-	meanStr := prefixIfNotEmpty("@", mean+stdDevStr)
-	unitStr := prefixIfNotEmpty(" ", unit)
-
-	return fmt.Sprintf("%s%s%s", total, meanStr, unitStr)
-}
-
-type childLinkEntry struct {
-	Variable  string
-	PlanNodes *sppb.PlanNode
-}
-
-type childLinkGroup struct {
-	Type      string
-	PlanNodes []*childLinkEntry
-}
-
-func getScalarChildLinks(qp *spannerplan.QueryPlan, node *sppb.PlanNode, filter func(link *sppb.PlanNode_ChildLink) bool) []*childLinkGroup {
-	var result []*childLinkGroup
-	typeToChildLinks := make(map[string]*childLinkGroup)
-	for _, cl := range node.GetChildLinks() {
-		childNode := qp.GetNodeByChildLink(cl)
-		childType := cl.GetType()
-
-		if !filter(cl) || childNode.GetKind() != sppb.PlanNode_SCALAR {
-			continue
-		}
-		if _, ok := typeToChildLinks[childType]; !ok {
-			newEntry := &childLinkGroup{Type: childType}
-			typeToChildLinks[childType] = newEntry
-			result = append(result, newEntry)
-		}
-		childLinks := typeToChildLinks[childType]
-		childLinks.PlanNodes = append(childLinks.PlanNodes, &childLinkEntry{cl.GetVariable(), childNode})
-	}
-	return result
-}
-
-func getNonVariableChildLinks(plan *spannerplan.QueryPlan, node *sppb.PlanNode) []*childLinkGroup {
-	return getScalarChildLinks(plan, node, func(node *sppb.PlanNode_ChildLink) bool {
-		return node.GetVariable() == ""
-	})
-}
-
-func getVariableChildLinks(plan *spannerplan.QueryPlan, node *sppb.PlanNode) []*childLinkGroup {
-	return getScalarChildLinks(plan, node, func(node *sppb.PlanNode_ChildLink) bool {
-		return node.GetVariable() != ""
-	})
-}
-
-func formatChildLinks(childLinks []*childLinkGroup) string {
-	var buf bytes.Buffer
-	for _, cl := range childLinks {
-		var prefix string
-		if cl.Type != "" && cl.Type != "Value" {
-			if len(cl.PlanNodes) == 1 {
-				prefix = fmt.Sprintf("%s: ", cl.Type)
-			} else {
-				prefix = "  "
-				fmt.Fprintf(&buf, "%s:\n", cl.Type)
-			}
-		}
-		for _, childLinkEntry := range cl.PlanNodes {
-			if childLinkEntry.Variable == "" && cl.Type == "" {
-				continue
-			}
-
-			// it is safe even if nil receiver
-			description := childLinkEntry.PlanNodes.GetShortRepresentation().GetDescription()
-
-			if childLinkEntry.Variable == "" {
-				fmt.Fprintf(&buf, "%s%s\n", prefix, description)
-			} else {
-				fmt.Fprintf(&buf, "%s$%s:=%s\n", prefix, childLinkEntry.Variable, description)
-			}
-		}
-	}
-	return buf.String()
-}
-
-func formatSerializeResult(rowType *sppb.StructType, childLinks []*childLinkGroup) string {
-	var result bytes.Buffer
-	for _, cl := range childLinks {
-		if cl.Type != "" {
-			continue
-		}
-
-		for i, planNodeEntry := range cl.PlanNodes {
-			if rowType == nil || i >= len(rowType.GetFields()) {
-				continue
-			}
-			name := rowType.GetFields()[i].GetName()
-			if name == "" {
-				name = fmt.Sprintf("no_name<%d>", i)
-			}
-
-			description := planNodeEntry.PlanNodes.GetShortRepresentation().GetDescription()
-			text := fmt.Sprintf("Result.%s:%s", name, description)
-			fmt.Fprintln(&result, text)
-		}
-	}
-	return result.String()
 }
 
 func formatQueryStats(stats map[string]*structpb.Value) string {

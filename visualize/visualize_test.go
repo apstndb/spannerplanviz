@@ -158,9 +158,18 @@ func TestRenderImage_WithQueryStats(t *testing.T) {
 }
 
 func TestRenderMermaid(t *testing.T) {
-	node2Stats, _ := structpb.NewStruct(map[string]interface{}{"rows": "10", "latency": "1ms"})
-	node1Stats, _ := structpb.NewStruct(map[string]interface{}{"rows": "20", "latency": "2ms"})
-	node0Stats, _ := structpb.NewStruct(map[string]interface{}{"rows": "20", "latency": "3ms"})
+	node2Stats, _ := structpb.NewStruct(map[string]interface{}{
+		"rows":    map[string]interface{}{"total": "10", "unit": "rows"},
+		"latency": map[string]interface{}{"total": "1ms"},
+	})
+	node1Stats, _ := structpb.NewStruct(map[string]interface{}{
+		"rows":    map[string]interface{}{"total": "20", "unit": "rows"},
+		"latency": map[string]interface{}{"total": "2ms"},
+	})
+	node0Stats, _ := structpb.NewStruct(map[string]interface{}{
+		"rows":    map[string]interface{}{"total": "20", "unit": "rows"},
+		"latency": map[string]interface{}{"total": "3ms"},
+	})
 
 	stats := &sppb.ResultSetStats{
 		QueryPlan: &sppb.QueryPlan{
@@ -202,25 +211,17 @@ func TestRenderMermaid(t *testing.T) {
 	var rowType *sppb.StructType = nil
 
 	param := option.Options{
-		TypeFlag:          "mermaid",
-		Full:              true,
-		NonVariableScalar: true,
-		VariableScalar:    true,
-		Metadata:          true,
-		ExecutionStats:    true,
-		ExecutionSummary:  true,
-		ShowQuery:         true,
-		ShowQueryStats:    false,
+		TypeFlag:  "mermaid",
+		Full:      true,
+		ShowQuery: true,
 	}
+	param = applyTestOptions(param)
 
 	qp, err := spannerplan.New(stats.GetQueryPlan().GetPlanNodes())
 	if err != nil {
 		t.Fatalf("Failed to create QueryPlan: %v", err)
 	}
-	rootNode, err := buildTree(qp, qp.GetNodeByIndex(0), rowType, param)
-	if err != nil {
-		t.Fatalf("Failed to build tree: %v", err)
-	}
+	rootNode := testBuildTree(t, qp, rowType, param)
 
 	t.Logf("Logging HTML output for treeNodes using param: %+v", param)
 	var logHTML func(n *treeNode)
@@ -265,15 +266,15 @@ func TestRenderMermaid(t *testing.T) {
 graph TD
     node0["<b>Union</b>
 <i>latency: 3ms</i>
-<i>rows: 20</i>"]
+<i>rows: 20&nbsp;rows</i>"]
     style node0 text-align:left;
     node1["<b>Scan1</b>
 <i>latency: 2ms</i>
-<i>rows: 20</i>"]
+<i>rows: 20&nbsp;rows</i>"]
     style node1 text-align:left;
     node2["<b>Scan2</b>
 <i>latency: 1ms</i>
-<i>rows: 10</i>"]
+<i>rows: 10&nbsp;rows</i>"]
     style node2 text-align:left;
     node0 -->|Input| node1
     node0 -->|Input| node2
@@ -318,10 +319,7 @@ func TestRenderMermaid_TextContent(t *testing.T) {
 		t.Fatalf("spannerplan.New failed: %v", err)
 	}
 
-	rootTreeNode, err := buildTree(qp, qp.GetNodeByIndex(0), rowTypeForProcessing, param)
-	if err != nil {
-		t.Fatalf("buildTree failed: %v", err)
-	}
+	rootTreeNode := testBuildTree(t, qp, rowTypeForProcessing, param)
 
 	var allNodesTextContent []string
 	var traverseAndFormat func(n *treeNode) // treeNode is visualize.treeNode
@@ -406,17 +404,11 @@ func TestRenderMermaid_Golden(t *testing.T) {
 	}
 
 	// 4. Define option.Options
-	param := option.Options{
-		TypeFlag:          "mermaid",
-		Full:              true,
-		NonVariableScalar: true,
-		VariableScalar:    true,
-		Metadata:          true,
-		ExecutionStats:    true,
-		ExecutionSummary:  true,
-		ShowQuery:         true,
-		ShowQueryStats:    false,
-	}
+	param := applyTestOptions(option.Options{
+		TypeFlag:  "mermaid",
+		Full:      true,
+		ShowQuery: true,
+	})
 
 	// 5. Create a spannerplan.QueryPlan instance
 	qp, err := spannerplan.New(statsToRender.GetQueryPlan().GetPlanNodes())
@@ -425,14 +417,7 @@ func TestRenderMermaid_Golden(t *testing.T) {
 	}
 
 	// 6. Build the treeNode structure
-	rootPhysicalNode := qp.GetNodeByIndex(0)
-	if rootPhysicalNode == nil {
-		t.Fatalf("Root physical plan node is nil")
-	}
-	rootTreeNode, err := buildTree(qp, rootPhysicalNode, rowTypeToRender, param)
-	if err != nil {
-		t.Fatalf("Failed to build tree: %v", err)
-	}
+	rootTreeNode := testBuildTree(t, qp, rowTypeToRender, param)
 
 	// 7. Create a bytes.Buffer to capture the output
 	var buf bytes.Buffer
@@ -496,14 +481,7 @@ func TestMermaidLabel_Golden(t *testing.T) {
 	}
 
 	// 4. Define option.Options
-	param := option.Options{
-		Full:              true,
-		NonVariableScalar: true,
-		VariableScalar:    true,
-		Metadata:          true,
-		ExecutionStats:    true,
-		ExecutionSummary:  true,
-	}
+	param := applyTestOptions(option.Options{Full: true})
 
 	// 5. Create spannerplan.QueryPlan
 	qp, err := spannerplan.New(statsToProcess.GetQueryPlan().GetPlanNodes())
@@ -512,14 +490,7 @@ func TestMermaidLabel_Golden(t *testing.T) {
 	}
 
 	// 6. Build the treeNode structure
-	rootPhysicalNode := qp.GetNodeByIndex(0)
-	if rootPhysicalNode == nil {
-		t.Fatalf("Root physical plan node is nil")
-	}
-	rootTreeNode, err := buildTree(qp, rootPhysicalNode, rowTypeForProcessing, param)
-	if err != nil {
-		t.Fatalf("Failed to build tree: %v", err)
-	}
+	rootTreeNode := testBuildTree(t, qp, rowTypeForProcessing, param)
 
 	// 7. Create a slice to store all Mermaid labels
 	var allLabels []string

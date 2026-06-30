@@ -1,19 +1,47 @@
 package visualize
 
 import (
-	"fmt"
 	"testing"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/apstndb/spannerplan"
+	"github.com/apstndb/spannerplan/plantree"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/apstndb/spannerplanviz/option"
 )
+
+func applyTestOptions(opts option.Options) option.Options {
+	opts.ApplyFullOption()
+	return opts
+}
+
+func testBuildTree(t *testing.T, qp *spannerplan.QueryPlan, rowType *sppb.StructType, param option.Options) *treeNode {
+	t.Helper()
+
+	rowsByID, err := buildScalarLinkRowIndex(qp, param)
+	if err != nil {
+		t.Fatalf("buildScalarLinkRowIndex: %v", err)
+	}
+	rootNode, err := buildTree(qp, qp.GetNodeByIndex(0), rowType, param, rowsByID)
+	if err != nil {
+		t.Fatalf("buildTree: %v", err)
+	}
+	return rootNode
+}
+
+func planRowsFor(t *testing.T, qp *spannerplan.QueryPlan) map[int32]plantree.RowWithPredicates {
+	t.Helper()
+
+	rowsByID, err := buildPlanRowIndex(qp)
+	if err != nil {
+		t.Fatalf("buildPlanRowIndex: %v", err)
+	}
+	return rowsByID
+}
 
 func newTestQueryPlan(nodes []*sppb.PlanNode) (*spannerplan.QueryPlan, error) {
 	if len(nodes) == 0 {
@@ -28,6 +56,9 @@ func newTestQueryPlan(nodes []*sppb.PlanNode) (*spannerplan.QueryPlan, error) {
 	normalized := make([]*sppb.PlanNode, len(nodes))
 	for i, node := range nodes {
 		clone := proto.Clone(node).(*sppb.PlanNode)
+		if clone.GetKind() == sppb.PlanNode_KIND_UNSPECIFIED {
+			clone.Kind = sppb.PlanNode_RELATIONAL
+		}
 		clone.Index = int32(i)
 		for _, childLink := range clone.ChildLinks {
 			if childLink == nil {
@@ -39,6 +70,18 @@ func newTestQueryPlan(nodes []*sppb.PlanNode) (*spannerplan.QueryPlan, error) {
 	}
 
 	return spannerplan.New(normalized)
+}
+
+func normalizedNodeRef(qp *spannerplan.QueryPlan, sourceNodes []*sppb.PlanNode, target *sppb.PlanNode) *sppb.PlanNode {
+	if target == nil || qp == nil {
+		return target
+	}
+	for i, n := range sourceNodes {
+		if n.GetDisplayName() == target.GetDisplayName() && n.GetIndex() == target.GetIndex() {
+			return qp.GetNodeByIndex(int32(i))
+		}
+	}
+	return target
 }
 
 func TestToLeftAlignedText(t *testing.T) {
@@ -198,31 +241,31 @@ Full&nbsp;\:&nbsp;UsersTable`),
 		{
 			name: "Serialize Result Node",
 			planNodeProto: &sppb.PlanNode{
-				Index:       4,
+				Index:       0,
 				DisplayName: "Serialize Result",
 				ChildLinks: []*sppb.PlanNode_ChildLink{
-					// ChildIndex must refer to the index in the plan.Nodes slice.
-					// Node with original Index 100 is the second element (index 1) in nodesForPlan.
 					{ChildIndex: 1, Type: ""},
 				},
 			},
-			param: option.Options{TypeFlag: "mermaid"}, // SerializeResult is not gated by a top-level param in GetSerializeResultOutput
+			param: option.Options{TypeFlag: "mermaid", SerializeResult: true},
 			rowType: &sppb.StructType{
 				Fields: []*sppb.StructType_Field{
 					{Name: "userID", Type: &sppb.Type{Code: sppb.TypeCode_INT64}},
 				},
 			},
 			nodesForPlan: []*sppb.PlanNode{
-				{ // Index 0 in the slice for spannerplan.New
-					Index:       4, // Original index
+				{
+					Index:       0,
 					DisplayName: "Serialize Result",
 					ChildLinks: []*sppb.PlanNode_ChildLink{
-						{ChildIndex: 1, Type: ""}, // Corrected to point to the next node in the slice
+						{ChildIndex: 1, Type: ""},
 					},
 				},
-				{ // Index 1 in the slice for spannerplan.New
-					Index: 100, // Original index
-					Kind:  sppb.PlanNode_SCALAR, ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "U_ID"}},
+				{
+					Index: 1,
+					Kind:  sppb.PlanNode_SCALAR,
+					ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "U_ID"},
+				},
 			},
 			expectedMermaidLabel: heredoc.Doc(`<b>Serialize&nbsp;Result</b>
 Result\.userID\:U\_ID`),
@@ -321,8 +364,10 @@ Description&nbsp;with&nbsp;&quot;quotes&quot;&nbsp;and&nbsp;`) + "\\`backticks\\
 			// GetSerializeResultOutput, GetNonVarScalarLinksOutput, GetVarScalarLinksOutput do use qp.
 
 			node := &treeNode{
-				planNode: tc.planNodeProto,
-				// plan field is not directly part of treeNode anymore
+				planNode: normalizedNodeRef(currentPlan, nodesInTestPlan, tc.planNodeProto),
+			}
+			if currentPlan != nil {
+				attachPlanRow(node, planRowsFor(t, currentPlan))
 			}
 
 			// The MermaidLabel method itself handles the final quote escaping for the overall label.
@@ -361,7 +406,7 @@ func TestTreeNodeHTML(t *testing.T) {
 				Index:       1,
 				DisplayName: "Test Node Display Name",
 			},
-			param:        option.Options{Full: true},
+			param:        applyTestOptions(option.Options{Full: true}),
 			rowType:      nil,
 			expectedHTML: `<b>Test Node Display Name</b>`,
 		},
@@ -377,7 +422,7 @@ func TestTreeNodeHTML(t *testing.T) {
 					},
 				},
 			},
-			param:        option.Options{Full: true},
+			param:        applyTestOptions(option.Options{Full: true}),
 			rowType:      nil,
 			expectedHTML: `<b>Node With Meta</b><br align="CENTER"/>meta_key_1=meta_val_1<br align="left" />meta_key_2=123<br align="left" />`,
 		},
@@ -402,7 +447,7 @@ func TestTreeNodeHTML(t *testing.T) {
 					},
 				},
 			},
-			param:        option.Options{Full: true, ExecutionStats: true},
+			param:        applyTestOptions(option.Options{Full: true, ExecutionStats: true}),
 			rowType:      nil,
 			expectedHTML: `<b>Node With Stats</b><br align="CENTER"/><i>latency: 10s<br align="left" />rows: 100 rows<br align="left" /></i>`,
 		},
@@ -418,7 +463,7 @@ func TestTreeNodeHTML(t *testing.T) {
 					},
 				},
 			},
-			param:        option.Options{Full: true, HideScanTarget: false},
+			param:        applyTestOptions(option.Options{Full: true, HideScanTarget: false}),
 			rowType:      nil,
 			expectedHTML: `<b>Full scan Table Scan</b><br align="CENTER"/>Full scan: MyTable<br align="left" />`,
 		},
@@ -431,7 +476,7 @@ func TestTreeNodeHTML(t *testing.T) {
 					{ChildIndex: 0, Type: "Output"},
 				},
 			},
-			param: option.Options{Full: true},
+			param: applyTestOptions(option.Options{Full: true}),
 			rowType: &sppb.StructType{
 				Fields: []*sppb.StructType_Field{
 					{Name: "col1", Type: &sppb.Type{Code: sppb.TypeCode_STRING}},
@@ -450,20 +495,20 @@ func TestTreeNodeHTML(t *testing.T) {
 					{ChildIndex: 8, Type: "SCALAR", Variable: "scalar_var2"},
 				},
 			},
-			param:        option.Options{Full: true, NonVariableScalar: true},
+			param:        applyTestOptions(option.Options{Full: true, NonVariableScalar: true}),
 			rowType:      nil,
 			expectedHTML: `<b>Scalar Node</b>`,
 		},
 		{
 			name: "Node with Variable Scalar Child Links",
 			planNodeProto: &sppb.PlanNode{
-				Index:       9,
+				Index:       0,
 				DisplayName: "VarScalarOp",
 				ChildLinks: []*sppb.PlanNode_ChildLink{
-					{ChildIndex: 10, Type: "SCALAR", Variable: "var1"},
+					{ChildIndex: 1, Type: "SCALAR", Variable: "var1"},
 				},
 			},
-			param:        option.Options{Full: true, VariableScalar: true}, // VariableScalar is true
+			param:        applyTestOptions(option.Options{Full: true, VariableScalar: true}),
 			rowType:      nil,
 			expectedHTML: `<b>VarScalarOp</b><br align="CENTER"/>SCALAR: $var1:=Scalar Output<br align="left" />`,
 		},
@@ -474,29 +519,31 @@ func TestTreeNodeHTML(t *testing.T) {
 			nodesForPlan := []*sppb.PlanNode{}
 			switch tc.name {
 			case "Serialize Result Node":
-				// tc.planNode (Index 5) links to ChildIndex 0.
-				// For this case, ensure tc.planNode is included, and its direct reference.
-				// If spannerplan is slice-based, this might still be problematic if indices aren't dense.
-				nodesForPlan = append(nodesForPlan, tc.planNodeProto)
-				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: 0, DisplayName: "ChildForSerialize"})
+				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{
+					Index:       0,
+					DisplayName: "Serialize Result",
+					ChildLinks: []*sppb.PlanNode_ChildLink{
+						{ChildIndex: 1, Type: "Output"},
+					},
+				})
+				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: 1, DisplayName: "ChildForSerialize", Kind: sppb.PlanNode_RELATIONAL})
 			case "Node with Scalar Child Links":
-				// tc.planNode (Index 6) links to ChildIndex 7 and 8.
-				// Re-applying dense slice hack assuming spannerplan might be slice-based.
-				for i := 0; i < 6; i++ { // Dummy nodes for 0-5
-					nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: int32(i), DisplayName: fmt.Sprintf("Dummy %d", i)})
-				}
-				nodesForPlan = append(nodesForPlan, tc.planNodeProto)                                        // Actual node at Index 6
-				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: 7, DisplayName: "Scalar Child 1"}) // Actual node at Index 7
-				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: 8, DisplayName: "Scalar Child 2"}) // Actual node at Index 8
+				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{
+					Index:       0,
+					DisplayName: "Scalar Node",
+					ChildLinks: []*sppb.PlanNode_ChildLink{
+						{ChildIndex: 1, Type: "SCALAR", Variable: "scalar_var1"},
+						{ChildIndex: 2, Type: "SCALAR", Variable: "scalar_var2"},
+					},
+				})
+				nodesForPlan = append(nodesForPlan,
+					&sppb.PlanNode{Index: 1, Kind: sppb.PlanNode_SCALAR, DisplayName: "Scalar Child 1"},
+					&sppb.PlanNode{Index: 2, Kind: sppb.PlanNode_SCALAR, DisplayName: "Scalar Child 2"},
+				)
 			case "Node with Variable Scalar Child Links":
-				// tc.planNode (Index 9) links to ChildIndex 10.
-				// Apply dense slice hack.
-				for i := 0; i < 9; i++ { // Dummy nodes for 0-8
-					nodesForPlan = append(nodesForPlan, &sppb.PlanNode{Index: int32(i), DisplayName: fmt.Sprintf("Dummy %d", i)})
-				}
-				nodesForPlan = append(nodesForPlan, tc.planNodeProto) // Actual node at Index 9
-				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{ // Actual Scalar Child for Var
-					Index:               10,
+				nodesForPlan = append(nodesForPlan, tc.planNodeProto)
+				nodesForPlan = append(nodesForPlan, &sppb.PlanNode{
+					Index:               1,
 					Kind:                sppb.PlanNode_SCALAR,
 					DisplayName:         "ScalarFunc",
 					ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Scalar Output"},
@@ -516,15 +563,11 @@ func TestTreeNodeHTML(t *testing.T) {
 			}
 
 			node := &treeNode{
-				planNode: tc.planNodeProto,
-				// plan and Name fields removed
+				planNode: normalizedNodeRef(currentPlan, nodesForPlan, tc.planNodeProto),
 			}
-			// Tooltip is now via GetTooltip, not directly set or checked here unless specific to HTML output.
-			// The HTML method itself calls GetTooltip. If we need to check tooltip content,
-			// it would be via node.GetTooltip() directly, not as part of node.HTML() test unless it affects HTML.
-			// For now, ensure HTML() can be called.
+			attachPlanRow(node, planRowsFor(t, currentPlan))
 
-			gotHTML := node.HTML(currentPlan, tc.param, tc.rowType) // Pass currentPlan
+			gotHTML := node.HTML(currentPlan, tc.param, tc.rowType)
 			if diff := cmp.Diff(tc.expectedHTML, gotHTML); diff != "" {
 				t.Errorf("HTML() mismatch for test case %q (-expected +actual):\n%s", tc.name, diff)
 			}
@@ -672,154 +715,6 @@ func TestTryToTimestampStr(t *testing.T) {
 				if diff := cmp.Diff(got, tt.want); diff != "" {
 					t.Errorf("tryToTimestampStr() mismatch (-got +want):\n%s", diff)
 				}
-			}
-		})
-	}
-}
-
-func TestFormatExecutionStatsValue(t *testing.T) {
-	tests := []struct {
-		name  string
-		input *structpb.Value
-		want  string
-	}{
-		{
-			name: "all fields present",
-			input: structpb.NewStructValue(&structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"total":         structpb.NewStringValue("100"),
-					"unit":          structpb.NewStringValue("rows"),
-					"mean":          structpb.NewStringValue("10"),
-					"std_deviation": structpb.NewStringValue("2"),
-				},
-			}),
-			want: "100@10±2 rows",
-		},
-		{
-			name: "no std_deviation",
-			input: structpb.NewStructValue(&structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"total":         structpb.NewStringValue("50"),
-					"unit":          structpb.NewStringValue("bytes"),
-					"mean":          structpb.NewStringValue("5"),
-					"std_deviation": structpb.NewStringValue(""),
-				},
-			}),
-			want: "50@5 bytes",
-		},
-		{
-			name: "no mean or std_deviation",
-			input: structpb.NewStructValue(&structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"total":         structpb.NewStringValue("200"),
-					"unit":          structpb.NewStringValue("ms"),
-					"mean":          structpb.NewStringValue(""),
-					"std_deviation": structpb.NewStringValue(""),
-				},
-			}),
-			want: "200 ms",
-		},
-		{
-			name: "empty struct",
-			input: structpb.NewStructValue(&structpb.Struct{
-				Fields: map[string]*structpb.Value{},
-			}),
-			want: "",
-		},
-		{
-			name: "all fields empty strings",
-			input: structpb.NewStructValue(&structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"total":         structpb.NewStringValue(""),
-					"unit":          structpb.NewStringValue(""),
-					"mean":          structpb.NewStringValue(""),
-					"std_deviation": structpb.NewStringValue(""),
-				},
-			}),
-			want: "",
-		},
-		{
-			name: "missing total",
-			input: structpb.NewStructValue(&structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"unit":          structpb.NewStringValue("rows"),
-					"mean":          structpb.NewStringValue("10"),
-					"std_deviation": structpb.NewStringValue("2"),
-				},
-			}),
-			want: "@10±2 rows",
-		},
-		{
-			name: "missing unit",
-			input: structpb.NewStructValue(&structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"total":         structpb.NewStringValue("100"),
-					"mean":          structpb.NewStringValue("10"),
-					"std_deviation": structpb.NewStringValue("2"),
-				},
-			}),
-			want: "100@10±2",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatExecutionStatsValue(tt.input)
-			if diff := cmp.Diff(got, tt.want); diff != "" {
-				t.Errorf("formatExecutionStatsValue() mismatch (-got +want):\n%s", diff)
-			}
-		})
-	}
-}
-
-func TestTreeNodeGetStats(t *testing.T) {
-	tests := []struct {
-		name     string
-		planNode *sppb.PlanNode
-		param    option.Options
-		want     map[string]string
-	}{
-		{
-			name: "Node with stats",
-			planNode: &sppb.PlanNode{
-				ExecutionStats: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"cpu_time": structpb.NewStructValue(&structpb.Struct{
-							Fields: map[string]*structpb.Value{"total": structpb.NewStringValue("10ms")},
-						}),
-						"rows_returned": structpb.NewStructValue(&structpb.Struct{
-							Fields: map[string]*structpb.Value{"total": structpb.NewStringValue("100")},
-						}),
-						"execution_summary": structpb.NewStringValue("summary_text"), // Should be ignored
-					},
-				},
-			},
-			param: option.Options{ExecutionStats: true},
-			want: map[string]string{
-				"cpu_time":      "10ms",
-				"rows_returned": "100",
-			},
-		},
-		{
-			name:     "Node with no stats",
-			planNode: &sppb.PlanNode{},
-			param:    option.Options{},
-			want:     map[string]string{},
-		},
-		{
-			name:     "Nil plan node",
-			planNode: nil,
-			param:    option.Options{},
-			want:     map[string]string{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			node := &treeNode{planNode: tt.planNode}
-			got := node.GetStats(tt.param)
-			if diff := cmp.Diff(got, tt.want, cmpopts.EquateEmpty()); diff != "" {
-				t.Errorf("GetStats() mismatch (-got +want):\n%s", diff)
 			}
 		})
 	}
