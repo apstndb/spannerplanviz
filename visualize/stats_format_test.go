@@ -1,9 +1,6 @@
 package visualize
 
 import (
-	"bytes"
-	"context"
-	"strings"
 	"testing"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
@@ -12,8 +9,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/types/known/structpb"
-
-	"github.com/apstndb/spannerplanviz/option"
 )
 
 func TestFormatExecutionStatsValue(t *testing.T) {
@@ -160,7 +155,7 @@ func TestTreeNodeGetStats(t *testing.T) {
 	tests := []struct {
 		name     string
 		planNode *sppb.PlanNode
-		param    option.Options
+		param    BuildOptions
 		want     map[string]string
 	}{
 		{
@@ -180,7 +175,7 @@ func TestTreeNodeGetStats(t *testing.T) {
 					},
 				},
 			},
-			param: option.Options{ExecutionStats: true},
+			param: BuildOptions{ExecutionStats: true},
 			want: map[string]string{
 				"cpu_time": "10ms",
 				"rows":     "100",
@@ -189,20 +184,20 @@ func TestTreeNodeGetStats(t *testing.T) {
 		{
 			name:     "Node with no stats",
 			planNode: &sppb.PlanNode{},
-			param:    option.Options{},
+			param:    BuildOptions{},
 			want:     nil,
 		},
 		{
 			name:     "Nil plan node",
 			planNode: nil,
-			param:    option.Options{},
+			param:    BuildOptions{},
 			want:     nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			node := &treeNode{planNode: tt.planNode}
+			node := &TreeNode{planNode: tt.planNode}
 			got := node.GetStats(tt.param)
 			if diff := cmp.Diff(got, tt.want, cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("GetStats() mismatch (-got +want):\n%s", diff)
@@ -212,7 +207,7 @@ func TestTreeNodeGetStats(t *testing.T) {
 }
 
 func TestTreeNodeGetExecutionSummary(t *testing.T) {
-	node := &treeNode{
+	node := &TreeNode{
 		planNode: &sppb.PlanNode{
 			ExecutionStats: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
@@ -226,13 +221,13 @@ func TestTreeNodeGetExecutionSummary(t *testing.T) {
 		},
 	}
 
-	got := node.GetExecutionSummary(option.Options{ExecutionSummary: true})
+	got := node.GetExecutionSummary(BuildOptions{ExecutionSummary: true})
 	want := "execution_summary:\n   num_executions: 10\n"
 	if diff := cmp.Diff(got, want); diff != "" {
 		t.Errorf("GetExecutionSummary() mismatch (-got +want):\n%s", diff)
 	}
 
-	if gotDisabled := node.GetExecutionSummary(option.Options{}); gotDisabled != "" {
+	if gotDisabled := node.GetExecutionSummary(BuildOptions{}); gotDisabled != "" {
 		t.Errorf("GetExecutionSummary() with disabled flag = %q, want empty", gotDisabled)
 	}
 }
@@ -247,38 +242,12 @@ func TestBuildScalarLinkRowIndex_skipsWhenFlagsDisabled(t *testing.T) {
 		t.Fatalf("spannerplan.New() error = %v", err)
 	}
 
-	rowsByID, err := buildScalarLinkRowIndex(qp, option.Options{})
+	rowsByID, err := buildScalarLinkRowIndex(qp, BuildOptions{})
 	if err != nil {
 		t.Fatalf("buildScalarLinkRowIndex() error = %v", err)
 	}
 	if rowsByID != nil {
 		t.Fatalf("buildScalarLinkRowIndex() = %#v, want nil", rowsByID)
-	}
-}
-
-func TestRenderImage_skipsPlanRowsWhenScalarFlagsDisabled(t *testing.T) {
-	statsToRender := &sppb.ResultSetStats{
-		QueryPlan: &sppb.QueryPlan{
-			PlanNodes: []*sppb.PlanNode{{
-				Index:       0,
-				DisplayName: "Root",
-				Kind:        sppb.PlanNode_RELATIONAL,
-				ExecutionStats: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"broken": structpb.NewStringValue("not-a-stat-struct"),
-					},
-				},
-			}},
-		},
-	}
-
-	var buf bytes.Buffer
-	err := RenderImage(context.Background(), nil, statsToRender, &buf, option.Options{TypeFlag: "mermaid"})
-	if err != nil {
-		t.Fatalf("RenderImage() error = %v", err)
-	}
-	if !strings.Contains(buf.String(), "Root") {
-		t.Fatalf("RenderImage() output = %q, want root label", buf.String())
 	}
 }
 
@@ -329,7 +298,7 @@ func TestGetNodeContent_optionGating(t *testing.T) {
 	}
 
 	t.Run("all disabled", func(t *testing.T) {
-		content := node.getNodeContent(option.Options{}, rowType)
+		content := node.getNodeContent(BuildOptions{}, rowType)
 		if len(content.Metadata) != 0 {
 			t.Errorf("Metadata = %v, want empty", content.Metadata)
 		}
@@ -351,7 +320,7 @@ func TestGetNodeContent_optionGating(t *testing.T) {
 	})
 
 	t.Run("all enabled", func(t *testing.T) {
-		content := node.getNodeContent(option.Options{
+		content := node.getNodeContent(BuildOptions{
 			Metadata:          true,
 			SerializeResult:   true,
 			NonVariableScalar: true,

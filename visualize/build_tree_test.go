@@ -10,16 +10,14 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
-
-	"github.com/apstndb/spannerplanviz/option"
 )
 
-func applyTestOptions(opts option.Options) option.Options {
-	opts.ApplyFullOption()
+func applyTestOptions(opts BuildOptions) BuildOptions {
+	opts.ApplyFull()
 	return opts
 }
 
-func testBuildTree(t *testing.T, qp *spannerplan.QueryPlan, rowType *sppb.StructType, param option.Options) *treeNode {
+func testBuildTree(t *testing.T, qp *spannerplan.QueryPlan, rowType *sppb.StructType, param BuildOptions) *TreeNode {
 	t.Helper()
 
 	rowsByID, err := buildScalarLinkRowIndex(qp, param)
@@ -126,7 +124,7 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 	testCases := []struct {
 		name          string
 		planNodeProto *sppb.PlanNode
-		param         option.Options
+		param         BuildOptions
 		rowType       *sppb.StructType
 
 		// TODO: nodesForPlan seems not robust workaround.
@@ -136,10 +134,10 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 		{
 			name:                 "Nil PlanNodeProto",
 			planNodeProto:        nil,
-			param:                option.Options{TypeFlag: "mermaid"},
+			param:                BuildOptions{},
 			rowType:              nil,
 			nodesForPlan:         []*sppb.PlanNode{},
-			expectedMermaidLabel: `node\_unknown`,
+			expectedMermaidLabel: `node_unknown`,
 		},
 		{
 			name: "Simple Node (Title only)",
@@ -147,7 +145,7 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 				Index:       0,
 				DisplayName: "Test Node",
 			},
-			param:                option.Options{TypeFlag: "mermaid"},
+			param:                BuildOptions{},
 			rowType:              nil,
 			nodesForPlan:         []*sppb.PlanNode{{Index: 0, DisplayName: "Test Node"}},
 			expectedMermaidLabel: "<b>Test&nbsp;Node</b>",
@@ -164,7 +162,7 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 					},
 				},
 			},
-			param:   option.Options{TypeFlag: "mermaid", Metadata: true}, // Ensure metadata is processed by GetMetadata
+			param:   BuildOptions{ Metadata: true}, // Ensure metadata is processed by GetMetadata
 			rowType: nil,
 			nodesForPlan: []*sppb.PlanNode{{
 				Index:       1,
@@ -179,7 +177,7 @@ func TestTreeNodeMermaidLabel(t *testing.T) {
 			expectedMermaidLabel: heredoc.Doc(`
 <b>Meta&nbsp;Node</b>
 another: 42
-meta\_key: meta\_val`),
+meta_key: meta_val`),
 		},
 		{
 			name: "Node with Stats",
@@ -194,7 +192,7 @@ meta\_key: meta\_val`),
 					},
 				},
 			},
-			param:   option.Options{TypeFlag: "mermaid", ExecutionStats: true}, // Ensure stats are processed
+			param:   BuildOptions{ ExecutionStats: true}, // Ensure stats are processed
 			rowType: nil,
 			nodesForPlan: []*sppb.PlanNode{{
 				Index:       2,
@@ -222,7 +220,7 @@ meta\_key: meta\_val`),
 					},
 				},
 			},
-			param:   option.Options{TypeFlag: "mermaid", HideScanTarget: false}, // Ensure ScanInfo is generated
+			param:   BuildOptions{ HideScanTarget: false}, // Ensure ScanInfo is generated
 			rowType: nil,
 			nodesForPlan: []*sppb.PlanNode{{
 				Index:       3,
@@ -236,7 +234,7 @@ meta\_key: meta\_val`),
 			}},
 			expectedMermaidLabel: heredoc.Doc(`
 <b>Full&nbsp;&nbsp;Table&nbsp;Scan</b>
-Full&nbsp;\:&nbsp;UsersTable`),
+Full&nbsp;:&nbsp;UsersTable`),
 		},
 		{
 			name: "Serialize Result Node",
@@ -247,7 +245,7 @@ Full&nbsp;\:&nbsp;UsersTable`),
 					{ChildIndex: 1, Type: ""},
 				},
 			},
-			param: option.Options{TypeFlag: "mermaid", SerializeResult: true},
+			param: BuildOptions{ SerializeResult: true},
 			rowType: &sppb.StructType{
 				Fields: []*sppb.StructType_Field{
 					{Name: "userID", Type: &sppb.Type{Code: sppb.TypeCode_INT64}},
@@ -268,7 +266,7 @@ Full&nbsp;\:&nbsp;UsersTable`),
 				},
 			},
 			expectedMermaidLabel: heredoc.Doc(`<b>Serialize&nbsp;Result</b>
-Result\.userID\:U\_ID`),
+Result.userID:U_ID`),
 		},
 		{
 			name: "Node with All Elements",
@@ -293,7 +291,7 @@ Result\.userID\:U\_ID`),
 					},
 				},
 			},
-			param:   option.Options{TypeFlag: "mermaid", Metadata: true, ExecutionStats: true, ExecutionSummary: true},
+			param:   BuildOptions{ Metadata: true, ExecutionStats: true, ExecutionSummary: true},
 			rowType: nil,
 			nodesForPlan: []*sppb.PlanNode{{
 				Index:               5,
@@ -316,11 +314,11 @@ Result\.userID\:U\_ID`),
 			// Order: Title, ShortRep, (ScanInfo - N/A), (SerializeResult - N/A), (NonVarScalar - N/A), Meta, (VarScalar - N/A), Stats, ExecSummary
 			expectedMermaidLabel: heredoc.Doc(`
 <b>Complex&nbsp;Node</b>
-SR\:&nbsp;Complex
-meta\_1: val\_1
-<i>cpu\_time: 5ms</i>
-<i>execution\_summary\:
-&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;10</i>`),
+SR:&nbsp;Complex
+meta_1: val_1
+<i>cpu_time: 5ms</i>
+<i>execution_summary:
+&nbsp;&nbsp;&nbsp;num_executions:&nbsp;10</i>`),
 		},
 		{
 			name: "Node with quotes in content",
@@ -329,12 +327,12 @@ meta\_1: val\_1
 				DisplayName:         "Node \"With Quotes\"",
 				ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Description with \"quotes\" and `backticks`"},
 			},
-			param:        option.Options{TypeFlag: "mermaid"},
+			param:        BuildOptions{},
 			rowType:      nil,
 			nodesForPlan: []*sppb.PlanNode{{Index: 6, DisplayName: "Node \"With Quotes\"", ShortRepresentation: &sppb.PlanNode_ShortRepresentation{Description: "Description with \"quotes\" and `backticks`"}}},
 			expectedMermaidLabel: heredoc.Doc(`
 <b>Node&nbsp;&quot;With&nbsp;Quotes&quot;</b>
-Description&nbsp;with&nbsp;&quot;quotes&quot;&nbsp;and&nbsp;`) + "\\`backticks\\`",
+Description&nbsp;with&nbsp;&quot;quotes&quot;&nbsp;and&nbsp;` + "`backticks`"),
 		},
 	}
 
@@ -363,7 +361,7 @@ Description&nbsp;with&nbsp;&quot;quotes&quot;&nbsp;and&nbsp;`) + "\\`backticks\\
 			// Getters in MermaidLabel should handle nil QueryPlan if they don't use it.
 			// GetSerializeResultOutput, GetNonVarScalarLinksOutput, GetVarScalarLinksOutput do use qp.
 
-			node := &treeNode{
+			node := &TreeNode{
 				planNode: normalizedNodeRef(currentPlan, nodesInTestPlan, tc.planNodeProto),
 			}
 			if currentPlan != nil {
@@ -396,7 +394,7 @@ func TestTreeNodeHTML(t *testing.T) {
 	testCases := []struct {
 		name          string
 		planNodeProto *sppb.PlanNode
-		param         option.Options
+		param         BuildOptions
 		rowType       *sppb.StructType // Can be nil if not testing Serialize Result
 		expectedHTML  string
 	}{
@@ -406,7 +404,7 @@ func TestTreeNodeHTML(t *testing.T) {
 				Index:       1,
 				DisplayName: "Test Node Display Name",
 			},
-			param:        applyTestOptions(option.Options{Full: true}),
+			param:        applyTestOptions(BuildOptions{Full: true}),
 			rowType:      nil,
 			expectedHTML: `<b>Test Node Display Name</b>`,
 		},
@@ -422,7 +420,7 @@ func TestTreeNodeHTML(t *testing.T) {
 					},
 				},
 			},
-			param:        applyTestOptions(option.Options{Full: true}),
+			param:        applyTestOptions(BuildOptions{Full: true}),
 			rowType:      nil,
 			expectedHTML: `<b>Node With Meta</b><br align="CENTER"/>meta_key_1=meta_val_1<br align="left" />meta_key_2=123<br align="left" />`,
 		},
@@ -447,7 +445,7 @@ func TestTreeNodeHTML(t *testing.T) {
 					},
 				},
 			},
-			param:        applyTestOptions(option.Options{Full: true, ExecutionStats: true}),
+			param:        applyTestOptions(BuildOptions{Full: true, ExecutionStats: true}),
 			rowType:      nil,
 			expectedHTML: `<b>Node With Stats</b><br align="CENTER"/><i>latency: 10s<br align="left" />rows: 100 rows<br align="left" /></i>`,
 		},
@@ -463,7 +461,7 @@ func TestTreeNodeHTML(t *testing.T) {
 					},
 				},
 			},
-			param:        applyTestOptions(option.Options{Full: true, HideScanTarget: false}),
+			param:        applyTestOptions(BuildOptions{Full: true, HideScanTarget: false}),
 			rowType:      nil,
 			expectedHTML: `<b>Full scan Table Scan</b><br align="CENTER"/>Full scan: MyTable<br align="left" />`,
 		},
@@ -476,7 +474,7 @@ func TestTreeNodeHTML(t *testing.T) {
 					{ChildIndex: 0, Type: "Output"},
 				},
 			},
-			param: applyTestOptions(option.Options{Full: true}),
+			param: applyTestOptions(BuildOptions{Full: true}),
 			rowType: &sppb.StructType{
 				Fields: []*sppb.StructType_Field{
 					{Name: "col1", Type: &sppb.Type{Code: sppb.TypeCode_STRING}},
@@ -495,7 +493,7 @@ func TestTreeNodeHTML(t *testing.T) {
 					{ChildIndex: 8, Type: "SCALAR", Variable: "scalar_var2"},
 				},
 			},
-			param:        applyTestOptions(option.Options{Full: true, NonVariableScalar: true}),
+			param:        applyTestOptions(BuildOptions{Full: true, NonVariableScalar: true}),
 			rowType:      nil,
 			expectedHTML: `<b>Scalar Node</b>`,
 		},
@@ -508,7 +506,7 @@ func TestTreeNodeHTML(t *testing.T) {
 					{ChildIndex: 1, Type: "SCALAR", Variable: "var1"},
 				},
 			},
-			param:        applyTestOptions(option.Options{Full: true, VariableScalar: true}),
+			param:        applyTestOptions(BuildOptions{Full: true, VariableScalar: true}),
 			rowType:      nil,
 			expectedHTML: `<b>VarScalarOp</b><br align="CENTER"/>SCALAR: $var1:=Scalar Output<br align="left" />`,
 		},
@@ -562,7 +560,7 @@ func TestTreeNodeHTML(t *testing.T) {
 				t.Fatalf("spannerplan.New failed for test case %q with node indices %v: %v", tc.name, nodeIndicesInPlan, err)
 			}
 
-			node := &treeNode{
+			node := &TreeNode{
 				planNode: normalizedNodeRef(currentPlan, nodesForPlan, tc.planNodeProto),
 			}
 			attachPlanRow(node, planRowsFor(t, currentPlan))

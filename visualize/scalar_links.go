@@ -8,17 +8,16 @@ import (
 	"github.com/apstndb/spannerplan"
 	"github.com/apstndb/spannerplan/plantree"
 
-	"github.com/apstndb/spannerplanviz/option"
 )
 
-func buildScalarLinkRowIndex(qp *spannerplan.QueryPlan, param option.Options) (map[int32]plantree.RowWithPredicates, error) {
+func buildScalarLinkRowIndex(qp *spannerplan.QueryPlan, param BuildOptions) (map[int32]plantree.RowWithPredicates, error) {
 	if !needsScalarLinkRows(param) {
 		return nil, nil
 	}
 	return buildPlanRowIndex(qp)
 }
 
-func needsScalarLinkRows(param option.Options) bool {
+func needsScalarLinkRows(param BuildOptions) bool {
 	return param.SerializeResult || param.NonVariableScalar || param.VariableScalar
 }
 
@@ -35,7 +34,7 @@ func buildPlanRowIndex(qp *spannerplan.QueryPlan) (map[int32]plantree.RowWithPre
 	return rowsByID, nil
 }
 
-func attachPlanRow(node *treeNode, rowsByID map[int32]plantree.RowWithPredicates) {
+func attachPlanRow(node *TreeNode, rowsByID map[int32]plantree.RowWithPredicates) {
 	if node == nil || node.planNode == nil || rowsByID == nil {
 		return
 	}

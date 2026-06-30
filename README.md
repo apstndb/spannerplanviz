@@ -243,10 +243,43 @@ node27 --> node28
 node28 --> node29
 ```
 
+## Library usage
+
+Build a diagram model once, then render with the backend of your choice:
+
+```go
+stats, rowType, err := spannerplan.ExtractQueryPlan(input)
+plan, err := visualize.BuildPlan(rowType, stats, visualize.StructureBuildOptions())
+src, err := mermaid.Source(plan)
+```
+
+Presets:
+
+- `visualize.StructureBuildOptions()` — operator structure for interactive viewers (lighter than `--full`)
+- `visualize.FullBuildOptions()` — same detail level as CLI `--full`
+
+Renderers:
+
+- `mermaid.Source(plan)` — Mermaid.js source using `plan.Build`
+- `mermaid.SourceWithOptions(plan, opts)` — override detail flags at render time
+- `mermaid.NewRenderer(opts).Render(ctx, w, plan)` — streaming render
+- `graphviz.NewRenderer(opts).Render(ctx, w, plan)` — SVG/PNG/DOT via Graphviz
+
+## Browser embedding
+
+When rendering Mermaid in the browser (for example from Go WASM):
+
+1. Call `visualize.BuildPlan` and `mermaid.Source(plan)`.
+2. Pass the returned source to [mermaid.js](https://mermaid.js.org/) `render()`.
+3. The source includes a `%%{ init: ... }%%` block with `htmlLabels: true` and `useMaxWidth: false`. Keep your global `mermaid.initialize()` consistent with those settings if you set defaults separately.
+4. Prefer `StructureBuildOptions()` for large plans; `--full` output can be slow to lay out in the browser.
+
+`BuildOptions` fields mirror CLI flags (`metadata`, `execution-stats`, `hide-metadata`, and so on). See `option.Options.BuildOptions()` for the full mapping.
+
 ## Stability
 
 - The `spannerplanviz` CLI flags and behavior are treated as stable.
-- The Go library API (`visualize.RenderImage` and related types) is experimental and may change between releases.
+- The Go library API (`visualize.BuildPlan`, `mermaid.Source`, `graphviz.NewRenderer`, and related types) is experimental and may change between releases.
 - This module follows v0 semver: breaking changes may appear in minor releases. See GitHub release notes for details.
 - Text plan rendering moved to [`spannerplan/cmd/rendertree`](https://github.com/apstndb/spannerplan/tree/main/cmd/rendertree); the deprecated shim in this repository has been removed.
 

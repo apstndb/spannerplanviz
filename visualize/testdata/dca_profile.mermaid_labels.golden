@@ -1,155 +1,155 @@
 <b>Batch&nbsp;Scan</b>
-Batch\:&nbsp;\$v2
-execution\_method: Row
-scan\_method: Row
-\$batched\_BirthDate\:\=BirthDate
-\$batched\_FirstName\:\=FirstName
-\$batched\_LastName\:\=LastName
-\$batched\_SingerId\:\=SingerId
-\$batched\_SingerInfo\:\=SingerInfo
+Batch:&nbsp;$v2
+execution_method: Row
+scan_method: Row
+$batched_BirthDate:=BirthDate
+$batched_FirstName:=FirstName
+$batched_LastName:=LastName
+$batched_SingerId:=SingerId
+$batched_SingerInfo:=SingerInfo
 <b>Compute&nbsp;Struct</b>
-execution\_method: Row
-\$v1\.BirthDate\:\=\$BirthDate
-\$v1\.FirstName\:\=\$FirstName
-\$v1\.LastName\:\=\$LastName
-\$v1\.SingerId\:\=\$SingerId
-\$v1\.SingerInfo\:\=\$SingerInfo
-<i>cpu\_time: 31\.2&nbsp;msecs</i>
-<i>latency: 79\.04&nbsp;msecs</i>
+execution_method: Row
+$v1.BirthDate:=$BirthDate
+$v1.FirstName:=$FirstName
+$v1.LastName:=$LastName
+$v1.SingerId:=$SingerId
+$v1.SingerInfo:=$SingerInfo
+<i>cpu_time: 31.2&nbsp;msecs</i>
+<i>latency: 79.04&nbsp;msecs</i>
 <i>rows: 1000&nbsp;rows</i>
-<i>execution\_summary\:
-&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.01&nbsp;msecs
-&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;1
-&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<i>execution_summary:
+&nbsp;&nbsp;&nbsp;checkpoint_time:&nbsp;0.01&nbsp;msecs
+&nbsp;&nbsp;&nbsp;num_checkpoints:&nbsp;1
+&nbsp;&nbsp;&nbsp;num_executions:&nbsp;1</i>
 <b>Create&nbsp;Batch</b>
-execution\_method: Row
-\$v2\.Batch\:\=\$v1
+execution_method: Row
+$v2.Batch:=$v1
 <b>Cross&nbsp;Apply</b>
-execution\_method: Row
-<i>cpu\_time: 341\.43&nbsp;msecs</i>
-<i>latency: 996\.58&nbsp;msecs</i>
+execution_method: Row
+<i>cpu_time: 341.43&nbsp;msecs</i>
+<i>latency: 996.58&nbsp;msecs</i>
 <i>rows: 3069&nbsp;rows</i>
-<i>execution\_summary\:
-&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.17&nbsp;msecs
-&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
-&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<i>execution_summary:
+&nbsp;&nbsp;&nbsp;checkpoint_time:&nbsp;0.17&nbsp;msecs
+&nbsp;&nbsp;&nbsp;num_checkpoints:&nbsp;19
+&nbsp;&nbsp;&nbsp;num_executions:&nbsp;1</i>
 <b>Distributed&nbsp;Cross&nbsp;Apply</b>
-Split&nbsp;Range\:&nbsp;\(\$SingerId\_1&nbsp;\=&nbsp;\$SingerId\)
-execution\_method: Row
+Split&nbsp;Range:&nbsp;($SingerId_1&nbsp;=&nbsp;$SingerId)
+execution_method: Row
 <i>Number&nbsp;of&nbsp;Batches: 1&nbsp;batches</i>
-<i>cpu\_time: 376\.8&nbsp;msecs</i>
-<i>latency: 1\.08&nbsp;secs</i>
-<i>remote\_calls: 0&nbsp;calls</i>
+<i>cpu_time: 376.8&nbsp;msecs</i>
+<i>latency: 1.08&nbsp;secs</i>
+<i>remote_calls: 0&nbsp;calls</i>
 <i>rows: 3069&nbsp;rows</i>
-<i>execution\_summary\:
-&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.28&nbsp;msecs
-&nbsp;&nbsp;&nbsp;execution\_end\_timestamp\:&nbsp;2025\-06\-06T20\:52\:18\.231573Z
-&nbsp;&nbsp;&nbsp;execution\_start\_timestamp\:&nbsp;2025\-06\-06T20\:52\:17\.148944Z
-&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
-&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<i>execution_summary:
+&nbsp;&nbsp;&nbsp;checkpoint_time:&nbsp;0.28&nbsp;msecs
+&nbsp;&nbsp;&nbsp;execution_end_timestamp:&nbsp;2025-06-06T20:52:18.231573Z
+&nbsp;&nbsp;&nbsp;execution_start_timestamp:&nbsp;2025-06-06T20:52:17.148944Z
+&nbsp;&nbsp;&nbsp;num_checkpoints:&nbsp;19
+&nbsp;&nbsp;&nbsp;num_executions:&nbsp;1</i>
 <b>Distributed&nbsp;Union</b>
-Split&nbsp;Range\:&nbsp;true
-distribution\_table: Singers
-execution\_method: Row
-split\_ranges\_aligned: false
-<i>cpu\_time: 30\.2&nbsp;msecs</i>
-<i>latency: 78\.03&nbsp;msecs</i>
-<i>remote\_calls: 0&nbsp;calls</i>
+Split&nbsp;Range:&nbsp;true
+distribution_table: Singers
+execution_method: Row
+split_ranges_aligned: false
+<i>cpu_time: 30.2&nbsp;msecs</i>
+<i>latency: 78.03&nbsp;msecs</i>
+<i>remote_calls: 0&nbsp;calls</i>
 <i>rows: 1000&nbsp;rows</i>
-<i>execution\_summary\:
-&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.01&nbsp;msecs
-&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;1
-&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<i>execution_summary:
+&nbsp;&nbsp;&nbsp;checkpoint_time:&nbsp;0.01&nbsp;msecs
+&nbsp;&nbsp;&nbsp;num_checkpoints:&nbsp;1
+&nbsp;&nbsp;&nbsp;num_executions:&nbsp;1</i>
 <b>Filter&nbsp;Scan</b>
-Residual&nbsp;Condition\:&nbsp;\(\$SongName&nbsp;LIKE&nbsp;\'Th\%e\'\)
-execution\_method: Row
-seekable\_key\_size: 0
+Residual&nbsp;Condition:&nbsp;($SongName&nbsp;LIKE&nbsp;'Th%e')
+execution_method: Row
+seekable_key_size: 0
 <b>KeyRangeAccumulator</b>
-execution\_method: Row
-<i>cpu\_time: 0\.62&nbsp;msecs</i>
+execution_method: Row
+<i>cpu_time: 0.62&nbsp;msecs</i>
 <b>Local&nbsp;Distributed&nbsp;Union</b>
-execution\_method: Row
-<i>cpu\_time: 29\.97&nbsp;msecs</i>
-<i>latency: 77\.8&nbsp;msecs</i>
-<i>remote\_calls: 0&nbsp;calls</i>
+execution_method: Row
+<i>cpu_time: 29.97&nbsp;msecs</i>
+<i>latency: 77.8&nbsp;msecs</i>
+<i>remote_calls: 0&nbsp;calls</i>
 <i>rows: 1000&nbsp;rows</i>
-<i>execution\_summary\:
-&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.01&nbsp;msecs
-&nbsp;&nbsp;&nbsp;execution\_end\_timestamp\:&nbsp;2025\-06\-06T20\:52\:17\.228881Z
-&nbsp;&nbsp;&nbsp;execution\_start\_timestamp\:&nbsp;2025\-06\-06T20\:52\:17\.14899Z
-&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;1
-&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<i>execution_summary:
+&nbsp;&nbsp;&nbsp;checkpoint_time:&nbsp;0.01&nbsp;msecs
+&nbsp;&nbsp;&nbsp;execution_end_timestamp:&nbsp;2025-06-06T20:52:17.228881Z
+&nbsp;&nbsp;&nbsp;execution_start_timestamp:&nbsp;2025-06-06T20:52:17.14899Z
+&nbsp;&nbsp;&nbsp;num_checkpoints:&nbsp;1
+&nbsp;&nbsp;&nbsp;num_executions:&nbsp;1</i>
 <b>Local&nbsp;Distributed&nbsp;Union</b>
-execution\_method: Row
-<i>cpu\_time: 340\.03\@0\.34±0\.06&nbsp;msecs</i>
-<i>latency: 995\.19\@1±8\.12&nbsp;msecs</i>
-<i>remote\_calls: 0\@0±0&nbsp;calls</i>
-<i>rows: 3069\@3\.07±1\.72&nbsp;rows</i>
-<i>execution\_summary\:
-&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.16&nbsp;msecs
-&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
-&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1000</i>
+execution_method: Row
+<i>cpu_time: 340.03@0.34±0.06&nbsp;msecs</i>
+<i>latency: 995.19@1±8.12&nbsp;msecs</i>
+<i>remote_calls: 0@0±0&nbsp;calls</i>
+<i>rows: 3069@3.07±1.72&nbsp;rows</i>
+<i>execution_summary:
+&nbsp;&nbsp;&nbsp;checkpoint_time:&nbsp;0.16&nbsp;msecs
+&nbsp;&nbsp;&nbsp;num_checkpoints:&nbsp;19
+&nbsp;&nbsp;&nbsp;num_executions:&nbsp;1000</i>
 <b>Serialize&nbsp;Result</b>
-Result\.SingerId\:\$batched\_SingerId
-Result\.FirstName\:\$batched\_FirstName
-Result\.LastName\:\$batched\_LastName
-Result\.SingerInfo\:\$batched\_SingerInfo
-Result\.BirthDate\:\$batched\_BirthDate
-Result\.AlbumId\:\$AlbumId
-Result\.TrackId\:\$TrackId
-Result\.SongName\:\$SongName
-Result\.Duration\:\$Duration
-Result\.SongGenre\:\$SongGenre
-execution\_method: Row
-<i>cpu\_time: 342\.95&nbsp;msecs</i>
-<i>latency: 998\.11&nbsp;msecs</i>
+Result.SingerId:$batched_SingerId
+Result.FirstName:$batched_FirstName
+Result.LastName:$batched_LastName
+Result.SingerInfo:$batched_SingerInfo
+Result.BirthDate:$batched_BirthDate
+Result.AlbumId:$AlbumId
+Result.TrackId:$TrackId
+Result.SongName:$SongName
+Result.Duration:$Duration
+Result.SongGenre:$SongGenre
+execution_method: Row
+<i>cpu_time: 342.95&nbsp;msecs</i>
+<i>latency: 998.11&nbsp;msecs</i>
 <i>rows: 3069&nbsp;rows</i>
-<i>execution\_summary\:
-&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.18&nbsp;msecs
-&nbsp;&nbsp;&nbsp;execution\_end\_timestamp\:&nbsp;2025\-06\-06T20\:52\:18\.231497Z
-&nbsp;&nbsp;&nbsp;execution\_start\_timestamp\:&nbsp;2025\-06\-06T20\:52\:17\.229908Z
-&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
-&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<i>execution_summary:
+&nbsp;&nbsp;&nbsp;checkpoint_time:&nbsp;0.18&nbsp;msecs
+&nbsp;&nbsp;&nbsp;execution_end_timestamp:&nbsp;2025-06-06T20:52:18.231497Z
+&nbsp;&nbsp;&nbsp;execution_start_timestamp:&nbsp;2025-06-06T20:52:17.229908Z
+&nbsp;&nbsp;&nbsp;num_checkpoints:&nbsp;19
+&nbsp;&nbsp;&nbsp;num_executions:&nbsp;1</i>
 <b>Table&nbsp;Scan</b>
-Table\:&nbsp;Singers
+Table:&nbsp;Singers
 Full&nbsp;scan: true
-execution\_method: Row
-scan\_method: Automatic
-\$SingerId\:\=SingerId
-\$FirstName\:\=FirstName
-\$LastName\:\=LastName
-\$SingerInfo\:\=SingerInfo
-\$BirthDate\:\=BirthDate
-<i>cpu\_time: 29\.84&nbsp;msecs</i>
-<i>deleted\_rows: 0\@0±0&nbsp;rows</i>
-<i>filesystem\_delay\_seconds: 48\.16\@24\.08±24\.08&nbsp;msecs</i>
-<i>filtered\_rows: 0\@0±0&nbsp;rows</i>
-<i>latency: 77\.66&nbsp;msecs</i>
+execution_method: Row
+scan_method: Automatic
+$SingerId:=SingerId
+$FirstName:=FirstName
+$LastName:=LastName
+$SingerInfo:=SingerInfo
+$BirthDate:=BirthDate
+<i>cpu_time: 29.84&nbsp;msecs</i>
+<i>deleted_rows: 0@0±0&nbsp;rows</i>
+<i>filesystem_delay_seconds: 48.16@24.08±24.08&nbsp;msecs</i>
+<i>filtered_rows: 0@0±0&nbsp;rows</i>
+<i>latency: 77.66&nbsp;msecs</i>
 <i>rows: 1000&nbsp;rows</i>
-<i>scanned\_rows: 1000\@500±500&nbsp;rows</i>
-<i>execution\_summary\:
-&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0&nbsp;msecs
-&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;1
-&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1</i>
+<i>scanned_rows: 1000@500±500&nbsp;rows</i>
+<i>execution_summary:
+&nbsp;&nbsp;&nbsp;checkpoint_time:&nbsp;0&nbsp;msecs
+&nbsp;&nbsp;&nbsp;num_checkpoints:&nbsp;1
+&nbsp;&nbsp;&nbsp;num_executions:&nbsp;1</i>
 <b>Table&nbsp;Scan</b>
-Table\:&nbsp;Songs
-Seek&nbsp;Condition\:&nbsp;\(\$SingerId\_1&nbsp;\=&nbsp;\$batched\_SingerId\)
-execution\_method: Row
-scan\_method: Row
-\$SingerId\_1\:\=SingerId
-\$AlbumId\:\=AlbumId
-\$TrackId\:\=TrackId
-\$SongName\:\=SongName
-\$Duration\:\=Duration
-\$SongGenre\:\=SongGenre
-<i>cpu\_time: 339\.21\@0\.34±0\.06&nbsp;msecs</i>
-<i>deleted\_rows: 0&nbsp;rows</i>
-<i>filesystem\_delay\_seconds: 521\.29&nbsp;msecs</i>
-<i>filtered\_rows: 1020931&nbsp;rows</i>
-<i>latency: 994\.3\@0\.99±8\.12&nbsp;msecs</i>
-<i>rows: 3069\@3\.07±1\.72&nbsp;rows</i>
-<i>scanned\_rows: 1024000&nbsp;rows</i>
-<i>execution\_summary\:
-&nbsp;&nbsp;&nbsp;checkpoint\_time\:&nbsp;0\.05&nbsp;msecs
-&nbsp;&nbsp;&nbsp;num\_checkpoints\:&nbsp;19
-&nbsp;&nbsp;&nbsp;num\_executions\:&nbsp;1000</i>
+Table:&nbsp;Songs
+Seek&nbsp;Condition:&nbsp;($SingerId_1&nbsp;=&nbsp;$batched_SingerId)
+execution_method: Row
+scan_method: Row
+$SingerId_1:=SingerId
+$AlbumId:=AlbumId
+$TrackId:=TrackId
+$SongName:=SongName
+$Duration:=Duration
+$SongGenre:=SongGenre
+<i>cpu_time: 339.21@0.34±0.06&nbsp;msecs</i>
+<i>deleted_rows: 0&nbsp;rows</i>
+<i>filesystem_delay_seconds: 521.29&nbsp;msecs</i>
+<i>filtered_rows: 1020931&nbsp;rows</i>
+<i>latency: 994.3@0.99±8.12&nbsp;msecs</i>
+<i>rows: 3069@3.07±1.72&nbsp;rows</i>
+<i>scanned_rows: 1024000&nbsp;rows</i>
+<i>execution_summary:
+&nbsp;&nbsp;&nbsp;checkpoint_time:&nbsp;0.05&nbsp;msecs
+&nbsp;&nbsp;&nbsp;num_checkpoints:&nbsp;19
+&nbsp;&nbsp;&nbsp;num_executions:&nbsp;1000</i>
