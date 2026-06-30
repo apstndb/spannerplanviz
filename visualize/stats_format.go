@@ -8,6 +8,7 @@ import (
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/apstndb/spannerplan/stats"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type executionStatField struct {
@@ -41,7 +42,7 @@ func extractExecutionStats(node *sppb.PlanNode) (*stats.ExecutionStats, error) {
 	return stats.Extract(node, false)
 }
 
-func executionStatsToMap(es *stats.ExecutionStats) map[string]string {
+func executionStatsToMap(node *sppb.PlanNode, es *stats.ExecutionStats) map[string]string {
 	if es == nil {
 		return nil
 	}
@@ -52,7 +53,54 @@ func executionStatsToMap(es *stats.ExecutionStats) map[string]string {
 			statsMap[field.key] = formatted
 		}
 	}
+	mergeUnknownExecutionStats(node, statsMap)
 	return statsMap
+}
+
+func knownExecutionStatKeys() map[string]struct{} {
+	keys := make(map[string]struct{}, len(executionStatFields(stats.ExecutionStats{}))+1)
+	for _, field := range executionStatFields(stats.ExecutionStats{}) {
+		keys[field.key] = struct{}{}
+	}
+	keys["execution_summary"] = struct{}{}
+	return keys
+}
+
+func mergeUnknownExecutionStats(node *sppb.PlanNode, statsMap map[string]string) {
+	if node == nil || statsMap == nil {
+		return
+	}
+
+	knownKeys := knownExecutionStatKeys()
+	for key, valProto := range node.GetExecutionStats().GetFields() {
+		if key == "execution_summary" {
+			continue
+		}
+		if _, ok := statsMap[key]; ok {
+			continue
+		}
+		if _, known := knownKeys[key]; known {
+			continue
+		}
+		if formatted := formatExecutionStatsValueFromProto(valProto); formatted != "" {
+			statsMap[key] = formatted
+		} else {
+			statsMap[key] = fmt.Sprint(valProto.AsInterface())
+		}
+	}
+}
+
+func formatExecutionStatsValueFromProto(v *structpb.Value) string {
+	if v.GetStructValue() == nil {
+		return ""
+	}
+	fields := v.GetStructValue().GetFields()
+	return formatExecutionStatsValue(stats.ExecutionStatsValue{
+		Total:        fields["total"].GetStringValue(),
+		Unit:         fields["unit"].GetStringValue(),
+		Mean:         fields["mean"].GetStringValue(),
+		StdDeviation: fields["std_deviation"].GetStringValue(),
+	})
 }
 
 func formatExecutionStatsValue(v stats.ExecutionStatsValue) string {
@@ -63,46 +111,71 @@ func formatExecutionStatsValue(v stats.ExecutionStatsValue) string {
 	return fmt.Sprintf("%s%s%s", v.Total, meanStr, unitStr)
 }
 
-func formatExecutionSummary(summary stats.ExecutionStatsSummary) string {
-	type summaryField struct {
-		key   string
-		value string
-	}
+func formatExecutionSummary(node *sppb.PlanNode, summary stats.ExecutionStatsSummary) string {
+	lines := typedExecutionSummaryLines(summary)
+	mergeUnknownExecutionSummaryLines(node, lines)
+	return renderExecutionSummaryLines(lines)
+}
 
-	fields := []summaryField{
-		{"checkpoint_time", summary.CheckpointTime},
-		{"execution_end_timestamp", summary.ExecutionEndTimestamp},
-		{"execution_start_timestamp", summary.ExecutionStartTimestamp},
-		{"num_checkpoints", summary.NumCheckPoints.String()},
-		{"num_executions", summary.NumExecutions},
-	}
+func typedExecutionSummaryLines(summary stats.ExecutionStatsSummary) map[string]string {
+	lines := make(map[string]string)
 
-	var executionSummaryStrings []string
-	for _, field := range fields {
-		if field.value == "" {
-			continue
+	setLine := func(key, value string) {
+		if value == "" {
+			return
 		}
-
-		value := field.value
-		if field.key == "execution_start_timestamp" || field.key == "execution_end_timestamp" {
-			formattedValue, err := tryToTimestampStr(field.value)
+		if key == "execution_start_timestamp" || key == "execution_end_timestamp" {
+			formattedValue, err := tryToTimestampStr(value)
 			if err != nil {
-				value = fmt.Sprintf("%s (error: %v)", field.value, err)
+				value = fmt.Sprintf("%s (error: %v)", value, err)
 			} else {
 				value = formattedValue
 			}
 		}
-
-		const indentLevel = 3
-		executionSummaryStrings = append(executionSummaryStrings,
-			fmt.Sprintf("%s%s: %s\n", strings.Repeat(" ", indentLevel), field.key, value))
+		lines[key] = value
 	}
 
-	if len(executionSummaryStrings) == 0 {
+	setLine("checkpoint_time", summary.CheckpointTime)
+	setLine("execution_end_timestamp", summary.ExecutionEndTimestamp)
+	setLine("execution_start_timestamp", summary.ExecutionStartTimestamp)
+	setLine("num_checkpoints", summary.NumCheckPoints.String())
+	setLine("num_executions", summary.NumExecutions)
+	return lines
+}
+
+func mergeUnknownExecutionSummaryLines(node *sppb.PlanNode, lines map[string]string) {
+	if node == nil || lines == nil {
+		return
+	}
+	rawSummary, ok := node.GetExecutionStats().GetFields()["execution_summary"]
+	if !ok || rawSummary.GetStructValue() == nil {
+		return
+	}
+	for key, valProto := range rawSummary.GetStructValue().GetFields() {
+		if _, exists := lines[key]; exists {
+			continue
+		}
+		lines[key] = fmt.Sprint(valProto.AsInterface())
+	}
+}
+
+func renderExecutionSummaryLines(lines map[string]string) string {
+	if len(lines) == 0 {
 		return ""
 	}
 
-	sort.Strings(executionSummaryStrings)
+	keys := make([]string, 0, len(lines))
+	for key := range lines {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	var executionSummaryStrings []string
+	for _, key := range keys {
+		const indentLevel = 3
+		executionSummaryStrings = append(executionSummaryStrings,
+			fmt.Sprintf("%s%s: %s\n", strings.Repeat(" ", indentLevel), key, lines[key]))
+	}
 
 	var executionSummaryBuf bytes.Buffer
 	fmt.Fprintln(&executionSummaryBuf, "execution_summary:")

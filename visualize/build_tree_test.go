@@ -22,9 +22,9 @@ func applyTestOptions(opts option.Options) option.Options {
 func testBuildTree(t *testing.T, qp *spannerplan.QueryPlan, rowType *sppb.StructType, param option.Options) *treeNode {
 	t.Helper()
 
-	rowsByID, err := buildPlanRowIndex(qp)
+	rowsByID, err := buildScalarLinkRowIndex(qp, param)
 	if err != nil {
-		t.Fatalf("buildPlanRowIndex: %v", err)
+		t.Fatalf("buildScalarLinkRowIndex: %v", err)
 	}
 	rootNode, err := buildTree(qp, qp.GetNodeByIndex(0), rowType, param, rowsByID)
 	if err != nil {

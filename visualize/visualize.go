@@ -32,7 +32,7 @@ func RenderImage(ctx context.Context, rowType *sppb.StructType, queryStats *sppb
 		return fmt.Errorf("failed to create QueryPlan: %w", err)
 	}
 
-	rowsByID, err := buildPlanRowIndex(qp)
+	rowsByID, err := buildScalarLinkRowIndex(qp, param)
 	if err != nil {
 		return fmt.Errorf("failed to process plan rows: %w", err)
 	}

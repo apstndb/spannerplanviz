@@ -7,7 +7,20 @@ import (
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/apstndb/spannerplan"
 	"github.com/apstndb/spannerplan/plantree"
+
+	"github.com/apstndb/spannerplanviz/option"
 )
+
+func buildScalarLinkRowIndex(qp *spannerplan.QueryPlan, param option.Options) (map[int32]plantree.RowWithPredicates, error) {
+	if !needsScalarLinkRows(param) {
+		return nil, nil
+	}
+	return buildPlanRowIndex(qp)
+}
+
+func needsScalarLinkRows(param option.Options) bool {
+	return param.SerializeResult || param.NonVariableScalar || param.VariableScalar
+}
 
 func buildPlanRowIndex(qp *spannerplan.QueryPlan) (map[int32]plantree.RowWithPredicates, error) {
 	rows, err := plantree.ProcessPlan(qp, plantree.WithQueryPlanOptions(spannerplan.HideMetadata()))

@@ -409,7 +409,7 @@ func (n *treeNode) GetStats(param option.Options) map[string]string {
 	if err != nil || es == nil {
 		return nil
 	}
-	return executionStatsToMap(es)
+	return executionStatsToMap(n.planNode, es)
 }
 
 func (n *treeNode) GetExecutionSummary(param option.Options) string {
@@ -421,7 +421,7 @@ func (n *treeNode) GetExecutionSummary(param option.Options) string {
 	if err != nil || es == nil {
 		return ""
 	}
-	return formatExecutionSummary(es.ExecutionSummary)
+	return formatExecutionSummary(n.planNode, es.ExecutionSummary)
 }
 
 // Metadata formats node content for GraphViz HTML-like labels.

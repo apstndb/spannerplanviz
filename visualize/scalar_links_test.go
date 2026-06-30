@@ -71,15 +71,17 @@ func TestFormatSerializeResultFromLinks(t *testing.T) {
 	rowType := &sppb.StructType{
 		Fields: []*sppb.StructType_Field{
 			{Name: "userID", Type: &sppb.Type{Code: sppb.TypeCode_INT64}},
+			{Name: "", Type: &sppb.Type{Code: sppb.TypeCode_STRING}},
 		},
 	}
 	links := []plantree.ScalarChildLink{
-		{Description: "U_ID"},
 		{Type: "Key", Description: "ignored"},
+		{Description: "U_ID"},
+		{Description: "U_NAME"},
 	}
 
 	got := formatSerializeResultFromLinks(rowType, links)
-	want := "Result.userID:U_ID\n"
+	want := "Result.userID:U_ID\nResult.no_name<1>:U_NAME\n"
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("formatSerializeResultFromLinks() mismatch (-want +got):\n%s", diff)
 	}
