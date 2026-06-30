@@ -88,7 +88,7 @@ func TestRenderer_simplePlan(t *testing.T) {
 	}
 
 	expectedMermaidOutput := heredoc.Doc(`
-%%{ init: {"flowchart":{"curve":"linear","htmlLabels":true,"markdownAutoWrap":false,"useMaxWidth":false,"wrappingWidth":2000},"theme":null,"themeVariables":{"wrap":false}} }%%
+%%{ init: {"flowchart":{"curve":"linear","markdownAutoWrap":false,"useMaxWidth":false,"wrappingWidth":2000},"htmlLabels":true,"themeVariables":{"wrap":false}} }%%
 graph TD
     node0["<b>Union</b>
 <i>latency: 3ms</i>
@@ -214,5 +214,37 @@ func TestSourceWithOptions_overridesPlanBuild(t *testing.T) {
 	}
 	if !strings.Contains(src, "execution_method") {
 		t.Fatalf("SourceWithOptions() output = %q, want metadata", src)
+	}
+}
+
+func TestSourceWithOptions_canDisableMetadataFromFullPlan(t *testing.T) {
+	statsToRender := &sppb.ResultSetStats{
+		QueryPlan: &sppb.QueryPlan{
+			PlanNodes: []*sppb.PlanNode{{
+				Index:       0,
+				DisplayName: "Root",
+				Kind:        sppb.PlanNode_RELATIONAL,
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"execution_method": structpb.NewStringValue("Row"),
+					},
+				},
+			}},
+		},
+	}
+
+	plan, err := visualize.BuildPlan(nil, statsToRender, visualize.BuildOptions{Metadata: true})
+	if err != nil {
+		t.Fatalf("BuildPlan() error = %v", err)
+	}
+
+	src, err := mermaid.SourceWithOptions(plan, mermaid.Options{
+		BuildOptions: visualize.BuildOptions{},
+	})
+	if err != nil {
+		t.Fatalf("SourceWithOptions() error = %v", err)
+	}
+	if strings.Contains(src, "execution_method") {
+		t.Fatalf("SourceWithOptions() output = %q, want metadata disabled", src)
 	}
 }

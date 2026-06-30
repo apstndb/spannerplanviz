@@ -129,7 +129,7 @@ func TestRenderer_WithQueryStats(t *testing.T) {
 	}
 }
 
-func TestRenderer_defaultsToSVGFormat(t *testing.T) {
+func TestRenderer_rendersSVG(t *testing.T) {
 	jsonBytes, err := os.ReadFile(testdataPath("dca_profile.json"))
 	if err != nil {
 		t.Fatalf("read dca_profile.json: %v", err)
@@ -157,5 +157,25 @@ func TestRenderer_defaultsToSVGFormat(t *testing.T) {
 			preview = preview[:80]
 		}
 		t.Fatalf("Render() output = %q, want SVG", preview)
+	}
+}
+
+func TestRenderer_requiresFormat(t *testing.T) {
+	plan, err := visualize.BuildPlan(nil, &sppb.ResultSetStats{
+		QueryPlan: &sppb.QueryPlan{
+			PlanNodes: []*sppb.PlanNode{{
+				Index:       0,
+				DisplayName: "Root",
+				Kind:        sppb.PlanNode_RELATIONAL,
+			}},
+		},
+	}, visualize.BuildOptions{})
+	if err != nil {
+		t.Fatalf("BuildPlan() error = %v", err)
+	}
+
+	err = graphviz.NewRenderer(graphviz.Options{}).Render(context.Background(), &bytes.Buffer{}, plan)
+	if err == nil {
+		t.Fatal("Render() error = nil, want missing format error")
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/apstndb/spannerplanviz/visualize"
-	"github.com/samber/lo"
 )
 
 // Renderer generates Mermaid.js source for a built plan.
@@ -24,17 +23,16 @@ func NewRenderer(opts Options) *Renderer {
 // Source returns Mermaid.js source text using plan.Build settings.
 func Source(plan *visualize.Plan) (string, error) {
 	var buf strings.Builder
-	if err := writeMermaid(&buf, plan, Options{}); err != nil {
+	if err := writeMermaid(&buf, plan, plan.Build); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
 }
 
-// SourceWithOptions returns Mermaid.js source text, overriding plan.Build when opts
-// sets any detail flag explicitly.
+// SourceWithOptions returns Mermaid.js source text using opts.BuildOptions instead of plan.Build.
 func SourceWithOptions(plan *visualize.Plan, opts Options) (string, error) {
 	var buf strings.Builder
-	if err := writeMermaid(&buf, plan, opts); err != nil {
+	if err := writeMermaid(&buf, plan, opts.BuildOptions); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
@@ -45,40 +43,32 @@ func (r *Renderer) Render(ctx context.Context, w io.Writer, plan *visualize.Plan
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return writeMermaid(w, plan, r.Options)
+	return writeMermaid(w, plan, r.Options.BuildOptions)
 }
 
-func writeMermaid(writer io.Writer, plan *visualize.Plan, opts Options) error {
-	if plan == nil || plan.Root == nil {
-		return fmt.Errorf("cannot render mermaid: plan is nil")
-	}
-
-	build := plan.Build
-	build.ApplyFull()
-	opts.BuildOptions.ApplyFull()
-	// Caller-provided opts override plan build settings when explicitly set.
-	if opts.Full || opts.Metadata || opts.ExecutionStats || opts.ExecutionSummary ||
-		opts.SerializeResult || opts.NonVariableScalar || opts.VariableScalar {
-		build = opts.BuildOptions
-		build.ApplyFull()
-	}
-
-	var theme = ""
-	config := map[string]any{
-		"theme": lo.EmptyableToPtr(theme),
+func mermaidInitConfig() map[string]any {
+	return map[string]any{
+		"htmlLabels": true,
 		"themeVariables": map[string]any{
 			"wrap": false,
 		},
 		"flowchart": map[string]any{
 			"curve":            "linear",
-			"htmlLabels":       true,
 			"useMaxWidth":      false,
 			"markdownAutoWrap": false,
 			"wrappingWidth":    2000,
 		},
 	}
+}
 
-	b, err := json.Marshal(config)
+func writeMermaid(writer io.Writer, plan *visualize.Plan, build visualize.BuildOptions) error {
+	if plan == nil || plan.Root == nil {
+		return fmt.Errorf("cannot render mermaid: plan is nil")
+	}
+
+	build.ApplyFull()
+
+	b, err := json.Marshal(mermaidInitConfig())
 	if err != nil {
 		return err
 	}
@@ -139,14 +129,16 @@ func writeMermaid(writer io.Writer, plan *visualize.Plan, opts Options) error {
 	return err
 }
 
+var mermaidEdgeLabelReplacer = strings.NewReplacer(
+	"\n", " ",
+	"\r", " ",
+	"|", "#124;",
+	"#", "#35;",
+	">", "#62;",
+	"<", "#60;",
+)
+
 // escapeMermaidEdgeLabel prepares text for Mermaid flowchart edge labels (-->|label|).
 func escapeMermaidEdgeLabel(label string) string {
-	return strings.NewReplacer(
-		"\n", " ",
-		"\r", " ",
-		"|", "#124;",
-		"#", "#35;",
-		">", "#62;",
-		"<", "#60;",
-	).Replace(label)
+	return mermaidEdgeLabelReplacer.Replace(label)
 }
