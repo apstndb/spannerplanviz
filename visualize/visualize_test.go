@@ -229,8 +229,7 @@ func TestRenderMermaid(t *testing.T) {
 		if n == nil {
 			return
 		}
-		// n.HTML() now requires qp, param and rowType. rowType is nil in this test.
-		t.Logf("Node %s HTML: [%s]", n.GetName(), n.HTML(qp, param, nil))
+		t.Logf("Node %s HTML: [%s]", n.GetName(), n.HTML(param, nil))
 		for _, childLink := range n.Children {
 			logHTML(childLink.ChildNode)
 		}
@@ -501,7 +500,7 @@ func TestMermaidLabel_Golden(t *testing.T) {
 		if n == nil {
 			return
 		}
-		label := n.MermaidLabel(qp, param, rowTypeForProcessing)
+		label := n.MermaidLabel(param, rowTypeForProcessing)
 		allLabels = append(allLabels, label)
 		for _, childLink := range n.Children {
 			traverseAndCollectLabels(childLink.ChildNode)
@@ -548,7 +547,7 @@ func formatNodeContentAsText(node *treeNode, qp *spannerplan.QueryPlan, param op
 	if node == nil {
 		return nil
 	}
-	content := node.getNodeContent(qp, param, rowType)
+	content := node.getNodeContent(param, rowType)
 	var result []string
 
 	if content.Title != "" {
@@ -600,4 +599,43 @@ func formatNodeContentAsText(node *treeNode, qp *spannerplan.QueryPlan, param op
 	}
 
 	return result
+}
+
+func TestRenderImage_normalizeOptions(t *testing.T) {
+	jsonBytes, err := testdataFS.ReadFile("testdata/dca_profile.json")
+	if err != nil {
+		t.Fatalf("read testdata: %v", err)
+	}
+
+	var resultSet sppb.ResultSet
+	unmarshalOpts := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err := unmarshalOpts.Unmarshal(jsonBytes, &resultSet); err != nil {
+		t.Fatalf("unmarshal testdata: %v", err)
+	}
+
+	stats := resultSet.GetStats()
+	rowType := resultSet.GetMetadata().GetRowType()
+
+	t.Run("defaults empty type to svg", func(t *testing.T) {
+		var buf bytes.Buffer
+		err := RenderImage(context.Background(), rowType, stats, &buf, option.Options{})
+		if err != nil {
+			t.Fatalf("RenderImage() error = %v", err)
+		}
+		if !strings.Contains(buf.String(), "<svg") {
+			preview := buf.String()
+			if len(preview) > 80 {
+				preview = preview[:80]
+			}
+			t.Fatalf("RenderImage() output does not look like SVG: %q", preview)
+		}
+	})
+
+	t.Run("rejects unsupported type", func(t *testing.T) {
+		var buf bytes.Buffer
+		err := RenderImage(context.Background(), rowType, stats, &buf, option.Options{TypeFlag: "pdf"})
+		if err == nil {
+			t.Fatal("RenderImage() error = nil, want unsupported type error")
+		}
+	})
 }

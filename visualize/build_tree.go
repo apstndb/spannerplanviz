@@ -190,10 +190,6 @@ func newReplacerForMermaidHTMLLabel(replaceSpaceToNbsp bool) *strings.Replacer {
 }
 
 // escapeGraphvizHTMLLabelContent prepares a string for safe inclusion in a Graphviz HTML-like label.
-// This function escapes characters that have special meaning in XML/HTML contexts,
-// as Graphviz HTML-like labels are parsed as a form of XML.
-// It also handles characters known to cause issues, like backticks.
-// escapeGraphvizHTMLLabelContent prepares a string for safe inclusion in a Graphviz HTML-like label.
 // Note: Graphviz's HTML-like label parsing has its own specific rules that differ from standard
 // HTML/XML parsing. This function escapes special characters according to Graphviz's requirements.
 // See: https://graphviz.org/doc/info/shapes.html#html for details on Graphviz HTML-like labels.
@@ -210,9 +206,9 @@ func escapeGraphvizHTMLLabelContent(content string) string {
 // getNodeContent extracts and formats the raw content of a treeNode into a structured nodeContent.
 // This function centralizes the logic for gathering all relevant displayable information
 // from a plan node, before any Mermaid-specific or plain-text-specific formatting.
-func (n *treeNode) getNodeContent(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) nodeContent {
+func (n *treeNode) getNodeContent(param option.Options, rowType *sppb.StructType) nodeContent {
 	content := nodeContent{
-		Title:               n.GetTitle(param),
+		Title:               n.GetTitle(),
 		ShortRepresentation: n.GetShortRepresentation(),
 		ScanInfo:            n.GetScanInfoOutput(param),
 		SerializeResult:     []string{},
@@ -258,8 +254,8 @@ func (n *treeNode) getNodeContent(qp *spannerplan.QueryPlan, param option.Option
 }
 
 // MermaidLabel generates the label string for this node, suitable for use in Mermaid diagrams.
-func (n *treeNode) MermaidLabel(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
-	content := n.getNodeContent(qp, param, rowType)
+func (n *treeNode) MermaidLabel(param option.Options, rowType *sppb.StructType) string {
+	content := n.getNodeContent(param, rowType)
 	var labelParts []string
 
 	if content.Title != "" {
@@ -347,8 +343,7 @@ func (n *treeNode) GetTooltip() (string, error) {
 	return string(tooltipBytes), nil
 }
 
-func (n *treeNode) GetTitle(param option.Options) string {
-	// Always use HideMetadata() as per user feedback that implies metadata should be hidden from the title string itself.
+func (n *treeNode) GetTitle() string {
 	return spannerplan.NodeTitle(n.planNode, spannerplan.HideMetadata())
 }
 
@@ -425,8 +420,8 @@ func (n *treeNode) GetExecutionSummary(param option.Options) string {
 }
 
 // Metadata formats node content for GraphViz HTML-like labels.
-func (n *treeNode) Metadata(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
-	content := n.getNodeContent(qp, param, rowType)
+func (n *treeNode) Metadata(param option.Options, rowType *sppb.StructType) string {
+	content := n.getNodeContent(param, rowType)
 	var labelLines []string
 
 	if content.ShortRepresentation != "" {
@@ -490,14 +485,14 @@ func (n *treeNode) Metadata(qp *spannerplan.QueryPlan, param option.Options, row
 	return labelHTMLPart + statsHTMLPart
 }
 
-func (n *treeNode) HTML(qp *spannerplan.QueryPlan, param option.Options, rowType *sppb.StructType) string {
+func (n *treeNode) HTML(param option.Options, rowType *sppb.StructType) string {
 	titleHTML := ""
-	if t := n.GetTitle(param); t != "" {
+	if t := n.GetTitle(); t != "" {
 		// n.GetTitle calls spannerplan.NodeTitle which already HTML escapes its content.
 		titleHTML = markupIfNotEmpty("b", t)
 	}
 
-	metadataHTML := n.Metadata(qp, param, rowType)
+	metadataHTML := n.Metadata(param, rowType)
 
 	if titleHTML == "" && metadataHTML == "" {
 		return html.EscapeString(n.GetName())

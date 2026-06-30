@@ -381,7 +381,7 @@ Description&nbsp;with&nbsp;&quot;quotes&quot;&nbsp;and&nbsp;`) + "\\`backticks\\
 			// Let's adjust expectations to match the actual output of MermaidLabel directly.
 			// This means expectedMermaidLabel already includes the final #quotquot; transformations if any part had a quote.
 
-			gotLabel := node.MermaidLabel(currentPlan, tc.param, tc.rowType)
+			gotLabel := node.MermaidLabel(tc.param, tc.rowType)
 
 			if diff := cmp.Diff(tc.expectedMermaidLabel, gotLabel); diff != "" {
 				t.Errorf("MermaidLabel() mismatch for test case %q (-expected +actual):\n%s", tc.name, diff)
@@ -567,7 +567,7 @@ func TestTreeNodeHTML(t *testing.T) {
 			}
 			attachPlanRow(node, planRowsFor(t, currentPlan))
 
-			gotHTML := node.HTML(currentPlan, tc.param, tc.rowType)
+			gotHTML := node.HTML(tc.param, tc.rowType)
 			if diff := cmp.Diff(tc.expectedHTML, gotHTML); diff != "" {
 				t.Errorf("HTML() mismatch for test case %q (-expected +actual):\n%s", tc.name, diff)
 			}

@@ -79,23 +79,31 @@ func run(ctx context.Context) error {
 	}
 
 	var writer io.WriteCloser
+	needsClose := false
 	if opts.Filename == "" {
 		writer = os.Stdout
 	} else if file, err := os.Create(opts.Filename); err != nil {
 		return err
 	} else {
 		writer = file
+		needsClose = true
 	}
-	defer func() { _ = writer.Close() }()
-
-	opts.ApplyFullOption()
+	defer func() {
+		if needsClose {
+			_ = writer.Close()
+		}
+	}()
 
 	err = visualize.RenderImage(ctx, rowType, queryStats, writer, opts)
 	if err != nil {
-		innerErr := os.Remove(opts.Filename)
-		if innerErr != nil {
-			return errors.Join(err, innerErr)
+		if opts.Filename != "" {
+			needsClose = false
+			_ = writer.Close()
+			if innerErr := os.Remove(opts.Filename); innerErr != nil && !os.IsNotExist(innerErr) {
+				return errors.Join(err, innerErr)
+			}
 		}
+		return err
 	}
-	return err
+	return nil
 }
