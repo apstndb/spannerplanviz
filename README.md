@@ -74,6 +74,7 @@ Renderers:
 - `mermaid.SourceWithOptions(plan, opts)` — override `plan.Build` at render time (including disabling flags)
 - `mermaid.NewRenderer(opts).Render(ctx, w, plan)` — streaming render
 - `graphviz.NewRenderer(opts).Render(ctx, w, plan)` — SVG/PNG/DOT via Graphviz
+- `dot.Source(plan)` / `dot.SourceWithOptions(plan, opts)` — DOT source text without a Graphviz runtime (no `goccy/go-graphviz` dependency); lay it out elsewhere, e.g. with a browser-side Graphviz build
 
 ## Browser embedding
 
@@ -89,7 +90,7 @@ When rendering Mermaid in the browser (for example from Go WASM):
 ## Stability
 
 - The `spannerplanviz` CLI flags and behavior are treated as stable.
-- The Go library API (`visualize.BuildPlan`, `mermaid.Source`, `graphviz.NewRenderer`, and related types) is experimental and may change between releases.
+- The Go library API (`visualize.BuildPlan`, `mermaid.Source`, `graphviz.NewRenderer`, `dot.Source`, and related types) is experimental and may change between releases.
 - This module follows v0 semver: breaking changes may appear in minor releases. See GitHub release notes for details.
 - Text plan rendering moved to [`spannerplan/cmd/rendertree`](https://github.com/apstndb/spannerplan/tree/main/cmd/rendertree); the deprecated shim in this repository has been removed.
 

@@ -86,10 +86,15 @@ func renderQueryNodeWithEdge(graph *cgraph.Graph, queryStats *sppb.ResultSetStat
 		return err
 	}
 
-	_, err = graph.CreateEdgeByName("", gvRootNode, n)
+	ed, err := graph.CreateEdgeByName("", gvRootNode, n)
 	if err != nil {
 		return err
 	}
+
+	// Explicitly clear the label: once any edge sets one (renderEdge does),
+	// cgraph declares the attribute with goccy's default "\E", which Graphviz
+	// would otherwise expand to a stray "node0->query" text on this edge.
+	ed.SetLabel("")
 	return nil
 }
 
