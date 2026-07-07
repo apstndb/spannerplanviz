@@ -9,7 +9,7 @@ toolchain go1.24.0
 require (
 	cloud.google.com/go/spanner v1.48.0
 	github.com/MakeNowJust/heredoc/v2 v2.0.1
-	github.com/apstndb/spannerplan v0.1.11
+	github.com/apstndb/spannerplan v0.2.0
 	github.com/goccy/go-graphviz v0.2.10
 	github.com/google/go-cmp v0.5.9
 	github.com/jessevdk/go-flags v1.6.1
