@@ -185,77 +185,159 @@ func (n *TreeNode) getNodeContent(param BuildOptions, rowType *sppb.StructType) 
 	return content
 }
 
-// MermaidLabel generates the label string for this node, suitable for use in Mermaid diagrams.
-func (n *TreeNode) MermaidLabel(param BuildOptions, rowType *sppb.StructType) string {
+// labelKV is a metadata or execution-stats key/value pair in a nodeLabel.
+type labelKV struct {
+	Key   string
+	Value string
+}
+
+// labelItem is one line of a nodeLabel body: either free text (a content line
+// such as the short representation, a scan-info line or a scalar-link line) or
+// a metadata key/value pair. KV is nil for text items and set for pairs.
+type labelItem struct {
+	Text string
+	KV   *labelKV
+}
+
+// nodeLabel is a backend-neutral intermediate representation of a node's label.
+// It is built once from nodeContent by buildNodeLabel and rendered into the
+// Mermaid or Graphviz label syntaxes by the emitters, which own only escaping
+// and markup. The sections carry semantic style: Title is bold, Body is plain,
+// and Stats/Summary are italic. Emitting them in field order reproduces the
+// historical per-backend layout.
+//
+// Title is consumed only by the Mermaid emitter, which escapes it and places it
+// inline at the top of the label. The Graphviz body emitter deliberately omits
+// Title because the Graphviz path composes it separately in HTML (with its own
+// escaping and CENTER alignment relative to the body).
+type nodeLabel struct {
+	Title   string      // node title, rendered bold; empty when absent
+	Body    []labelItem // plain content lines and metadata pairs, in display order
+	Stats   []labelKV   // execution-stats key/value pairs, rendered italic
+	Summary []string    // execution-summary lines, rendered italic
+}
+
+// sortedStringKeys returns the keys of m in ascending order.
+func sortedStringKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// buildNodeLabel assembles the backend-neutral nodeLabel from the node's raw
+// content. It owns section ordering, key sorting and empty-line filtering so
+// that the Mermaid and Graphviz emitters share a single source of truth.
+func (n *TreeNode) buildNodeLabel(param BuildOptions, rowType *sppb.StructType) nodeLabel {
 	content := n.getNodeContent(param, rowType)
-	var labelParts []string
 
-	if content.Title != "" {
-		labelParts = append(labelParts, markupIfNotEmpty("b", escapeMermaidLabelContent(content.Title)))
-	}
-	if content.ShortRepresentation != "" {
-		labelParts = append(labelParts, escapeMermaidLabelContent(content.ShortRepresentation))
-	}
-	if content.ScanInfo != "" {
-		labelParts = append(labelParts, escapeMermaidLabelContent(content.ScanInfo))
+	label := nodeLabel{Title: content.Title}
+
+	appendText := func(line string) {
+		if line != "" {
+			label.Body = append(label.Body, labelItem{Text: line})
+		}
 	}
 
+	appendText(content.ShortRepresentation)
+	appendText(content.ScanInfo)
+	// SerializeResult, NonVarScalarLinks and VarScalarLinks are already split
+	// into non-empty lines by getNodeContent.
 	for _, line := range content.SerializeResult {
-		labelParts = append(labelParts, escapeMermaidLabelContent(line))
+		appendText(line)
 	}
 	for _, line := range content.NonVarScalarLinks {
-		labelParts = append(labelParts, escapeMermaidLabelContent(line))
+		appendText(line)
 	}
-
-	if len(content.Metadata) > 0 {
-		var metaLines []string
-		var metaKeys []string
-		for k := range content.Metadata {
-			metaKeys = append(metaKeys, k)
-		}
-		sort.Strings(metaKeys)
-		for _, k := range metaKeys {
-			metaLines = append(metaLines, fmt.Sprintf("%s: %s", escapeMermaidLabelContent(k), escapeMermaidLabelContent(content.Metadata[k])))
-		}
-		labelParts = append(labelParts, metaLines...)
+	for _, k := range sortedStringKeys(content.Metadata) {
+		label.Body = append(label.Body, labelItem{KV: &labelKV{Key: k, Value: content.Metadata[k]}})
 	}
-
 	for _, line := range content.VarScalarLinks {
-		labelParts = append(labelParts, escapeMermaidLabelContent(line))
+		appendText(line)
 	}
 
-	if len(content.Stats) > 0 {
-		var statLines []string
-		var statKeys []string
-		for k := range content.Stats {
-			statKeys = append(statKeys, k)
-		}
-		sort.Strings(statKeys)
-		for _, k := range statKeys {
-			statLines = append(statLines, markupIfNotEmpty("i", fmt.Sprintf("%s: %s", escapeMermaidLabelContent(k), escapeMermaidLabelContent(content.Stats[k]))))
-		}
-		labelParts = append(labelParts, statLines...)
+	for _, k := range sortedStringKeys(content.Stats) {
+		label.Stats = append(label.Stats, labelKV{Key: k, Value: content.Stats[k]})
 	}
 
-	if content.ExecutionSummary != "" {
-		var summaryLines []string
-		for _, line := range strings.Split(strings.TrimSuffix(content.ExecutionSummary, "\n"), "\n") {
-			if line != "" {
-				summaryLines = append(summaryLines, escapeMermaidLabelContent(line))
-			}
+	for _, line := range strings.Split(strings.TrimSuffix(content.ExecutionSummary, "\n"), "\n") {
+		if line != "" {
+			label.Summary = append(label.Summary, line)
 		}
-		if len(summaryLines) > 0 {
-			labelParts = append(labelParts, markupIfNotEmpty("i", strings.Join(summaryLines, "\n")))
+	}
+
+	return label
+}
+
+// mermaid renders the label as a Mermaid flowchart HTML-ish label. fallback is
+// used verbatim (after escaping) when the label would otherwise be empty.
+func (l nodeLabel) mermaid(fallback string) string {
+	var labelParts []string
+
+	if l.Title != "" {
+		labelParts = append(labelParts, markupIfNotEmpty("b", escapeMermaidLabelContent(l.Title)))
+	}
+
+	for _, item := range l.Body {
+		if item.KV != nil {
+			labelParts = append(labelParts, fmt.Sprintf("%s: %s", escapeMermaidLabelContent(item.KV.Key), escapeMermaidLabelContent(item.KV.Value)))
+		} else {
+			labelParts = append(labelParts, escapeMermaidLabelContent(item.Text))
 		}
+	}
+
+	// Each stat line is individually italicized in Mermaid.
+	for _, kv := range l.Stats {
+		labelParts = append(labelParts, markupIfNotEmpty("i", fmt.Sprintf("%s: %s", escapeMermaidLabelContent(kv.Key), escapeMermaidLabelContent(kv.Value))))
+	}
+
+	// The whole execution summary is italicized as a single block.
+	if len(l.Summary) > 0 {
+		summaryLines := make([]string, 0, len(l.Summary))
+		for _, line := range l.Summary {
+			summaryLines = append(summaryLines, escapeMermaidLabelContent(line))
+		}
+		labelParts = append(labelParts, markupIfNotEmpty("i", strings.Join(summaryLines, "\n")))
 	}
 
 	labelContent := strings.Join(labelParts, "\n")
 	if labelContent == "" {
-		labelContent = escapeMermaidLabelContent(n.GetName())
+		labelContent = escapeMermaidLabelContent(fallback)
 	}
-
-	// return strings.ReplaceAll(labelContent, "\"", "#quot;")
 	return labelContent
+}
+
+// graphviz renders the label body and stats as a Graphviz HTML-like label
+// fragment. The node title is not included; the Graphviz path adds it in HTML.
+func (l nodeLabel) graphviz() string {
+	var bodyLines []string
+	for _, item := range l.Body {
+		if item.KV != nil {
+			bodyLines = append(bodyLines, fmt.Sprintf("%s=%s", escapeGraphvizHTMLLabelContent(item.KV.Key), escapeGraphvizHTMLLabelContent(item.KV.Value)))
+		} else {
+			bodyLines = append(bodyLines, escapeGraphvizHTMLLabelContent(item.Text))
+		}
+	}
+	labelHTMLPart := toLeftAlignedText(strings.Join(bodyLines, "\n"))
+
+	// Stats and summary share a single italicized, left-aligned block.
+	var statsAndSummaryLines []string
+	for _, kv := range l.Stats {
+		statsAndSummaryLines = append(statsAndSummaryLines, fmt.Sprintf("%s: %s", escapeGraphvizHTMLLabelContent(kv.Key), escapeGraphvizHTMLLabelContent(kv.Value)))
+	}
+	for _, line := range l.Summary {
+		statsAndSummaryLines = append(statsAndSummaryLines, escapeGraphvizHTMLLabelContent(line))
+	}
+	statsHTMLPart := markupIfNotEmpty("i", toLeftAlignedText(strings.Join(statsAndSummaryLines, "\n")))
+
+	return labelHTMLPart + statsHTMLPart
+}
+
+// MermaidLabel generates the label string for this node, suitable for use in Mermaid diagrams.
+func (n *TreeNode) MermaidLabel(param BuildOptions, rowType *sppb.StructType) string {
+	return n.buildNodeLabel(param, rowType).mermaid(n.GetName())
 }
 
 // GetName generates the node's unique ID for graph rendering.
@@ -353,68 +435,7 @@ func (n *TreeNode) GetExecutionSummary(param BuildOptions) string {
 
 // Metadata formats node content for GraphViz HTML-like labels.
 func (n *TreeNode) Metadata(param BuildOptions, rowType *sppb.StructType) string {
-	content := n.getNodeContent(param, rowType)
-	var labelLines []string
-
-	if content.ShortRepresentation != "" {
-		labelLines = append(labelLines, escapeGraphvizHTMLLabelContent(content.ShortRepresentation))
-	}
-	if content.ScanInfo != "" {
-		labelLines = append(labelLines, escapeGraphvizHTMLLabelContent(content.ScanInfo))
-	}
-
-	for _, line := range content.SerializeResult {
-		labelLines = append(labelLines, escapeGraphvizHTMLLabelContent(line))
-	}
-	for _, line := range content.NonVarScalarLinks {
-		labelLines = append(labelLines, escapeGraphvizHTMLLabelContent(line))
-	}
-
-	if len(content.Metadata) > 0 {
-		var metaKVLines []string
-		var metaKeys []string
-		for k := range content.Metadata {
-			metaKeys = append(metaKeys, k)
-		}
-		sort.Strings(metaKeys)
-		for _, k := range metaKeys {
-			metaKVLines = append(metaKVLines, fmt.Sprintf("%s=%s", escapeGraphvizHTMLLabelContent(k), escapeGraphvizHTMLLabelContent(content.Metadata[k])))
-		}
-		labelLines = append(labelLines, metaKVLines...)
-	}
-
-	for _, line := range content.VarScalarLinks {
-		labelLines = append(labelLines, escapeGraphvizHTMLLabelContent(line))
-	}
-
-	// All lines in labelLines are now raw strings (or escaped key=value), to be processed by toLeftAlignedText.
-	labelHTMLPart := toLeftAlignedText(strings.Join(labelLines, "\n"))
-
-	// Reconstruct content similar to old n.Stats (detailed stats + summary)
-	var statsAndSummaryPlainLines []string
-	if len(content.Stats) > 0 {
-		var statKVLines []string
-		var statKeys []string
-		for k := range content.Stats {
-			statKeys = append(statKeys, k)
-		}
-		sort.Strings(statKeys)
-		for _, k := range statKeys {
-			statKVLines = append(statKVLines, fmt.Sprintf("%s: %s", escapeGraphvizHTMLLabelContent(k), escapeGraphvizHTMLLabelContent(content.Stats[k])))
-		}
-		statsAndSummaryPlainLines = append(statsAndSummaryPlainLines, statKVLines...)
-	}
-
-	if content.ExecutionSummary != "" {
-		for _, line := range strings.Split(strings.TrimSuffix(content.ExecutionSummary, "\n"), "\n") {
-			if line != "" {
-				statsAndSummaryPlainLines = append(statsAndSummaryPlainLines, escapeGraphvizHTMLLabelContent(line))
-			}
-		}
-	}
-	// All lines in statsAndSummaryPlainLines are raw strings, toLeftAlignedText will escape them.
-	statsHTMLPart := markupIfNotEmpty("i", toLeftAlignedText(strings.Join(statsAndSummaryPlainLines, "\n")))
-	return labelHTMLPart + statsHTMLPart
+	return n.buildNodeLabel(param, rowType).graphviz()
 }
 
 func (n *TreeNode) HTML(param BuildOptions, rowType *sppb.StructType) string {
