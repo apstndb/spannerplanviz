@@ -1,0 +1,17 @@
+version: 2
+# gomod version updates are deliberately NOT enabled: this module is consumed
+# as a library and keeps its dependency minimums low for MVS friendliness
+# (see ECOSYSTEM.md in apstndb/spannerplan). Dependency and security bumps
+# happen in application modules. Security alerts remain enabled repo-side.
+# cooldown is a Dependabot version-update option. It does not delay security updates.
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 3
+    groups:
+      github-actions:
+        patterns:
+          - "*"
