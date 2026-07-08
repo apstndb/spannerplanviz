@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/apstndb/spannerplanviz/internal/graphmodel"
 	"github.com/apstndb/spannerplanviz/visualize"
 )
 
@@ -68,6 +69,16 @@ func writeMermaid(writer io.Writer, plan *visualize.Plan, build visualize.BuildO
 
 	build.ApplyFull()
 
+	// Labels are built from plan.Build. mermaid can override build options at
+	// render time, so resolve the graph from a shallow copy carrying the
+	// render-time options rather than plan.Build.
+	planForGraph := *plan
+	planForGraph.Build = build
+	graph, err := visualize.BuildGraph(&planForGraph, visualize.GraphOptions{})
+	if err != nil {
+		return err
+	}
+
 	b, err := json.Marshal(mermaidInitConfig())
 	if err != nil {
 		return err
@@ -80,46 +91,45 @@ func writeMermaid(writer io.Writer, plan *visualize.Plan, build visualize.BuildO
 	renderedNodes := make(map[string]bool)
 	var edgesToRender []string
 
-	styleTranslation := map[visualize.EdgeStyle]string{
-		visualize.EdgeStyleSolid:  "-->",
-		visualize.EdgeStyleDashed: "-.->",
-		visualize.EdgeStyleDotted: "-.->",
+	styleTranslation := map[graphmodel.EdgeStyle]string{
+		graphmodel.EdgeStyleSolid:  "-->",
+		graphmodel.EdgeStyleDashed: "-.->",
+		graphmodel.EdgeStyleDotted: "-.->",
 	}
 
-	var walk func(*visualize.TreeNode)
-	walk = func(node *visualize.TreeNode) {
+	var walk func(*graphmodel.Node)
+	walk = func(node *graphmodel.Node) {
 		if node == nil {
 			return
 		}
-		nodeName := node.GetName()
-		if _, visited := renderedNodes[nodeName]; visited {
+		if renderedNodes[node.ID] {
 			return
 		}
-		renderedNodes[nodeName] = true
+		renderedNodes[node.ID] = true
 
-		finalLabel := node.MermaidLabel(build, plan.RowType)
+		finalLabel := visualize.RenderMermaidLabel(node.Label, node.ID)
 
-		fmt.Fprintf(&sb, "    %s[\"%s\"]\n", nodeName, finalLabel)
-		fmt.Fprintf(&sb, "    style %s text-align:left;\n", nodeName)
+		fmt.Fprintf(&sb, "    %s[\"%s\"]\n", node.ID, finalLabel)
+		fmt.Fprintf(&sb, "    style %s text-align:left;\n", node.ID)
 
-		for _, edgeLink := range node.Children {
-			arrow, ok := styleTranslation[edgeLink.Style]
+		for _, edge := range node.Children {
+			arrow, ok := styleTranslation[edge.Style]
 			if !ok {
 				arrow = "-->"
 			}
 
 			var edgeLabelPart string
-			if edgeLink.ChildType != "" {
-				edgeLabelPart = fmt.Sprintf("|%s|", escapeMermaidEdgeLabel(edgeLink.ChildType))
+			if edge.Label != "" {
+				edgeLabelPart = fmt.Sprintf("|%s|", escapeMermaidEdgeLabel(edge.Label))
 			}
-			edgeStr := fmt.Sprintf("    %s %s%s %s\n", nodeName, arrow, edgeLabelPart, edgeLink.ChildNode.GetName())
+			edgeStr := fmt.Sprintf("    %s %s%s %s\n", node.ID, arrow, edgeLabelPart, edge.To.ID)
 			edgesToRender = append(edgesToRender, edgeStr)
 
-			walk(edgeLink.ChildNode)
+			walk(edge.To)
 		}
 	}
 
-	walk(plan.Root)
+	walk(graph.Root)
 
 	for _, edgeStr := range edgesToRender {
 		sb.WriteString(edgeStr)

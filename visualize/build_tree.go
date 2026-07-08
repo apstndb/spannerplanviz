@@ -16,6 +16,8 @@ import (
 	"github.com/apstndb/spannerplan"
 	"github.com/apstndb/spannerplan/plantree"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"github.com/apstndb/spannerplanviz/internal/graphmodel"
 )
 
 // This file contains logics which are purely formatting strings and building tree structures.
@@ -184,37 +186,12 @@ func (n *TreeNode) getNodeContent(param BuildOptions, rowType *sppb.StructType) 
 	return content
 }
 
-// labelKV is a metadata or execution-stats key/value pair in a nodeLabel.
-type labelKV struct {
-	Key   string
-	Value string
-}
-
-// labelItem is one line of a nodeLabel body: either free text (a content line
-// such as the short representation, a scan-info line or a scalar-link line) or
-// a metadata key/value pair. KV is nil for text items and set for pairs.
-type labelItem struct {
-	Text string
-	KV   *labelKV
-}
-
-// nodeLabel is a backend-neutral intermediate representation of a node's label.
-// It is built once from nodeContent by buildNodeLabel and rendered into the
-// Mermaid or Graphviz label syntaxes by the emitters, which own only escaping
-// and markup. The sections carry semantic style: Title is bold, Body is plain,
-// and Stats/Summary are italic. Emitting them in field order reproduces the
-// historical per-backend layout.
-//
-// Title is consumed only by the Mermaid emitter, which escapes it and places it
-// inline at the top of the label. The Graphviz body emitter deliberately omits
-// Title because the Graphviz path composes it separately in HTML (with its own
-// escaping and CENTER alignment relative to the body).
-type nodeLabel struct {
-	Title   string      // node title, rendered bold; empty when absent
-	Body    []labelItem // plain content lines and metadata pairs, in display order
-	Stats   []labelKV   // execution-stats key/value pairs, rendered italic
-	Summary []string    // execution-summary lines, rendered italic
-}
+// The backend-neutral label IR (graphmodel.Label / graphmodel.Item /
+// graphmodel.KV) lives in internal/graphmodel so that every serializer package
+// can consume it. buildNodeLabel builds it from nodeContent, and the emitter
+// functions (renderMermaidLabel, renderGraphvizLabelBody, renderGraphvizNodeHTML)
+// own only escaping and markup. The sections carry semantic style: Title is
+// bold, Body is plain, and Stats/Summary are italic.
 
 // sortedStringKeys returns the keys of m in ascending order.
 func sortedStringKeys(m map[string]string) []string {
@@ -226,17 +203,17 @@ func sortedStringKeys(m map[string]string) []string {
 	return keys
 }
 
-// buildNodeLabel assembles the backend-neutral nodeLabel from the node's raw
-// content. It owns section ordering, key sorting and empty-line filtering so
+// buildNodeLabel assembles the backend-neutral graphmodel.Label from the node's
+// raw content. It owns section ordering, key sorting and empty-line filtering so
 // that the Mermaid and Graphviz emitters share a single source of truth.
-func (n *TreeNode) buildNodeLabel(param BuildOptions, rowType *sppb.StructType) nodeLabel {
+func (n *TreeNode) buildNodeLabel(param BuildOptions, rowType *sppb.StructType) graphmodel.Label {
 	content := n.getNodeContent(param, rowType)
 
-	label := nodeLabel{Title: content.Title}
+	label := graphmodel.Label{Title: content.Title}
 
 	appendText := func(line string) {
 		if line != "" {
-			label.Body = append(label.Body, labelItem{Text: line})
+			label.Body = append(label.Body, graphmodel.Item{Text: line})
 		}
 	}
 
@@ -251,14 +228,14 @@ func (n *TreeNode) buildNodeLabel(param BuildOptions, rowType *sppb.StructType) 
 		appendText(line)
 	}
 	for _, k := range sortedStringKeys(content.Metadata) {
-		label.Body = append(label.Body, labelItem{KV: &labelKV{Key: k, Value: content.Metadata[k]}})
+		label.Body = append(label.Body, graphmodel.Item{KV: &graphmodel.KV{Key: k, Value: content.Metadata[k]}})
 	}
 	for _, line := range content.VarScalarLinks {
 		appendText(line)
 	}
 
 	for _, k := range sortedStringKeys(content.Stats) {
-		label.Stats = append(label.Stats, labelKV{Key: k, Value: content.Stats[k]})
+		label.Stats = append(label.Stats, graphmodel.KV{Key: k, Value: content.Stats[k]})
 	}
 
 	for _, line := range strings.Split(strings.TrimSuffix(content.ExecutionSummary, "\n"), "\n") {
@@ -270,9 +247,18 @@ func (n *TreeNode) buildNodeLabel(param BuildOptions, rowType *sppb.StructType) 
 	return label
 }
 
-// mermaid renders the label as a Mermaid flowchart HTML-ish label. fallback is
-// used verbatim (after escaping) when the label would otherwise be empty.
-func (l nodeLabel) mermaid(fallback string) string {
+// RenderMermaidLabel renders a graphmodel.Label as a Mermaid flowchart HTML-ish
+// label. fallback is used verbatim (after escaping) when the label would
+// otherwise be empty. It is exported so the mermaid serializer can render the
+// graph IR built by BuildGraph.
+func RenderMermaidLabel(l graphmodel.Label, fallback string) string {
+	return renderMermaidLabel(l, fallback)
+}
+
+// renderMermaidLabel renders the label as a Mermaid flowchart HTML-ish label.
+// fallback is used verbatim (after escaping) when the label would otherwise be
+// empty.
+func renderMermaidLabel(l graphmodel.Label, fallback string) string {
 	var labelParts []string
 
 	if l.Title != "" {
@@ -308,9 +294,10 @@ func (l nodeLabel) mermaid(fallback string) string {
 	return labelContent
 }
 
-// graphviz renders the label body and stats as a Graphviz HTML-like label
-// fragment. The node title is not included; the Graphviz path adds it in HTML.
-func (l nodeLabel) graphviz() string {
+// renderGraphvizLabelBody renders the label body and stats as a Graphviz
+// HTML-like label fragment. The node title is not included; the Graphviz path
+// adds it in HTML.
+func renderGraphvizLabelBody(l graphmodel.Label) string {
 	var bodyLines []string
 	for _, item := range l.Body {
 		if item.KV != nil {
@@ -336,7 +323,7 @@ func (l nodeLabel) graphviz() string {
 
 // MermaidLabel generates the label string for this node, suitable for use in Mermaid diagrams.
 func (n *TreeNode) MermaidLabel(param BuildOptions, rowType *sppb.StructType) string {
-	return n.buildNodeLabel(param, rowType).mermaid(n.GetName())
+	return renderMermaidLabel(n.buildNodeLabel(param, rowType), n.GetName())
 }
 
 // GetName generates the node's unique ID for graph rendering.
@@ -436,20 +423,30 @@ func (n *TreeNode) GetExecutionSummary(param BuildOptions) string {
 
 // Metadata formats node content for GraphViz HTML-like labels.
 func (n *TreeNode) Metadata(param BuildOptions, rowType *sppb.StructType) string {
-	return n.buildNodeLabel(param, rowType).graphviz()
+	return renderGraphvizLabelBody(n.buildNodeLabel(param, rowType))
 }
 
 func (n *TreeNode) HTML(param BuildOptions, rowType *sppb.StructType) string {
-	titleHTML := ""
-	if t := n.GetTitle(); t != "" {
-		// n.GetTitle calls spannerplan.NodeTitle which already HTML escapes its content.
-		titleHTML = markupIfNotEmpty("b", t)
-	}
+	return renderGraphvizNodeHTML(n.buildNodeLabel(param, rowType), n.GetName())
+}
 
-	metadataHTML := n.Metadata(param, rowType)
+// RenderGraphvizNodeHTML renders a graphmodel.Label as the full Graphviz
+// HTML-like node label (title composed with the body/stats fragment). fallbackID
+// is emitted (HTML-escaped) when the label is empty. It is exported so the dot
+// serializer can render the graph IR built by BuildGraph.
+func RenderGraphvizNodeHTML(l graphmodel.Label, fallbackID string) string {
+	return renderGraphvizNodeHTML(l, fallbackID)
+}
+
+// renderGraphvizNodeHTML composes the node title (bold, CENTER-aligned) with the
+// Graphviz body/stats fragment. The Title in the label is already HTML-escaped
+// (spannerplan.NodeTitle escapes its content), so it is emitted verbatim.
+func renderGraphvizNodeHTML(l graphmodel.Label, fallbackID string) string {
+	titleHTML := markupIfNotEmpty("b", l.Title)
+	metadataHTML := renderGraphvizLabelBody(l)
 
 	if titleHTML == "" && metadataHTML == "" {
-		return html.EscapeString(n.GetName())
+		return html.EscapeString(fallbackID)
 	}
 	if titleHTML == "" {
 		return metadataHTML
@@ -525,26 +522,60 @@ func prefixIfNotEmpty(prefix, value string) string {
 	return prefix + value
 }
 
-func formatQueryStats(stats map[string]*structpb.Value) string {
-	var result []string
-	for k, v := range stats {
-		result = append(result, fmt.Sprintf("%s: %s", k, v.GetStringValue()))
-	}
-
-	sort.Strings(result)
-	return strings.Join(result, "\n")
-}
-
-func FormatQueryNode(queryStats map[string]*structpb.Value, showQueryStats bool) string {
+// buildQueryText extracts the structured query-text content from a
+// ResultSetStats query_stats map: the query text plus, when showQueryStats is
+// set, the remaining stats as key/value pairs sorted by key. The keys here are
+// distinct and free of separator collisions, so sorting by key reproduces the
+// historical order (which sorted the rendered "key: value" lines).
+func buildQueryText(queryStats map[string]*structpb.Value, showQueryStats bool) *graphmodel.QueryText {
 	m := maps.Clone(queryStats)
 	const queryTextKey = "query_text"
-	text := m[queryTextKey].GetStringValue()
+	q := &graphmodel.QueryText{Text: m[queryTextKey].GetStringValue()}
 	delete(m, queryTextKey)
-	var buf strings.Builder
-	buf.WriteString(markupIfNotEmpty("b", toLeftAlignedText(escapeGraphvizHTMLLabelContent(text)))) // Changed to toLeftAlignedText
+
 	if showQueryStats {
-		statsStr := formatQueryStats(m)
-		buf.WriteString(markupIfNotEmpty("i", toLeftAlignedText(escapeGraphvizHTMLLabelContent(statsStr)))) // Changed to toLeftAlignedText
+		for _, k := range sortedStringKeys(mapStringValues(m)) {
+			q.Stats = append(q.Stats, graphmodel.KV{Key: k, Value: m[k].GetStringValue()})
+		}
+	}
+	return q
+}
+
+// mapStringValues projects a structpb value map onto its string-valued view so
+// buildQueryText can reuse sortedStringKeys for deterministic key ordering.
+func mapStringValues(m map[string]*structpb.Value) map[string]string {
+	out := make(map[string]string, len(m))
+	for k, v := range m {
+		out[k] = v.GetStringValue()
+	}
+	return out
+}
+
+// RenderQueryNodeHTML renders a graphmodel.QueryText as the Graphviz HTML-like
+// query node label: the query text in bold, followed by the italic stat lines
+// when present. It is exported so the dot serializer can render the query node
+// from the graph IR built by BuildGraph.
+func RenderQueryNodeHTML(q *graphmodel.QueryText) string {
+	if q == nil {
+		return ""
+	}
+	var buf strings.Builder
+	buf.WriteString(markupIfNotEmpty("b", toLeftAlignedText(escapeGraphvizHTMLLabelContent(q.Text))))
+	if len(q.Stats) > 0 {
+		lines := make([]string, 0, len(q.Stats))
+		for _, kv := range q.Stats {
+			lines = append(lines, fmt.Sprintf("%s: %s", kv.Key, kv.Value))
+		}
+		statsStr := strings.Join(lines, "\n")
+		buf.WriteString(markupIfNotEmpty("i", toLeftAlignedText(escapeGraphvizHTMLLabelContent(statsStr))))
 	}
 	return buf.String()
+}
+
+// FormatQueryNode renders the Graphviz HTML-like query node label directly from
+// a ResultSetStats query_stats map. It is retained for backward compatibility
+// and now delegates to the structured buildQueryText/RenderQueryNodeHTML path so
+// there is a single source of truth for the query node content.
+func FormatQueryNode(queryStats map[string]*structpb.Value, showQueryStats bool) string {
+	return RenderQueryNodeHTML(buildQueryText(queryStats, showQueryStats))
 }
