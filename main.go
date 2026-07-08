@@ -26,6 +26,7 @@ import (
 	"github.com/apstndb/spannerplan"
 	"github.com/jessevdk/go-flags"
 
+	"github.com/apstndb/spannerplanviz/dot"
 	"github.com/apstndb/spannerplanviz/graphviz"
 	"github.com/apstndb/spannerplanviz/mermaid"
 	"github.com/apstndb/spannerplanviz/option"
@@ -130,7 +131,16 @@ func render(ctx context.Context, w io.Writer, plan *visualize.Plan, opts option.
 	switch opts.TypeFlag {
 	case "mermaid":
 		return mermaid.NewRenderer(mermaid.Options{BuildOptions: plan.Build}).Render(ctx, w, plan)
-	case "svg", "png", "dot":
+	case "dot":
+		// --type dot emits pure DOT source via the dot package (the single
+		// source of truth for graph construction) rather than routing through
+		// the Graphviz runtime, so it is unlaid-out source with no layout
+		// attributes (pos/bb/etc.).
+		return dot.NewRenderer(dot.Options{
+			ShowQuery:      opts.ShowQuery,
+			ShowQueryStats: opts.ShowQueryStats,
+		}).Render(ctx, w, plan)
+	case "svg", "png":
 		return graphviz.NewRenderer(graphviz.Options{
 			Format:         graphviz.Format(opts.TypeFlag),
 			ShowQuery:      opts.ShowQuery,
