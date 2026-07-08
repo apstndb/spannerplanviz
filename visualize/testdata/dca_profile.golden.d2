@@ -4,31 +4,19 @@ node0.shape: rectangle
 node0.label: |md
 **Distributed Cross Apply**
 
-Split Range: \($SingerId\_1 = $SingerId\)
-
-execution\_method: Row
-
-_Number of Batches: 1 batches_
-
-_cpu\_time: 376\.8 msecs_
-
-_latency: 1\.08 secs_
-
-_remote\_calls: 0 calls_
-
-_rows: 3069 rows_
-
-_execution\_summary:_
-
-_   checkpoint\_time: 0\.28 msecs_
-
-_   execution\_end\_timestamp: 2025\-06\-06T20:52:18\.231573Z_
-
-_   execution\_start\_timestamp: 2025\-06\-06T20:52:17\.148944Z_
-
-_   num\_checkpoints: 19_
-
-_   num\_executions: 1_
+Split Range: \($SingerId\_1 = $SingerId\)\
+execution\_method: Row\
+_Number of Batches: 1 batches_\
+_cpu\_time: 376\.8 msecs_\
+_latency: 1\.08 secs_\
+_remote\_calls: 0 calls_\
+_rows: 3069 rows_\
+_execution\_summary:_\
+&nbsp;&nbsp;&nbsp;_checkpoint\_time: 0\.28 msecs_\
+&nbsp;&nbsp;&nbsp;_execution\_end\_timestamp: 2025\-06\-06T20:52:18\.231573Z_\
+&nbsp;&nbsp;&nbsp;_execution\_start\_timestamp: 2025\-06\-06T20:52:17\.148944Z_\
+&nbsp;&nbsp;&nbsp;_num\_checkpoints: 19_\
+&nbsp;&nbsp;&nbsp;_num\_executions: 1_
 |
 node0.tooltip: |yaml
 kind: RELATIONAL
@@ -69,8 +57,7 @@ node1.shape: rectangle
 node1.label: |md
 **Create Batch**
 
-execution\_method: Row
-
+execution\_method: Row\
 $v2\.Batch:=$v1
 |
 node1.tooltip: |yaml
@@ -88,31 +75,19 @@ node2.shape: rectangle
 node2.label: |md
 **Compute Struct**
 
-execution\_method: Row
-
-$v1\.BirthDate:=$BirthDate
-
-$v1\.FirstName:=$FirstName
-
-$v1\.LastName:=$LastName
-
-$v1\.SingerId:=$SingerId
-
-$v1\.SingerInfo:=$SingerInfo
-
-_cpu\_time: 31\.2 msecs_
-
-_latency: 79\.04 msecs_
-
-_rows: 1000 rows_
-
-_execution\_summary:_
-
-_   checkpoint\_time: 0\.01 msecs_
-
-_   num\_checkpoints: 1_
-
-_   num\_executions: 1_
+execution\_method: Row\
+$v1\.BirthDate:=$BirthDate\
+$v1\.FirstName:=$FirstName\
+$v1\.LastName:=$LastName\
+$v1\.SingerId:=$SingerId\
+$v1\.SingerInfo:=$SingerInfo\
+_cpu\_time: 31\.2 msecs_\
+_latency: 79\.04 msecs_\
+_rows: 1000 rows_\
+_execution\_summary:_\
+&nbsp;&nbsp;&nbsp;_checkpoint\_time: 0\.01 msecs_\
+&nbsp;&nbsp;&nbsp;_num\_checkpoints: 1_\
+&nbsp;&nbsp;&nbsp;_num\_executions: 1_
 |
 node2.tooltip: |yaml
 index: 2
@@ -151,29 +126,18 @@ node3.shape: rectangle
 node3.label: |md
 **Distributed Union**
 
-Split Range: true
-
-distribution\_table: Singers
-
-execution\_method: Row
-
-split\_ranges\_aligned: false
-
-_cpu\_time: 30\.2 msecs_
-
-_latency: 78\.03 msecs_
-
-_remote\_calls: 0 calls_
-
-_rows: 1000 rows_
-
-_execution\_summary:_
-
-_   checkpoint\_time: 0\.01 msecs_
-
-_   num\_checkpoints: 1_
-
-_   num\_executions: 1_
+Split Range: true\
+distribution\_table: Singers\
+execution\_method: Row\
+split\_ranges\_aligned: false\
+_cpu\_time: 30\.2 msecs_\
+_latency: 78\.03 msecs_\
+_remote\_calls: 0 calls_\
+_rows: 1000 rows_\
+_execution\_summary:_\
+&nbsp;&nbsp;&nbsp;_checkpoint\_time: 0\.01 msecs_\
+&nbsp;&nbsp;&nbsp;_num\_checkpoints: 1_\
+&nbsp;&nbsp;&nbsp;_num\_executions: 1_
 |
 node3.tooltip: |yaml
 index: 3
@@ -210,27 +174,17 @@ node4.shape: rectangle
 node4.label: |md
 **Local Distributed Union**
 
-execution\_method: Row
-
-_cpu\_time: 29\.97 msecs_
-
-_latency: 77\.8 msecs_
-
-_remote\_calls: 0 calls_
-
-_rows: 1000 rows_
-
-_execution\_summary:_
-
-_   checkpoint\_time: 0\.01 msecs_
-
-_   execution\_end\_timestamp: 2025\-06\-06T20:52:17\.228881Z_
-
-_   execution\_start\_timestamp: 2025\-06\-06T20:52:17\.14899Z_
-
-_   num\_checkpoints: 1_
-
-_   num\_executions: 1_
+execution\_method: Row\
+_cpu\_time: 29\.97 msecs_\
+_latency: 77\.8 msecs_\
+_remote\_calls: 0 calls_\
+_rows: 1000 rows_\
+_execution\_summary:_\
+&nbsp;&nbsp;&nbsp;_checkpoint\_time: 0\.01 msecs_\
+&nbsp;&nbsp;&nbsp;_execution\_end\_timestamp: 2025\-06\-06T20:52:17\.228881Z_\
+&nbsp;&nbsp;&nbsp;_execution\_start\_timestamp: 2025\-06\-06T20:52:17\.14899Z_\
+&nbsp;&nbsp;&nbsp;_num\_checkpoints: 1_\
+&nbsp;&nbsp;&nbsp;_num\_executions: 1_
 |
 node4.tooltip: |yaml
 index: 4
@@ -266,45 +220,26 @@ node5.shape: rectangle
 node5.label: |md
 **Table Scan**
 
-Table: Singers
-
-Full scan: true
-
-execution\_method: Row
-
-scan\_method: Automatic
-
-$SingerId:=SingerId
-
-$FirstName:=FirstName
-
-$LastName:=LastName
-
-$SingerInfo:=SingerInfo
-
-$BirthDate:=BirthDate
-
-_cpu\_time: 29\.84 msecs_
-
-_deleted\_rows: 0@0±0 rows_
-
-_filesystem\_delay\_seconds: 48\.16@24\.08±24\.08 msecs_
-
-_filtered\_rows: 0@0±0 rows_
-
-_latency: 77\.66 msecs_
-
-_rows: 1000 rows_
-
-_scanned\_rows: 1000@500±500 rows_
-
-_execution\_summary:_
-
-_   checkpoint\_time: 0 msecs_
-
-_   num\_checkpoints: 1_
-
-_   num\_executions: 1_
+Table: Singers\
+Full scan: true\
+execution\_method: Row\
+scan\_method: Automatic\
+$SingerId:=SingerId\
+$FirstName:=FirstName\
+$LastName:=LastName\
+$SingerInfo:=SingerInfo\
+$BirthDate:=BirthDate\
+_cpu\_time: 29\.84 msecs_\
+_deleted\_rows: 0@0±0 rows_\
+_filesystem\_delay\_seconds: 48\.16@24\.08±24\.08 msecs_\
+_filtered\_rows: 0@0±0 rows_\
+_latency: 77\.66 msecs_\
+_rows: 1000 rows_\
+_scanned\_rows: 1000@500±500 rows_\
+_execution\_summary:_\
+&nbsp;&nbsp;&nbsp;_checkpoint\_time: 0 msecs_\
+&nbsp;&nbsp;&nbsp;_num\_checkpoints: 1_\
+&nbsp;&nbsp;&nbsp;_num\_executions: 1_
 |
 node5.tooltip: |yaml
 index: 5
@@ -384,45 +319,26 @@ node18.shape: rectangle
 node18.label: |md
 **Serialize Result**
 
-Result\.SingerId:$batched\_SingerId
-
-Result\.FirstName:$batched\_FirstName
-
-Result\.LastName:$batched\_LastName
-
-Result\.SingerInfo:$batched\_SingerInfo
-
-Result\.BirthDate:$batched\_BirthDate
-
-Result\.AlbumId:$AlbumId
-
-Result\.TrackId:$TrackId
-
-Result\.SongName:$SongName
-
-Result\.Duration:$Duration
-
-Result\.SongGenre:$SongGenre
-
-execution\_method: Row
-
-_cpu\_time: 342\.95 msecs_
-
-_latency: 998\.11 msecs_
-
-_rows: 3069 rows_
-
-_execution\_summary:_
-
-_   checkpoint\_time: 0\.18 msecs_
-
-_   execution\_end\_timestamp: 2025\-06\-06T20:52:18\.231497Z_
-
-_   execution\_start\_timestamp: 2025\-06\-06T20:52:17\.229908Z_
-
-_   num\_checkpoints: 19_
-
-_   num\_executions: 1_
+Result\.SingerId:$batched\_SingerId\
+Result\.FirstName:$batched\_FirstName\
+Result\.LastName:$batched\_LastName\
+Result\.SingerInfo:$batched\_SingerInfo\
+Result\.BirthDate:$batched\_BirthDate\
+Result\.AlbumId:$AlbumId\
+Result\.TrackId:$TrackId\
+Result\.SongName:$SongName\
+Result\.Duration:$Duration\
+Result\.SongGenre:$SongGenre\
+execution\_method: Row\
+_cpu\_time: 342\.95 msecs_\
+_latency: 998\.11 msecs_\
+_rows: 3069 rows_\
+_execution\_summary:_\
+&nbsp;&nbsp;&nbsp;_checkpoint\_time: 0\.18 msecs_\
+&nbsp;&nbsp;&nbsp;_execution\_end\_timestamp: 2025\-06\-06T20:52:18\.231497Z_\
+&nbsp;&nbsp;&nbsp;_execution\_start\_timestamp: 2025\-06\-06T20:52:17\.229908Z_\
+&nbsp;&nbsp;&nbsp;_num\_checkpoints: 19_\
+&nbsp;&nbsp;&nbsp;_num\_executions: 1_
 |
 node18.tooltip: |yaml
 index: 18
@@ -463,21 +379,14 @@ node19.shape: rectangle
 node19.label: |md
 **Cross Apply**
 
-execution\_method: Row
-
-_cpu\_time: 341\.43 msecs_
-
-_latency: 996\.58 msecs_
-
-_rows: 3069 rows_
-
-_execution\_summary:_
-
-_   checkpoint\_time: 0\.17 msecs_
-
-_   num\_checkpoints: 19_
-
-_   num\_executions: 1_
+execution\_method: Row\
+_cpu\_time: 341\.43 msecs_\
+_latency: 996\.58 msecs_\
+_rows: 3069 rows_\
+_execution\_summary:_\
+&nbsp;&nbsp;&nbsp;_checkpoint\_time: 0\.17 msecs_\
+&nbsp;&nbsp;&nbsp;_num\_checkpoints: 19_\
+&nbsp;&nbsp;&nbsp;_num\_executions: 1_
 |
 node19.tooltip: |yaml
 index: 19
@@ -508,8 +417,7 @@ node20.shape: rectangle
 node20.label: |md
 **KeyRangeAccumulator**
 
-execution\_method: Row
-
+execution\_method: Row\
 _cpu\_time: 0\.62 msecs_
 |
 node20.tooltip: |yaml
@@ -529,20 +437,13 @@ node21.shape: rectangle
 node21.label: |md
 **Batch Scan**
 
-Batch: $v2
-
-execution\_method: Row
-
-scan\_method: Row
-
-$batched\_BirthDate:=BirthDate
-
-$batched\_FirstName:=FirstName
-
-$batched\_LastName:=LastName
-
-$batched\_SingerId:=SingerId
-
+Batch: $v2\
+execution\_method: Row\
+scan\_method: Row\
+$batched\_BirthDate:=BirthDate\
+$batched\_FirstName:=FirstName\
+$batched\_LastName:=LastName\
+$batched\_SingerId:=SingerId\
 $batched\_SingerInfo:=SingerInfo
 |
 node21.tooltip: |yaml
@@ -570,23 +471,15 @@ node27.shape: rectangle
 node27.label: |md
 **Local Distributed Union**
 
-execution\_method: Row
-
-_cpu\_time: 340\.03@0\.34±0\.06 msecs_
-
-_latency: 995\.19@1±8\.12 msecs_
-
-_remote\_calls: 0@0±0 calls_
-
-_rows: 3069@3\.07±1\.72 rows_
-
-_execution\_summary:_
-
-_   checkpoint\_time: 0\.16 msecs_
-
-_   num\_checkpoints: 19_
-
-_   num\_executions: 1000_
+execution\_method: Row\
+_cpu\_time: 340\.03@0\.34±0\.06 msecs_\
+_latency: 995\.19@1±8\.12 msecs_\
+_remote\_calls: 0@0±0 calls_\
+_rows: 3069@3\.07±1\.72 rows_\
+_execution\_summary:_\
+&nbsp;&nbsp;&nbsp;_checkpoint\_time: 0\.16 msecs_\
+&nbsp;&nbsp;&nbsp;_num\_checkpoints: 19_\
+&nbsp;&nbsp;&nbsp;_num\_executions: 1000_
 |
 node27.tooltip: |yaml
 index: 27
@@ -683,10 +576,8 @@ node28.shape: rectangle
 node28.label: |md
 **Filter Scan**
 
-Residual Condition: \($SongName LIKE 'Th%e'\)
-
-execution\_method: Row
-
+Residual Condition: \($SongName LIKE 'Th%e'\)\
+execution\_method: Row\
 seekable\_key\_size: 0
 |
 node28.tooltip: |yaml
@@ -705,47 +596,27 @@ node29.shape: rectangle
 node29.label: |md
 **Table Scan**
 
-Table: Songs
-
-Seek Condition: \($SingerId\_1 = $batched\_SingerId\)
-
-execution\_method: Row
-
-scan\_method: Row
-
-$SingerId\_1:=SingerId
-
-$AlbumId:=AlbumId
-
-$TrackId:=TrackId
-
-$SongName:=SongName
-
-$Duration:=Duration
-
-$SongGenre:=SongGenre
-
-_cpu\_time: 339\.21@0\.34±0\.06 msecs_
-
-_deleted\_rows: 0 rows_
-
-_filesystem\_delay\_seconds: 521\.29 msecs_
-
-_filtered\_rows: 1020931 rows_
-
-_latency: 994\.3@0\.99±8\.12 msecs_
-
-_rows: 3069@3\.07±1\.72 rows_
-
-_scanned\_rows: 1024000 rows_
-
-_execution\_summary:_
-
-_   checkpoint\_time: 0\.05 msecs_
-
-_   num\_checkpoints: 19_
-
-_   num\_executions: 1000_
+Table: Songs\
+Seek Condition: \($SingerId\_1 = $batched\_SingerId\)\
+execution\_method: Row\
+scan\_method: Row\
+$SingerId\_1:=SingerId\
+$AlbumId:=AlbumId\
+$TrackId:=TrackId\
+$SongName:=SongName\
+$Duration:=Duration\
+$SongGenre:=SongGenre\
+_cpu\_time: 339\.21@0\.34±0\.06 msecs_\
+_deleted\_rows: 0 rows_\
+_filesystem\_delay\_seconds: 521\.29 msecs_\
+_filtered\_rows: 1020931 rows_\
+_latency: 994\.3@0\.99±8\.12 msecs_\
+_rows: 3069@3\.07±1\.72 rows_\
+_scanned\_rows: 1024000 rows_\
+_execution\_summary:_\
+&nbsp;&nbsp;&nbsp;_checkpoint\_time: 0\.05 msecs_\
+&nbsp;&nbsp;&nbsp;_num\_checkpoints: 19_\
+&nbsp;&nbsp;&nbsp;_num\_executions: 1000_
 |
 node29.tooltip: |yaml
 index: 29
@@ -862,46 +733,26 @@ executionStats:
 query.shape: rectangle
 query.style.border-radius: 8
 query.label: |md
-**SELECT \* FROM Singers JOIN Songs USING\(SingerId\) WHERE SongName LIKE 'Th%e'**
-
-_bytes\_returned: 162415_
-
-_cpu\_time: 381\.16 msecs_
-
-_data\_bytes\_read: 72172150_
-
-_deleted\_rows\_scanned: 0_
-
-_elapsed\_time: 1\.09 secs_
-
-_filesystem\_delay\_seconds: 569\.44 msecs_
-
-_is\_graph\_query: false_
-
-_locking\_delay: 0 msecs_
-
-_memory\_peak\_usage\_bytes: 8248_
-
-_memory\_usage\_percentage: 0\.003_
-
-_optimizer\_statistics\_package: auto\_20250604\_03\_26\_04UTC_
-
-_optimizer\_version: 8_
-
-_query\_plan\_cached: true_
-
-_remote\_server\_calls: 0/0_
-
-_rows\_returned: 3069_
-
-_rows\_scanned: 1025000_
-
-_runtime\_creation\_time: 0\.79 msecs_
-
-_server\_queue\_delay: 630\.63 msecs_
-
-_statistics\_load\_time: 0_
-
+**SELECT \* FROM Singers JOIN Songs USING\(SingerId\) WHERE SongName LIKE 'Th%e'**\
+_bytes\_returned: 162415_\
+_cpu\_time: 381\.16 msecs_\
+_data\_bytes\_read: 72172150_\
+_deleted\_rows\_scanned: 0_\
+_elapsed\_time: 1\.09 secs_\
+_filesystem\_delay\_seconds: 569\.44 msecs_\
+_is\_graph\_query: false_\
+_locking\_delay: 0 msecs_\
+_memory\_peak\_usage\_bytes: 8248_\
+_memory\_usage\_percentage: 0\.003_\
+_optimizer\_statistics\_package: auto\_20250604\_03\_26\_04UTC_\
+_optimizer\_version: 8_\
+_query\_plan\_cached: true_\
+_remote\_server\_calls: 0/0_\
+_rows\_returned: 3069_\
+_rows\_scanned: 1025000_\
+_runtime\_creation\_time: 0\.79 msecs_\
+_server\_queue\_delay: 630\.63 msecs_\
+_statistics\_load\_time: 0_\
 _total\_memory\_peak\_usage\_byte: 8248_
 |
 node0 -> node1: Input
