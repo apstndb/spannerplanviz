@@ -17,9 +17,22 @@
 //   - Labels are markdown blocks. The label Title is a bold (`**...**`) line,
 //     Body lines are plain, Body key/value pairs use the `key: value` dialect
 //     (chosen over the graphviz `key=value` form for readability), and Stats and
-//     Summary lines are italic (`_..._`). Each rendered line is a separate
-//     markdown paragraph (blank-line separated) so it stands on its own line
-//     without relying on trailing-whitespace hard breaks.
+//     Summary lines are italic (`_..._`). The body lines are joined into a single
+//     markdown paragraph with CommonMark hard line breaks (a trailing backslash),
+//     giving tight single-line spacing that matches the graphviz/mermaid
+//     backends; the bold title is kept as its own paragraph for a small visual
+//     separation from the body. (An earlier version emitted every line as its own
+//     blank-line-separated paragraph, which rendered with a paragraph gap between
+//     every line.)
+//   - Emphasis markers hug their content: any leading whitespace on a Stats or
+//     Summary line is moved OUTSIDE the `_..._` markers and re-encoded as
+//     `&nbsp;` entities (which d2's markdown renderer honors) so the visual indent
+//     survives, and trailing whitespace is trimmed from inside the markers.
+//     CommonMark requires the opening `_` to be immediately followed by, and the
+//     closing `_` immediately preceded by, a non-whitespace character; a
+//     space-indented summary child line such as `_   num_executions: 1_` would
+//     otherwise fail to parse as emphasis and render with literal underscores.
+//     See emphasizeD2Line.
 //   - Markdown metacharacters in label content are backslash-escaped
 //     conservatively (see escapeD2Markdown). The pipe character is not escaped;
 //     it is handled at the D2 block-string layer by widening the fence.
@@ -185,35 +198,35 @@ func d2PipeFence(content string) string {
 }
 
 // renderD2LabelMarkdown renders a graphmodel.Label as markdown-block content:
-// bold title, plain body lines / `key: value` pairs, and italic stat/summary
-// lines, one markdown paragraph per line. fallbackID is used when the label is
-// empty.
+// a bold title paragraph, then a single body paragraph holding the plain body
+// lines / `key: value` pairs and the italic stat/summary lines, joined with
+// CommonMark hard line breaks for tight single-line spacing. fallbackID is used
+// when the label is empty.
 func renderD2LabelMarkdown(l graphmodel.Label, fallbackID string) string {
-	var lines []string
+	var title string
 	if l.Title != "" {
-		lines = append(lines, "**"+escapeD2Markdown(l.Title)+"**")
+		title = "**" + escapeD2Markdown(l.Title) + "**"
 	}
+	var body []string
 	for _, item := range l.Body {
 		if item.KV != nil {
-			lines = append(lines, escapeD2Markdown(item.KV.Key)+": "+escapeD2Markdown(item.KV.Value))
+			body = append(body, escapeD2Markdown(item.KV.Key)+": "+escapeD2Markdown(item.KV.Value))
 		} else {
-			lines = append(lines, escapeD2Markdown(item.Text))
+			body = append(body, escapeD2Markdown(item.Text))
 		}
 	}
 	for _, kv := range l.Stats {
-		lines = append(lines, "_"+escapeD2Markdown(kv.Key)+": "+escapeD2Markdown(kv.Value)+"_")
+		body = append(body, emphasizeD2Line(kv.Key+": "+kv.Value))
 	}
 	for _, s := range l.Summary {
-		lines = append(lines, "_"+escapeD2Markdown(s)+"_")
+		body = append(body, emphasizeD2Line(s))
 	}
-	if len(lines) == 0 {
-		lines = append(lines, escapeD2Markdown(fallbackID))
-	}
-	return strings.Join(lines, "\n\n")
+	return joinD2LabelParagraphs(title, body, fallbackID)
 }
 
 // renderD2QueryMarkdown renders the query node label: the query text in bold
-// (one paragraph per source line) followed by italic stat lines.
+// followed by italic stat lines, all joined into a single paragraph with
+// CommonMark hard line breaks so it renders with tight single-line spacing.
 func renderD2QueryMarkdown(q *graphmodel.QueryText) string {
 	var lines []string
 	for _, line := range strings.Split(q.Text, "\n") {
@@ -223,12 +236,58 @@ func renderD2QueryMarkdown(q *graphmodel.QueryText) string {
 		lines = append(lines, "**"+escapeD2Markdown(line)+"**")
 	}
 	for _, kv := range q.Stats {
-		lines = append(lines, "_"+escapeD2Markdown(kv.Key)+": "+escapeD2Markdown(kv.Value)+"_")
+		lines = append(lines, emphasizeD2Line(kv.Key+": "+kv.Value))
 	}
 	if len(lines) == 0 {
-		lines = append(lines, "**query**")
+		return "**query**"
 	}
-	return strings.Join(lines, "\n\n")
+	return joinD2HardBreaks(lines)
+}
+
+// joinD2LabelParagraphs assembles the final label markdown: the bold title (when
+// present) as its own paragraph and the body lines joined into one paragraph with
+// hard line breaks. When both are empty it falls back to the escaped node ID.
+func joinD2LabelParagraphs(title string, body []string, fallbackID string) string {
+	var paras []string
+	if title != "" {
+		paras = append(paras, title)
+	}
+	if len(body) > 0 {
+		paras = append(paras, joinD2HardBreaks(body))
+	}
+	if len(paras) == 0 {
+		return escapeD2Markdown(fallbackID)
+	}
+	return strings.Join(paras, "\n\n")
+}
+
+// joinD2HardBreaks joins lines into a single markdown paragraph using CommonMark
+// hard line breaks (a backslash immediately before the newline). d2's markdown
+// renderer turns each into a <br/>, so the lines share one paragraph with tight
+// single-line spacing rather than the paragraph gaps that blank-line separation
+// produces. A trailing backslash is verified to survive d2's block-string layer.
+func joinD2HardBreaks(lines []string) string {
+	return strings.Join(lines, "\\\n")
+}
+
+// emphasizeD2Line wraps a stat/summary line as CommonMark emphasis (`_..._`).
+// Any leading whitespace is moved OUTSIDE the emphasis markers and re-encoded as
+// &nbsp; entities so the visual indent is preserved, and trailing whitespace is
+// trimmed from inside the markers. This is required because CommonMark only opens
+// emphasis when the `_` is immediately followed by a non-whitespace character and
+// only closes it when the `_` is immediately preceded by one; a space-indented
+// summary child line would otherwise render with literal underscores. A line that
+// is empty after trimming gets no emphasis markers (just its preserved indent).
+func emphasizeD2Line(raw string) string {
+	trimmedLeft := strings.TrimLeft(raw, " \t")
+	// Leading whitespace is ASCII (space/tab), so the byte-length difference is
+	// also the character count; render one &nbsp; per leading whitespace char.
+	indent := strings.Repeat("&nbsp;", len(raw)-len(trimmedLeft))
+	inner := strings.TrimRight(trimmedLeft, " \t")
+	if inner == "" {
+		return indent
+	}
+	return indent + "_" + escapeD2Markdown(inner) + "_"
 }
 
 // formatD2Edge renders a parent->child connection with the link type as its
