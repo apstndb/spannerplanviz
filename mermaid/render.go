@@ -24,7 +24,7 @@ func NewRenderer(opts Options) *Renderer {
 // Source returns Mermaid.js source text using plan.Build settings.
 func Source(plan *visualize.Plan) (string, error) {
 	var buf strings.Builder
-	if err := writeMermaid(&buf, plan, plan.Build); err != nil {
+	if err := writeMermaid(&buf, plan, plan.Build, visualize.GraphOptions{}); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
@@ -33,7 +33,7 @@ func Source(plan *visualize.Plan) (string, error) {
 // SourceWithOptions returns Mermaid.js source text using opts.BuildOptions instead of plan.Build.
 func SourceWithOptions(plan *visualize.Plan, opts Options) (string, error) {
 	var buf strings.Builder
-	if err := writeMermaid(&buf, plan, opts.BuildOptions); err != nil {
+	if err := writeMermaid(&buf, plan, opts.BuildOptions, graphOptions(opts)); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
@@ -44,7 +44,15 @@ func (r *Renderer) Render(ctx context.Context, w io.Writer, plan *visualize.Plan
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return writeMermaid(w, plan, r.Options.BuildOptions)
+	return writeMermaid(w, plan, r.Options.BuildOptions, graphOptions(r.Options))
+}
+
+// graphOptions maps the mermaid Options query flags onto visualize.GraphOptions.
+func graphOptions(opts Options) visualize.GraphOptions {
+	return visualize.GraphOptions{
+		ShowQuery:      opts.ShowQuery,
+		ShowQueryStats: opts.ShowQueryStats,
+	}
 }
 
 func mermaidInitConfig() map[string]any {
@@ -62,7 +70,7 @@ func mermaidInitConfig() map[string]any {
 	}
 }
 
-func writeMermaid(writer io.Writer, plan *visualize.Plan, build visualize.BuildOptions) error {
+func writeMermaid(writer io.Writer, plan *visualize.Plan, build visualize.BuildOptions, graphOpts visualize.GraphOptions) error {
 	if plan == nil || plan.Root == nil {
 		return fmt.Errorf("cannot render mermaid: plan is nil")
 	}
@@ -74,7 +82,7 @@ func writeMermaid(writer io.Writer, plan *visualize.Plan, build visualize.BuildO
 	// render-time options rather than plan.Build.
 	planForGraph := *plan
 	planForGraph.Build = build
-	graph, err := visualize.BuildGraph(&planForGraph, visualize.GraphOptions{})
+	graph, err := visualize.BuildGraph(&planForGraph, graphOpts)
 	if err != nil {
 		return err
 	}
@@ -130,6 +138,21 @@ func writeMermaid(writer io.Writer, plan *visualize.Plan, build visualize.BuildO
 	}
 
 	walk(graph.Root)
+
+	// The optional query node uses the standard mermaid node syntax and an
+	// unlabeled solid edge from the root. Its label reuses the node-label
+	// renderer: the query text is the bold title and the query stats are the
+	// italic stat lines.
+	if graph.Query != nil {
+		const queryID = "query"
+		queryLabel := visualize.RenderMermaidLabel(graphmodel.Label{
+			Title: graph.Query.Text,
+			Stats: graph.Query.Stats,
+		}, queryID)
+		fmt.Fprintf(&sb, "    %s[\"%s\"]\n", queryID, queryLabel)
+		fmt.Fprintf(&sb, "    style %s text-align:left;\n", queryID)
+		edgesToRender = append(edgesToRender, fmt.Sprintf("    %s --> %s\n", graph.Root.ID, queryID))
+	}
 
 	for _, edgeStr := range edgesToRender {
 		sb.WriteString(edgeStr)

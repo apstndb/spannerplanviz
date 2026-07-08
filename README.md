@@ -61,6 +61,26 @@ spannerplanviz --full --type=dot < dca_profile.json | dot -Tsvg -o profile.svg
 
 `--type svg` and `--type png` still produce fully laid-out output; they generate the same DOT source internally and render it with the embedded Graphviz runtime.
 
+You can emit [D2](https://d2lang.com) source using `--type d2` (EXPERIMENTAL). Lay it out with the `d2` CLI:
+
+```
+spannerplanviz --full --type=d2 --output profile.d2 < dca_profile.json
+d2 profile.d2 profile.svg
+```
+
+Node labels use D2 markdown blocks (`|md ... |`), tooltips carry the canonical plan YAML in `|yaml ... |` block strings, possible remote calls are drawn with a dashed stroke, and `--show-query`/`--show-query-stats` add a rounded query node linked from the root. See `visualize/testdata/dca_profile.golden.d2` for a full example.
+
+### Output types
+
+| `--type` | Output |
+| --- | --- |
+| `svg` (default), `png` | Fully laid-out Graphviz raster/vector, rendered with the embedded runtime |
+| `dot` | Unlaid-out Graphviz DOT source; lay out with `dot -Tsvg` |
+| `mermaid` | Mermaid.js flowchart source |
+| `d2` | [D2](https://d2lang.com) source; lay out with `d2 in.d2 out.svg` |
+
+`--show-query` and `--show-query-stats` add a query-text node and are honored by the `svg`, `png`, `dot`, `mermaid`, and `d2` types.
+
 ## Library usage
 
 Build a diagram model once, then render with the backend of your choice:
@@ -82,7 +102,11 @@ Renderers:
 - `mermaid.SourceWithOptions(plan, opts)` — override `plan.Build` at render time (including disabling flags)
 - `mermaid.NewRenderer(opts).Render(ctx, w, plan)` — streaming render
 - `dot.Source(plan)` / `dot.SourceWithOptions(plan, opts)` — DOT source text without a Graphviz runtime (no `goccy/go-graphviz` dependency); lay it out elsewhere, e.g. with a browser-side Graphviz build. This is the single source of truth for graph construction.
+- `d2.Source(plan)` / `d2.SourceWithOptions(plan, opts)` — [D2](https://d2lang.com) source text; lay it out with the `d2` CLI
+- `d2.NewRenderer(opts).Render(ctx, w, plan)` — streaming render
 - `graphviz.NewRenderer(opts).Render(ctx, w, plan)` — SVG/PNG via Graphviz; internally generates the `dot` package's source and hands it to the Graphviz runtime, so both paths describe an identical graph
+
+The `dot`, `mermaid` and `d2` backends all consume a shared backend-neutral graph model (`visualize.BuildGraph`), so they describe the same nodes, edges and labels.
 
 ## Browser embedding
 

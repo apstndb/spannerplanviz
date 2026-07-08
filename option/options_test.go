@@ -21,6 +21,13 @@ func TestOptionsNormalize(t *testing.T) {
 		}
 	})
 
+	t.Run("accepts d2 type", func(t *testing.T) {
+		opts := Options{TypeFlag: "d2"}
+		if err := opts.Normalize(); err != nil {
+			t.Fatalf("Normalize() error = %v", err)
+		}
+	})
+
 	t.Run("applies full option", func(t *testing.T) {
 		opts := Options{Full: true, TypeFlag: "dot"}
 		if err := opts.Normalize(); err != nil {
