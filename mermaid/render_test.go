@@ -112,6 +112,59 @@ graph TD
 	}
 }
 
+func TestRenderer_showQuery(t *testing.T) {
+	stats := &sppb.ResultSetStats{
+		QueryPlan: &sppb.QueryPlan{
+			PlanNodes: []*sppb.PlanNode{
+				{
+					Index:       0,
+					DisplayName: "Union",
+					Kind:        sppb.PlanNode_RELATIONAL,
+					ChildLinks:  []*sppb.PlanNode_ChildLink{{ChildIndex: 1, Type: "Input"}},
+					Metadata:    &structpb.Struct{},
+				},
+				{Index: 1, DisplayName: "Scan1", Kind: sppb.PlanNode_RELATIONAL, Metadata: &structpb.Struct{}},
+			},
+		},
+		QueryStats: &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"query_text":    structpb.NewStringValue("SELECT 1"),
+				"cpu_time":      structpb.NewStringValue("5 msecs"),
+				"rows_returned": structpb.NewStringValue("1"),
+			},
+		},
+	}
+
+	plan, err := visualize.BuildPlan(nil, stats, visualize.BuildOptions{})
+	if err != nil {
+		t.Fatalf("BuildPlan() error = %v", err)
+	}
+
+	// Without the flags, no query node is emitted.
+	base, err := mermaid.Source(plan)
+	if err != nil {
+		t.Fatalf("Source() error = %v", err)
+	}
+	if strings.Contains(base, "query[") {
+		t.Errorf("Source() must not emit a query node by default:\n%s", base)
+	}
+
+	got, err := mermaid.SourceWithOptions(plan, mermaid.Options{ShowQuery: true, ShowQueryStats: true})
+	if err != nil {
+		t.Fatalf("SourceWithOptions() error = %v", err)
+	}
+	for _, want := range []string{
+		`query["<b>SELECT&nbsp;1</b>`,
+		`<i>cpu_time: 5&nbsp;msecs</i>`,
+		`<i>rows_returned: 1</i>`,
+		"    node0 --> query\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("SourceWithOptions() output missing %q in:\n%s", want, got)
+		}
+	}
+}
+
 func TestRenderer_goldenDCAProfile(t *testing.T) {
 	jsonBytes, err := os.ReadFile(testdataPath("dca_profile.json"))
 	if err != nil {

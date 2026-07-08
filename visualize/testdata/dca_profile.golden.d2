@@ -1,0 +1,919 @@
+direction: down
+
+node0.shape: rectangle
+node0.label: |md
+**Distributed Cross Apply**
+
+Split Range: \($SingerId\_1 = $SingerId\)
+
+execution\_method: Row
+
+_Number of Batches: 1 batches_
+
+_cpu\_time: 376\.8 msecs_
+
+_latency: 1\.08 secs_
+
+_remote\_calls: 0 calls_
+
+_rows: 3069 rows_
+
+_execution\_summary:_
+
+_   checkpoint\_time: 0\.28 msecs_
+
+_   execution\_end\_timestamp: 2025\-06\-06T20:52:18\.231573Z_
+
+_   execution\_start\_timestamp: 2025\-06\-06T20:52:17\.148944Z_
+
+_   num\_checkpoints: 19_
+
+_   num\_executions: 1_
+|
+node0.tooltip: |yaml
+kind: RELATIONAL
+displayName: Distributed Cross Apply
+childLinks:
+- childIndex: 1
+- childIndex: 18
+  type: Map
+- childIndex: 54
+  type: Split Range
+metadata:
+  execution_method: Row
+  subquery_cluster_node: "18"
+executionStats:
+  Number of Batches:
+    total: "1"
+    unit: batches
+  cpu_time:
+    total: "376.8"
+    unit: msecs
+  execution_summary:
+    checkpoint_time: 0.28 msecs
+    execution_end_timestamp: "1749243138.231573"
+    execution_start_timestamp: "1749243137.148944"
+    num_checkpoints: 19
+    num_executions: "1"
+  latency:
+    total: "1.08"
+    unit: secs
+  remote_calls:
+    total: "0"
+    unit: calls
+  rows:
+    total: "3069"
+    unit: rows
+|
+node1.shape: rectangle
+node1.label: |md
+**Create Batch**
+
+execution\_method: Row
+
+$v2\.Batch:=$v1
+|
+node1.tooltip: |yaml
+index: 1
+kind: RELATIONAL
+displayName: Create Batch
+childLinks:
+- childIndex: 2
+- childIndex: 17
+  variable: v2.Batch
+metadata:
+  execution_method: Row
+|
+node2.shape: rectangle
+node2.label: |md
+**Compute Struct**
+
+execution\_method: Row
+
+$v1\.BirthDate:=$BirthDate
+
+$v1\.FirstName:=$FirstName
+
+$v1\.LastName:=$LastName
+
+$v1\.SingerId:=$SingerId
+
+$v1\.SingerInfo:=$SingerInfo
+
+_cpu\_time: 31\.2 msecs_
+
+_latency: 79\.04 msecs_
+
+_rows: 1000 rows_
+
+_execution\_summary:_
+
+_   checkpoint\_time: 0\.01 msecs_
+
+_   num\_checkpoints: 1_
+
+_   num\_executions: 1_
+|
+node2.tooltip: |yaml
+index: 2
+kind: RELATIONAL
+displayName: Compute Struct
+childLinks:
+- childIndex: 3
+- childIndex: 12
+  variable: v1.BirthDate
+- childIndex: 13
+  variable: v1.FirstName
+- childIndex: 14
+  variable: v1.LastName
+- childIndex: 15
+  variable: v1.SingerId
+- childIndex: 16
+  variable: v1.SingerInfo
+metadata:
+  execution_method: Row
+executionStats:
+  cpu_time:
+    total: "31.2"
+    unit: msecs
+  execution_summary:
+    checkpoint_time: 0.01 msecs
+    num_checkpoints: 1
+    num_executions: "1"
+  latency:
+    total: "79.04"
+    unit: msecs
+  rows:
+    total: "1000"
+    unit: rows
+|
+node3.shape: rectangle
+node3.label: |md
+**Distributed Union**
+
+Split Range: true
+
+distribution\_table: Singers
+
+execution\_method: Row
+
+split\_ranges\_aligned: false
+
+_cpu\_time: 30\.2 msecs_
+
+_latency: 78\.03 msecs_
+
+_remote\_calls: 0 calls_
+
+_rows: 1000 rows_
+
+_execution\_summary:_
+
+_   checkpoint\_time: 0\.01 msecs_
+
+_   num\_checkpoints: 1_
+
+_   num\_executions: 1_
+|
+node3.tooltip: |yaml
+index: 3
+kind: RELATIONAL
+displayName: Distributed Union
+childLinks:
+- childIndex: 4
+- childIndex: 11
+  type: Split Range
+metadata:
+  distribution_table: Singers
+  execution_method: Row
+  split_ranges_aligned: "false"
+  subquery_cluster_node: "4"
+executionStats:
+  cpu_time:
+    total: "30.2"
+    unit: msecs
+  execution_summary:
+    checkpoint_time: 0.01 msecs
+    num_checkpoints: 1
+    num_executions: "1"
+  latency:
+    total: "78.03"
+    unit: msecs
+  remote_calls:
+    total: "0"
+    unit: calls
+  rows:
+    total: "1000"
+    unit: rows
+|
+node4.shape: rectangle
+node4.label: |md
+**Local Distributed Union**
+
+execution\_method: Row
+
+_cpu\_time: 29\.97 msecs_
+
+_latency: 77\.8 msecs_
+
+_remote\_calls: 0 calls_
+
+_rows: 1000 rows_
+
+_execution\_summary:_
+
+_   checkpoint\_time: 0\.01 msecs_
+
+_   execution\_end\_timestamp: 2025\-06\-06T20:52:17\.228881Z_
+
+_   execution\_start\_timestamp: 2025\-06\-06T20:52:17\.14899Z_
+
+_   num\_checkpoints: 1_
+
+_   num\_executions: 1_
+|
+node4.tooltip: |yaml
+index: 4
+kind: RELATIONAL
+displayName: Distributed Union
+childLinks:
+- childIndex: 5
+metadata:
+  call_type: Local
+  execution_method: Row
+  subquery_cluster_node: "5"
+executionStats:
+  cpu_time:
+    total: "29.97"
+    unit: msecs
+  execution_summary:
+    checkpoint_time: 0.01 msecs
+    execution_end_timestamp: "1749243137.228881"
+    execution_start_timestamp: "1749243137.148990"
+    num_checkpoints: 1
+    num_executions: "1"
+  latency:
+    total: "77.8"
+    unit: msecs
+  remote_calls:
+    total: "0"
+    unit: calls
+  rows:
+    total: "1000"
+    unit: rows
+|
+node5.shape: rectangle
+node5.label: |md
+**Table Scan**
+
+Table: Singers
+
+Full scan: true
+
+execution\_method: Row
+
+scan\_method: Automatic
+
+$SingerId:=SingerId
+
+$FirstName:=FirstName
+
+$LastName:=LastName
+
+$SingerInfo:=SingerInfo
+
+$BirthDate:=BirthDate
+
+_cpu\_time: 29\.84 msecs_
+
+_deleted\_rows: 0@0±0 rows_
+
+_filesystem\_delay\_seconds: 48\.16@24\.08±24\.08 msecs_
+
+_filtered\_rows: 0@0±0 rows_
+
+_latency: 77\.66 msecs_
+
+_rows: 1000 rows_
+
+_scanned\_rows: 1000@500±500 rows_
+
+_execution\_summary:_
+
+_   checkpoint\_time: 0 msecs_
+
+_   num\_checkpoints: 1_
+
+_   num\_executions: 1_
+|
+node5.tooltip: |yaml
+index: 5
+kind: RELATIONAL
+displayName: Scan
+childLinks:
+- childIndex: 6
+  variable: SingerId
+- childIndex: 7
+  variable: FirstName
+- childIndex: 8
+  variable: LastName
+- childIndex: 9
+  variable: SingerInfo
+- childIndex: 10
+  variable: BirthDate
+metadata:
+  Full scan: "true"
+  execution_method: Row
+  scan_method: Automatic
+  scan_target: Singers
+  scan_type: TableScan
+executionStats:
+  cpu_time:
+    total: "29.84"
+    unit: msecs
+  deleted_rows:
+    mean: "0"
+    std_deviation: "0"
+    total: "0"
+    unit: rows
+  execution_summary:
+    checkpoint_time: 0 msecs
+    num_checkpoints: 1
+    num_executions: "1"
+  filesystem_delay_seconds:
+    histogram:
+    - count: "1"
+      lower_bound: "0"
+      percentage: "50"
+      upper_bound: "1"
+    - count: "1"
+      lower_bound: "16"
+      percentage: "50"
+      upper_bound: "64"
+    mean: "24.08"
+    std_deviation: "24.08"
+    total: "48.16"
+    unit: msecs
+  filtered_rows:
+    mean: "0"
+    std_deviation: "0"
+    total: "0"
+    unit: rows
+  latency:
+    total: "77.66"
+    unit: msecs
+  rows:
+    total: "1000"
+    unit: rows
+  scanned_rows:
+    histogram:
+    - count: "1"
+      lower_bound: "0"
+      percentage: "50"
+      upper_bound: "1"
+    - count: "1"
+      lower_bound: "256"
+      percentage: "50"
+      upper_bound: "1024"
+    mean: "500"
+    std_deviation: "500"
+    total: "1000"
+    unit: rows
+|
+node18.shape: rectangle
+node18.label: |md
+**Serialize Result**
+
+Result\.SingerId:$batched\_SingerId
+
+Result\.FirstName:$batched\_FirstName
+
+Result\.LastName:$batched\_LastName
+
+Result\.SingerInfo:$batched\_SingerInfo
+
+Result\.BirthDate:$batched\_BirthDate
+
+Result\.AlbumId:$AlbumId
+
+Result\.TrackId:$TrackId
+
+Result\.SongName:$SongName
+
+Result\.Duration:$Duration
+
+Result\.SongGenre:$SongGenre
+
+execution\_method: Row
+
+_cpu\_time: 342\.95 msecs_
+
+_latency: 998\.11 msecs_
+
+_rows: 3069 rows_
+
+_execution\_summary:_
+
+_   checkpoint\_time: 0\.18 msecs_
+
+_   execution\_end\_timestamp: 2025\-06\-06T20:52:18\.231497Z_
+
+_   execution\_start\_timestamp: 2025\-06\-06T20:52:17\.229908Z_
+
+_   num\_checkpoints: 19_
+
+_   num\_executions: 1_
+|
+node18.tooltip: |yaml
+index: 18
+kind: RELATIONAL
+displayName: Serialize Result
+childLinks:
+- childIndex: 19
+- childIndex: 44
+- childIndex: 45
+- childIndex: 46
+- childIndex: 47
+- childIndex: 48
+- childIndex: 49
+- childIndex: 50
+- childIndex: 51
+- childIndex: 52
+- childIndex: 53
+metadata:
+  execution_method: Row
+executionStats:
+  cpu_time:
+    total: "342.95"
+    unit: msecs
+  execution_summary:
+    checkpoint_time: 0.18 msecs
+    execution_end_timestamp: "1749243138.231497"
+    execution_start_timestamp: "1749243137.229908"
+    num_checkpoints: 19
+    num_executions: "1"
+  latency:
+    total: "998.11"
+    unit: msecs
+  rows:
+    total: "3069"
+    unit: rows
+|
+node19.shape: rectangle
+node19.label: |md
+**Cross Apply**
+
+execution\_method: Row
+
+_cpu\_time: 341\.43 msecs_
+
+_latency: 996\.58 msecs_
+
+_rows: 3069 rows_
+
+_execution\_summary:_
+
+_   checkpoint\_time: 0\.17 msecs_
+
+_   num\_checkpoints: 19_
+
+_   num\_executions: 1_
+|
+node19.tooltip: |yaml
+index: 19
+kind: RELATIONAL
+displayName: Cross Apply
+childLinks:
+- childIndex: 20
+- childIndex: 27
+  type: Map
+metadata:
+  execution_method: Row
+executionStats:
+  cpu_time:
+    total: "341.43"
+    unit: msecs
+  execution_summary:
+    checkpoint_time: 0.17 msecs
+    num_checkpoints: 19
+    num_executions: "1"
+  latency:
+    total: "996.58"
+    unit: msecs
+  rows:
+    total: "3069"
+    unit: rows
+|
+node20.shape: rectangle
+node20.label: |md
+**KeyRangeAccumulator**
+
+execution\_method: Row
+
+_cpu\_time: 0\.62 msecs_
+|
+node20.tooltip: |yaml
+index: 20
+kind: RELATIONAL
+displayName: KeyRangeAccumulator
+childLinks:
+- childIndex: 21
+metadata:
+  execution_method: Row
+executionStats:
+  cpu_time:
+    total: "0.62"
+    unit: msecs
+|
+node21.shape: rectangle
+node21.label: |md
+**Batch Scan**
+
+Batch: $v2
+
+execution\_method: Row
+
+scan\_method: Row
+
+$batched\_BirthDate:=BirthDate
+
+$batched\_FirstName:=FirstName
+
+$batched\_LastName:=LastName
+
+$batched\_SingerId:=SingerId
+
+$batched\_SingerInfo:=SingerInfo
+|
+node21.tooltip: |yaml
+index: 21
+kind: RELATIONAL
+displayName: Scan
+childLinks:
+- childIndex: 22
+  variable: batched_BirthDate
+- childIndex: 23
+  variable: batched_FirstName
+- childIndex: 24
+  variable: batched_LastName
+- childIndex: 25
+  variable: batched_SingerId
+- childIndex: 26
+  variable: batched_SingerInfo
+metadata:
+  execution_method: Row
+  scan_method: Row
+  scan_target: $v2
+  scan_type: BatchScan
+|
+node27.shape: rectangle
+node27.label: |md
+**Local Distributed Union**
+
+execution\_method: Row
+
+_cpu\_time: 340\.03@0\.34±0\.06 msecs_
+
+_latency: 995\.19@1±8\.12 msecs_
+
+_remote\_calls: 0@0±0 calls_
+
+_rows: 3069@3\.07±1\.72 rows_
+
+_execution\_summary:_
+
+_   checkpoint\_time: 0\.16 msecs_
+
+_   num\_checkpoints: 19_
+
+_   num\_executions: 1000_
+|
+node27.tooltip: |yaml
+index: 27
+kind: RELATIONAL
+displayName: Distributed Union
+childLinks:
+- childIndex: 28
+metadata:
+  call_type: Local
+  execution_method: Row
+  subquery_cluster_node: "28"
+executionStats:
+  cpu_time:
+    histogram:
+    - count: "999"
+      lower_bound: "0"
+      percentage: "99"
+      upper_bound: "1"
+    - count: "1"
+      lower_bound: "1"
+      percentage: "0"
+      upper_bound: "2"
+    mean: "0.34"
+    std_deviation: "0.06"
+    total: "340.03"
+    unit: msecs
+  execution_summary:
+    checkpoint_time: 0.16 msecs
+    num_checkpoints: 19
+    num_executions: "1000"
+  latency:
+    histogram:
+    - count: "975"
+      lower_bound: "0"
+      percentage: "97"
+      upper_bound: "1"
+    - count: "3"
+      lower_bound: "1"
+      percentage: "0"
+      upper_bound: "2"
+    - count: "1"
+      lower_bound: "2"
+      percentage: "0"
+      upper_bound: "4"
+    - count: "1"
+      lower_bound: "4"
+      percentage: "0"
+      upper_bound: "8"
+    - count: "8"
+      lower_bound: "8"
+      percentage: "0"
+      upper_bound: "16"
+    - count: "8"
+      lower_bound: "16"
+      percentage: "0"
+      upper_bound: "32"
+    - count: "3"
+      lower_bound: "32"
+      percentage: "0"
+      upper_bound: "64"
+    - count: "1"
+      lower_bound: "128"
+      percentage: "0"
+      upper_bound: "256"
+    mean: "1"
+    std_deviation: "8.12"
+    total: "995.19"
+    unit: msecs
+  remote_calls:
+    mean: "0"
+    std_deviation: "0"
+    total: "0"
+    unit: calls
+  rows:
+    histogram:
+    - count: "49"
+      lower_bound: "0"
+      percentage: "4"
+      upper_bound: "1"
+    - count: "950"
+      lower_bound: "1"
+      percentage: "95"
+      upper_bound: "10"
+    - count: "1"
+      lower_bound: "10"
+      percentage: "0"
+      upper_bound: "100"
+    mean: "3.07"
+    std_deviation: "1.72"
+    total: "3069"
+    unit: rows
+|
+node28.shape: rectangle
+node28.label: |md
+**Filter Scan**
+
+Residual Condition: \($SongName LIKE 'Th%e'\)
+
+execution\_method: Row
+
+seekable\_key\_size: 0
+|
+node28.tooltip: |yaml
+index: 28
+kind: RELATIONAL
+displayName: Filter Scan
+childLinks:
+- childIndex: 29
+- childIndex: 43
+  type: Residual Condition
+metadata:
+  execution_method: Row
+  seekable_key_size: "0"
+|
+node29.shape: rectangle
+node29.label: |md
+**Table Scan**
+
+Table: Songs
+
+Seek Condition: \($SingerId\_1 = $batched\_SingerId\)
+
+execution\_method: Row
+
+scan\_method: Row
+
+$SingerId\_1:=SingerId
+
+$AlbumId:=AlbumId
+
+$TrackId:=TrackId
+
+$SongName:=SongName
+
+$Duration:=Duration
+
+$SongGenre:=SongGenre
+
+_cpu\_time: 339\.21@0\.34±0\.06 msecs_
+
+_deleted\_rows: 0 rows_
+
+_filesystem\_delay\_seconds: 521\.29 msecs_
+
+_filtered\_rows: 1020931 rows_
+
+_latency: 994\.3@0\.99±8\.12 msecs_
+
+_rows: 3069@3\.07±1\.72 rows_
+
+_scanned\_rows: 1024000 rows_
+
+_execution\_summary:_
+
+_   checkpoint\_time: 0\.05 msecs_
+
+_   num\_checkpoints: 19_
+
+_   num\_executions: 1000_
+|
+node29.tooltip: |yaml
+index: 29
+kind: RELATIONAL
+displayName: Scan
+childLinks:
+- childIndex: 30
+  variable: SingerId_1
+- childIndex: 31
+  variable: AlbumId
+- childIndex: 32
+  variable: TrackId
+- childIndex: 33
+  variable: SongName
+- childIndex: 34
+  variable: Duration
+- childIndex: 35
+  variable: SongGenre
+- childIndex: 42
+  type: Seek Condition
+metadata:
+  execution_method: Row
+  scan_method: Row
+  scan_target: Songs
+  scan_type: TableScan
+executionStats:
+  cpu_time:
+    histogram:
+    - count: "999"
+      lower_bound: "0"
+      percentage: "99"
+      upper_bound: "1"
+    - count: "1"
+      lower_bound: "1"
+      percentage: "0"
+      upper_bound: "2"
+    mean: "0.34"
+    std_deviation: "0.06"
+    total: "339.21"
+    unit: msecs
+  deleted_rows:
+    total: "0"
+    unit: rows
+  execution_summary:
+    checkpoint_time: 0.05 msecs
+    num_checkpoints: 19
+    num_executions: "1000"
+  filesystem_delay_seconds:
+    total: "521.29"
+    unit: msecs
+  filtered_rows:
+    total: "1020931"
+    unit: rows
+  latency:
+    histogram:
+    - count: "975"
+      lower_bound: "0"
+      percentage: "97"
+      upper_bound: "1"
+    - count: "3"
+      lower_bound: "1"
+      percentage: "0"
+      upper_bound: "2"
+    - count: "1"
+      lower_bound: "2"
+      percentage: "0"
+      upper_bound: "4"
+    - count: "1"
+      lower_bound: "4"
+      percentage: "0"
+      upper_bound: "8"
+    - count: "8"
+      lower_bound: "8"
+      percentage: "0"
+      upper_bound: "16"
+    - count: "8"
+      lower_bound: "16"
+      percentage: "0"
+      upper_bound: "32"
+    - count: "3"
+      lower_bound: "32"
+      percentage: "0"
+      upper_bound: "64"
+    - count: "1"
+      lower_bound: "128"
+      percentage: "0"
+      upper_bound: "256"
+    mean: "0.99"
+    std_deviation: "8.12"
+    total: "994.3"
+    unit: msecs
+  rows:
+    histogram:
+    - count: "49"
+      lower_bound: "0"
+      percentage: "4"
+      upper_bound: "1"
+    - count: "950"
+      lower_bound: "1"
+      percentage: "95"
+      upper_bound: "10"
+    - count: "1"
+      lower_bound: "10"
+      percentage: "0"
+      upper_bound: "100"
+    mean: "3.07"
+    std_deviation: "1.72"
+    total: "3069"
+    unit: rows
+  scanned_rows:
+    total: "1024000"
+    unit: rows
+|
+query.shape: rectangle
+query.style.border-radius: 8
+query.label: |md
+**SELECT \* FROM Singers JOIN Songs USING\(SingerId\) WHERE SongName LIKE 'Th%e'**
+
+_bytes\_returned: 162415_
+
+_cpu\_time: 381\.16 msecs_
+
+_data\_bytes\_read: 72172150_
+
+_deleted\_rows\_scanned: 0_
+
+_elapsed\_time: 1\.09 secs_
+
+_filesystem\_delay\_seconds: 569\.44 msecs_
+
+_is\_graph\_query: false_
+
+_locking\_delay: 0 msecs_
+
+_memory\_peak\_usage\_bytes: 8248_
+
+_memory\_usage\_percentage: 0\.003_
+
+_optimizer\_statistics\_package: auto\_20250604\_03\_26\_04UTC_
+
+_optimizer\_version: 8_
+
+_query\_plan\_cached: true_
+
+_remote\_server\_calls: 0/0_
+
+_rows\_returned: 3069_
+
+_rows\_scanned: 1025000_
+
+_runtime\_creation\_time: 0\.79 msecs_
+
+_server\_queue\_delay: 630\.63 msecs_
+
+_statistics\_load\_time: 0_
+
+_total\_memory\_peak\_usage\_byte: 8248_
+|
+node0 -> node1: Input
+node1 -> node2
+node2 -> node3
+node3 -> node4 {style.stroke-dash: 3}
+node4 -> node5
+node0 -> node18: Map {style.stroke-dash: 3}
+node18 -> node19
+node19 -> node20: Input
+node20 -> node21
+node19 -> node27: Map
+node27 -> node28
+node28 -> node29
+node0 -> query

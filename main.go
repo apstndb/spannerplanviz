@@ -26,6 +26,7 @@ import (
 	"github.com/apstndb/spannerplan"
 	"github.com/jessevdk/go-flags"
 
+	"github.com/apstndb/spannerplanviz/d2"
 	"github.com/apstndb/spannerplanviz/dot"
 	"github.com/apstndb/spannerplanviz/graphviz"
 	"github.com/apstndb/spannerplanviz/mermaid"
@@ -130,7 +131,17 @@ func run(ctx context.Context) error {
 func render(ctx context.Context, w io.Writer, plan *visualize.Plan, opts option.Options) error {
 	switch opts.TypeFlag {
 	case "mermaid":
-		return mermaid.NewRenderer(mermaid.Options{BuildOptions: plan.Build}).Render(ctx, w, plan)
+		return mermaid.NewRenderer(mermaid.Options{
+			BuildOptions:   plan.Build,
+			ShowQuery:      opts.ShowQuery,
+			ShowQueryStats: opts.ShowQueryStats,
+		}).Render(ctx, w, plan)
+	case "d2":
+		return d2.NewRenderer(d2.Options{
+			BuildOptions:   plan.Build,
+			ShowQuery:      opts.ShowQuery,
+			ShowQueryStats: opts.ShowQueryStats,
+		}).Render(ctx, w, plan)
 	case "dot":
 		// --type dot emits pure DOT source via the dot package (the single
 		// source of truth for graph construction) rather than routing through

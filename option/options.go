@@ -10,7 +10,7 @@ type Options struct {
 	Positional struct {
 		Input string
 	} `positional-args:"yes"`
-	TypeFlag          string   `long:"type" description:"output type" default:"svg" choice:"svg" choice:"dot" choice:"png" choice:"mermaid"` // nolint:staticcheck
+	TypeFlag          string   `long:"type" description:"output type" default:"svg" choice:"svg" choice:"dot" choice:"png" choice:"mermaid" choice:"d2"` // nolint:staticcheck
 	Filename          string   `long:"output"`
 	NonVariableScalar bool     `long:"non-variable-scalar"`
 	VariableScalar    bool     `long:"variable-scalar"`
@@ -59,7 +59,7 @@ func (o *Options) Normalize() error {
 		o.TypeFlag = "svg"
 	}
 	switch o.TypeFlag {
-	case "svg", "dot", "png", "mermaid":
+	case "svg", "dot", "png", "mermaid", "d2":
 		return nil
 	default:
 		return fmt.Errorf("unsupported output type %q", o.TypeFlag)
