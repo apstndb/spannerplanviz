@@ -1,13 +1,17 @@
 digraph {
 	graph [fontname="Times New Roman:style=Bold", rankdir="BT", start="regular"];
-	"node0" [label=<<b>Distributed Cross Apply</b><br align="CENTER"/>Split Range: ($SingerId_1 = $SingerId)<br align="left" />execution_method=Row<br align="left" /><i>Number of Batches: 1 batches<br align="left" />cpu_time: 376.8 msecs<br align="left" />latency: 1.08 secs<br align="left" />remote_calls: 0 calls<br align="left" />rows: 3069 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.28 msecs<br align="left" />   execution_end_timestamp: 2025-06-06T20:52:18.231573Z<br align="left" />   execution_start_timestamp: 2025-06-06T20:52:17.148944Z<br align="left" />   num_checkpoints: 19<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="child_links:
-- child_index: 1
-- child_index: 18
+	"node0" [label=<<b>Distributed Cross Apply</b><br align="CENTER"/>Split Range: ($SingerId_1 = $SingerId)<br align="left" />execution_method=Row<br align="left" /><i>Number of Batches: 1 batches<br align="left" />cpu_time: 376.8 msecs<br align="left" />latency: 1.08 secs<br align="left" />remote_calls: 0 calls<br align="left" />rows: 3069 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.28 msecs<br align="left" />   execution_end_timestamp: 2025-06-06T20:52:18.231573Z<br align="left" />   execution_start_timestamp: 2025-06-06T20:52:17.148944Z<br align="left" />   num_checkpoints: 19<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="kind: RELATIONAL
+displayName: Distributed Cross Apply
+childLinks:
+- childIndex: 1
+- childIndex: 18
   type: Map
-- child_index: 54
+- childIndex: 54
   type: Split Range
-display_name: Distributed Cross Apply
-execution_stats:
+metadata:
+  execution_method: Row
+  subquery_cluster_node: \"18\"
+executionStats:
   Number of Batches:
     total: \"1\"
     unit: batches
@@ -29,35 +33,35 @@ execution_stats:
   rows:
     total: \"3069\"
     unit: rows
-kind: 1
-metadata:
-  execution_method: Row
-  subquery_cluster_node: \"18\"
 "];
-	"node1" [label=<<b>Create Batch</b><br align="CENTER"/>execution_method=Row<br align="left" />$v2.Batch:=$v1<br align="left" />>, shape="box", tooltip="child_links:
-- child_index: 2
-- child_index: 17
+	"node1" [label=<<b>Create Batch</b><br align="CENTER"/>execution_method=Row<br align="left" />$v2.Batch:=$v1<br align="left" />>, shape="box", tooltip="index: 1
+kind: RELATIONAL
+displayName: Create Batch
+childLinks:
+- childIndex: 2
+- childIndex: 17
   variable: v2.Batch
-display_name: Create Batch
-index: 1
-kind: 1
 metadata:
   execution_method: Row
 "];
-	"node2" [label=<<b>Compute Struct</b><br align="CENTER"/>execution_method=Row<br align="left" />$v1.BirthDate:=$BirthDate<br align="left" />$v1.FirstName:=$FirstName<br align="left" />$v1.LastName:=$LastName<br align="left" />$v1.SingerId:=$SingerId<br align="left" />$v1.SingerInfo:=$SingerInfo<br align="left" /><i>cpu_time: 31.2 msecs<br align="left" />latency: 79.04 msecs<br align="left" />rows: 1000 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.01 msecs<br align="left" />   num_checkpoints: 1<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="child_links:
-- child_index: 3
-- child_index: 12
+	"node2" [label=<<b>Compute Struct</b><br align="CENTER"/>execution_method=Row<br align="left" />$v1.BirthDate:=$BirthDate<br align="left" />$v1.FirstName:=$FirstName<br align="left" />$v1.LastName:=$LastName<br align="left" />$v1.SingerId:=$SingerId<br align="left" />$v1.SingerInfo:=$SingerInfo<br align="left" /><i>cpu_time: 31.2 msecs<br align="left" />latency: 79.04 msecs<br align="left" />rows: 1000 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.01 msecs<br align="left" />   num_checkpoints: 1<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="index: 2
+kind: RELATIONAL
+displayName: Compute Struct
+childLinks:
+- childIndex: 3
+- childIndex: 12
   variable: v1.BirthDate
-- child_index: 13
+- childIndex: 13
   variable: v1.FirstName
-- child_index: 14
+- childIndex: 14
   variable: v1.LastName
-- child_index: 15
+- childIndex: 15
   variable: v1.SingerId
-- child_index: 16
+- childIndex: 16
   variable: v1.SingerInfo
-display_name: Compute Struct
-execution_stats:
+metadata:
+  execution_method: Row
+executionStats:
   cpu_time:
     total: \"31.2\"
     unit: msecs
@@ -71,17 +75,20 @@ execution_stats:
   rows:
     total: \"1000\"
     unit: rows
-index: 2
-kind: 1
-metadata:
-  execution_method: Row
 "];
-	"node3" [label=<<b>Distributed Union</b><br align="CENTER"/>Split Range: true<br align="left" />distribution_table=Singers<br align="left" />execution_method=Row<br align="left" />split_ranges_aligned=false<br align="left" /><i>cpu_time: 30.2 msecs<br align="left" />latency: 78.03 msecs<br align="left" />remote_calls: 0 calls<br align="left" />rows: 1000 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.01 msecs<br align="left" />   num_checkpoints: 1<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="child_links:
-- child_index: 4
-- child_index: 11
+	"node3" [label=<<b>Distributed Union</b><br align="CENTER"/>Split Range: true<br align="left" />distribution_table=Singers<br align="left" />execution_method=Row<br align="left" />split_ranges_aligned=false<br align="left" /><i>cpu_time: 30.2 msecs<br align="left" />latency: 78.03 msecs<br align="left" />remote_calls: 0 calls<br align="left" />rows: 1000 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.01 msecs<br align="left" />   num_checkpoints: 1<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="index: 3
+kind: RELATIONAL
+displayName: Distributed Union
+childLinks:
+- childIndex: 4
+- childIndex: 11
   type: Split Range
-display_name: Distributed Union
-execution_stats:
+metadata:
+  distribution_table: Singers
+  execution_method: Row
+  split_ranges_aligned: \"false\"
+  subquery_cluster_node: \"4\"
+executionStats:
   cpu_time:
     total: \"30.2\"
     unit: msecs
@@ -98,18 +105,17 @@ execution_stats:
   rows:
     total: \"1000\"
     unit: rows
-index: 3
-kind: 1
-metadata:
-  distribution_table: Singers
-  execution_method: Row
-  split_ranges_aligned: \"false\"
-  subquery_cluster_node: \"4\"
 "];
-	"node4" [label=<<b>Local Distributed Union</b><br align="CENTER"/>execution_method=Row<br align="left" /><i>cpu_time: 29.97 msecs<br align="left" />latency: 77.8 msecs<br align="left" />remote_calls: 0 calls<br align="left" />rows: 1000 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.01 msecs<br align="left" />   execution_end_timestamp: 2025-06-06T20:52:17.228881Z<br align="left" />   execution_start_timestamp: 2025-06-06T20:52:17.14899Z<br align="left" />   num_checkpoints: 1<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="child_links:
-- child_index: 5
-display_name: Distributed Union
-execution_stats:
+	"node4" [label=<<b>Local Distributed Union</b><br align="CENTER"/>execution_method=Row<br align="left" /><i>cpu_time: 29.97 msecs<br align="left" />latency: 77.8 msecs<br align="left" />remote_calls: 0 calls<br align="left" />rows: 1000 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.01 msecs<br align="left" />   execution_end_timestamp: 2025-06-06T20:52:17.228881Z<br align="left" />   execution_start_timestamp: 2025-06-06T20:52:17.14899Z<br align="left" />   num_checkpoints: 1<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="index: 4
+kind: RELATIONAL
+displayName: Distributed Union
+childLinks:
+- childIndex: 5
+metadata:
+  call_type: Local
+  execution_method: Row
+  subquery_cluster_node: \"5\"
+executionStats:
   cpu_time:
     total: \"29.97\"
     unit: msecs
@@ -128,26 +134,28 @@ execution_stats:
   rows:
     total: \"1000\"
     unit: rows
-index: 4
-kind: 1
-metadata:
-  call_type: Local
-  execution_method: Row
-  subquery_cluster_node: \"5\"
 "];
-	"node5" [label=<<b>Table Scan</b><br align="CENTER"/>Table: Singers<br align="left" />Full scan=true<br align="left" />execution_method=Row<br align="left" />scan_method=Automatic<br align="left" />$SingerId:=SingerId<br align="left" />$FirstName:=FirstName<br align="left" />$LastName:=LastName<br align="left" />$SingerInfo:=SingerInfo<br align="left" />$BirthDate:=BirthDate<br align="left" /><i>cpu_time: 29.84 msecs<br align="left" />deleted_rows: 0@0±0 rows<br align="left" />filesystem_delay_seconds: 48.16@24.08±24.08 msecs<br align="left" />filtered_rows: 0@0±0 rows<br align="left" />latency: 77.66 msecs<br align="left" />rows: 1000 rows<br align="left" />scanned_rows: 1000@500±500 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0 msecs<br align="left" />   num_checkpoints: 1<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="child_links:
-- child_index: 6
+	"node5" [label=<<b>Table Scan</b><br align="CENTER"/>Table: Singers<br align="left" />Full scan=true<br align="left" />execution_method=Row<br align="left" />scan_method=Automatic<br align="left" />$SingerId:=SingerId<br align="left" />$FirstName:=FirstName<br align="left" />$LastName:=LastName<br align="left" />$SingerInfo:=SingerInfo<br align="left" />$BirthDate:=BirthDate<br align="left" /><i>cpu_time: 29.84 msecs<br align="left" />deleted_rows: 0@0±0 rows<br align="left" />filesystem_delay_seconds: 48.16@24.08±24.08 msecs<br align="left" />filtered_rows: 0@0±0 rows<br align="left" />latency: 77.66 msecs<br align="left" />rows: 1000 rows<br align="left" />scanned_rows: 1000@500±500 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0 msecs<br align="left" />   num_checkpoints: 1<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="index: 5
+kind: RELATIONAL
+displayName: Scan
+childLinks:
+- childIndex: 6
   variable: SingerId
-- child_index: 7
+- childIndex: 7
   variable: FirstName
-- child_index: 8
+- childIndex: 8
   variable: LastName
-- child_index: 9
+- childIndex: 9
   variable: SingerInfo
-- child_index: 10
+- childIndex: 10
   variable: BirthDate
-display_name: Scan
-execution_stats:
+metadata:
+  Full scan: \"true\"
+  execution_method: Row
+  scan_method: Automatic
+  scan_target: Singers
+  scan_type: TableScan
+executionStats:
   cpu_time:
     total: \"29.84\"
     unit: msecs
@@ -199,34 +207,30 @@ execution_stats:
     std_deviation: \"500\"
     total: \"1000\"
     unit: rows
-index: 5
-kind: 1
-metadata:
-  Full scan: \"true\"
-  execution_method: Row
-  scan_method: Automatic
-  scan_target: Singers
-  scan_type: TableScan
 "];
 	"node5" -> "node4" [label="", style="solid"];
 	"node4" -> "node3" [label="", style="dashed"];
 	"node3" -> "node2" [label="", style="solid"];
 	"node2" -> "node1" [label="", style="solid"];
 	"node1" -> "node0" [label="Input", style="solid"];
-	"node18" [label=<<b>Serialize Result</b><br align="CENTER"/>Result.SingerId:$batched_SingerId<br align="left" />Result.FirstName:$batched_FirstName<br align="left" />Result.LastName:$batched_LastName<br align="left" />Result.SingerInfo:$batched_SingerInfo<br align="left" />Result.BirthDate:$batched_BirthDate<br align="left" />Result.AlbumId:$AlbumId<br align="left" />Result.TrackId:$TrackId<br align="left" />Result.SongName:$SongName<br align="left" />Result.Duration:$Duration<br align="left" />Result.SongGenre:$SongGenre<br align="left" />execution_method=Row<br align="left" /><i>cpu_time: 342.95 msecs<br align="left" />latency: 998.11 msecs<br align="left" />rows: 3069 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.18 msecs<br align="left" />   execution_end_timestamp: 2025-06-06T20:52:18.231497Z<br align="left" />   execution_start_timestamp: 2025-06-06T20:52:17.229908Z<br align="left" />   num_checkpoints: 19<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="child_links:
-- child_index: 19
-- child_index: 44
-- child_index: 45
-- child_index: 46
-- child_index: 47
-- child_index: 48
-- child_index: 49
-- child_index: 50
-- child_index: 51
-- child_index: 52
-- child_index: 53
-display_name: Serialize Result
-execution_stats:
+	"node18" [label=<<b>Serialize Result</b><br align="CENTER"/>Result.SingerId:$batched_SingerId<br align="left" />Result.FirstName:$batched_FirstName<br align="left" />Result.LastName:$batched_LastName<br align="left" />Result.SingerInfo:$batched_SingerInfo<br align="left" />Result.BirthDate:$batched_BirthDate<br align="left" />Result.AlbumId:$AlbumId<br align="left" />Result.TrackId:$TrackId<br align="left" />Result.SongName:$SongName<br align="left" />Result.Duration:$Duration<br align="left" />Result.SongGenre:$SongGenre<br align="left" />execution_method=Row<br align="left" /><i>cpu_time: 342.95 msecs<br align="left" />latency: 998.11 msecs<br align="left" />rows: 3069 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.18 msecs<br align="left" />   execution_end_timestamp: 2025-06-06T20:52:18.231497Z<br align="left" />   execution_start_timestamp: 2025-06-06T20:52:17.229908Z<br align="left" />   num_checkpoints: 19<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="index: 18
+kind: RELATIONAL
+displayName: Serialize Result
+childLinks:
+- childIndex: 19
+- childIndex: 44
+- childIndex: 45
+- childIndex: 46
+- childIndex: 47
+- childIndex: 48
+- childIndex: 49
+- childIndex: 50
+- childIndex: 51
+- childIndex: 52
+- childIndex: 53
+metadata:
+  execution_method: Row
+executionStats:
   cpu_time:
     total: \"342.95\"
     unit: msecs
@@ -242,17 +246,17 @@ execution_stats:
   rows:
     total: \"3069\"
     unit: rows
-index: 18
-kind: 1
+"];
+	"node19" [label=<<b>Cross Apply</b><br align="CENTER"/>execution_method=Row<br align="left" /><i>cpu_time: 341.43 msecs<br align="left" />latency: 996.58 msecs<br align="left" />rows: 3069 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.17 msecs<br align="left" />   num_checkpoints: 19<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="index: 19
+kind: RELATIONAL
+displayName: Cross Apply
+childLinks:
+- childIndex: 20
+- childIndex: 27
+  type: Map
 metadata:
   execution_method: Row
-"];
-	"node19" [label=<<b>Cross Apply</b><br align="CENTER"/>execution_method=Row<br align="left" /><i>cpu_time: 341.43 msecs<br align="left" />latency: 996.58 msecs<br align="left" />rows: 3069 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.17 msecs<br align="left" />   num_checkpoints: 19<br align="left" />   num_executions: 1<br align="left" /></i>>, shape="box", tooltip="child_links:
-- child_index: 20
-- child_index: 27
-  type: Map
-display_name: Cross Apply
-execution_stats:
+executionStats:
   cpu_time:
     total: \"341.43\"
     unit: msecs
@@ -266,37 +270,33 @@ execution_stats:
   rows:
     total: \"3069\"
     unit: rows
-index: 19
-kind: 1
+"];
+	"node20" [label=<<b>KeyRangeAccumulator</b><br align="CENTER"/>execution_method=Row<br align="left" /><i>cpu_time: 0.62 msecs<br align="left" /></i>>, shape="box", tooltip="index: 20
+kind: RELATIONAL
+displayName: KeyRangeAccumulator
+childLinks:
+- childIndex: 21
 metadata:
   execution_method: Row
-"];
-	"node20" [label=<<b>KeyRangeAccumulator</b><br align="CENTER"/>execution_method=Row<br align="left" /><i>cpu_time: 0.62 msecs<br align="left" /></i>>, shape="box", tooltip="child_links:
-- child_index: 21
-display_name: KeyRangeAccumulator
-execution_stats:
+executionStats:
   cpu_time:
     total: \"0.62\"
     unit: msecs
-index: 20
-kind: 1
-metadata:
-  execution_method: Row
 "];
-	"node21" [label=<<b>Batch Scan</b><br align="CENTER"/>Batch: $v2<br align="left" />execution_method=Row<br align="left" />scan_method=Row<br align="left" />$batched_BirthDate:=BirthDate<br align="left" />$batched_FirstName:=FirstName<br align="left" />$batched_LastName:=LastName<br align="left" />$batched_SingerId:=SingerId<br align="left" />$batched_SingerInfo:=SingerInfo<br align="left" />>, shape="box", tooltip="child_links:
-- child_index: 22
+	"node21" [label=<<b>Batch Scan</b><br align="CENTER"/>Batch: $v2<br align="left" />execution_method=Row<br align="left" />scan_method=Row<br align="left" />$batched_BirthDate:=BirthDate<br align="left" />$batched_FirstName:=FirstName<br align="left" />$batched_LastName:=LastName<br align="left" />$batched_SingerId:=SingerId<br align="left" />$batched_SingerInfo:=SingerInfo<br align="left" />>, shape="box", tooltip="index: 21
+kind: RELATIONAL
+displayName: Scan
+childLinks:
+- childIndex: 22
   variable: batched_BirthDate
-- child_index: 23
+- childIndex: 23
   variable: batched_FirstName
-- child_index: 24
+- childIndex: 24
   variable: batched_LastName
-- child_index: 25
+- childIndex: 25
   variable: batched_SingerId
-- child_index: 26
+- childIndex: 26
   variable: batched_SingerInfo
-display_name: Scan
-index: 21
-kind: 1
 metadata:
   execution_method: Row
   scan_method: Row
@@ -305,10 +305,16 @@ metadata:
 "];
 	"node21" -> "node20" [label="", style="solid"];
 	"node20" -> "node19" [label="Input", style="solid"];
-	"node27" [label=<<b>Local Distributed Union</b><br align="CENTER"/>execution_method=Row<br align="left" /><i>cpu_time: 340.03@0.34±0.06 msecs<br align="left" />latency: 995.19@1±8.12 msecs<br align="left" />remote_calls: 0@0±0 calls<br align="left" />rows: 3069@3.07±1.72 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.16 msecs<br align="left" />   num_checkpoints: 19<br align="left" />   num_executions: 1000<br align="left" /></i>>, shape="box", tooltip="child_links:
-- child_index: 28
-display_name: Distributed Union
-execution_stats:
+	"node27" [label=<<b>Local Distributed Union</b><br align="CENTER"/>execution_method=Row<br align="left" /><i>cpu_time: 340.03@0.34±0.06 msecs<br align="left" />latency: 995.19@1±8.12 msecs<br align="left" />remote_calls: 0@0±0 calls<br align="left" />rows: 3069@3.07±1.72 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.16 msecs<br align="left" />   num_checkpoints: 19<br align="left" />   num_executions: 1000<br align="left" /></i>>, shape="box", tooltip="index: 27
+kind: RELATIONAL
+displayName: Distributed Union
+childLinks:
+- childIndex: 28
+metadata:
+  call_type: Local
+  execution_method: Row
+  subquery_cluster_node: \"28\"
+executionStats:
   cpu_time:
     histogram:
     - count: \"999\"
@@ -388,41 +394,42 @@ execution_stats:
     std_deviation: \"1.72\"
     total: \"3069\"
     unit: rows
-index: 27
-kind: 1
-metadata:
-  call_type: Local
-  execution_method: Row
-  subquery_cluster_node: \"28\"
 "];
-	"node28" [label=<<b>Filter Scan</b><br align="CENTER"/>Residual Condition: ($SongName LIKE 'Th%e')<br align="left" />execution_method=Row<br align="left" />seekable_key_size=0<br align="left" />>, shape="box", tooltip="child_links:
-- child_index: 29
-- child_index: 43
+	"node28" [label=<<b>Filter Scan</b><br align="CENTER"/>Residual Condition: ($SongName LIKE 'Th%e')<br align="left" />execution_method=Row<br align="left" />seekable_key_size=0<br align="left" />>, shape="box", tooltip="index: 28
+kind: RELATIONAL
+displayName: Filter Scan
+childLinks:
+- childIndex: 29
+- childIndex: 43
   type: Residual Condition
-display_name: Filter Scan
-index: 28
-kind: 1
 metadata:
   execution_method: Row
   seekable_key_size: \"0\"
 "];
-	"node29" [label=<<b>Table Scan</b><br align="CENTER"/>Table: Songs<br align="left" />Seek Condition: ($SingerId_1 = $batched_SingerId)<br align="left" />execution_method=Row<br align="left" />scan_method=Row<br align="left" />$SingerId_1:=SingerId<br align="left" />$AlbumId:=AlbumId<br align="left" />$TrackId:=TrackId<br align="left" />$SongName:=SongName<br align="left" />$Duration:=Duration<br align="left" />$SongGenre:=SongGenre<br align="left" /><i>cpu_time: 339.21@0.34±0.06 msecs<br align="left" />deleted_rows: 0 rows<br align="left" />filesystem_delay_seconds: 521.29 msecs<br align="left" />filtered_rows: 1020931 rows<br align="left" />latency: 994.3@0.99±8.12 msecs<br align="left" />rows: 3069@3.07±1.72 rows<br align="left" />scanned_rows: 1024000 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.05 msecs<br align="left" />   num_checkpoints: 19<br align="left" />   num_executions: 1000<br align="left" /></i>>, shape="box", tooltip="child_links:
-- child_index: 30
+	"node29" [label=<<b>Table Scan</b><br align="CENTER"/>Table: Songs<br align="left" />Seek Condition: ($SingerId_1 = $batched_SingerId)<br align="left" />execution_method=Row<br align="left" />scan_method=Row<br align="left" />$SingerId_1:=SingerId<br align="left" />$AlbumId:=AlbumId<br align="left" />$TrackId:=TrackId<br align="left" />$SongName:=SongName<br align="left" />$Duration:=Duration<br align="left" />$SongGenre:=SongGenre<br align="left" /><i>cpu_time: 339.21@0.34±0.06 msecs<br align="left" />deleted_rows: 0 rows<br align="left" />filesystem_delay_seconds: 521.29 msecs<br align="left" />filtered_rows: 1020931 rows<br align="left" />latency: 994.3@0.99±8.12 msecs<br align="left" />rows: 3069@3.07±1.72 rows<br align="left" />scanned_rows: 1024000 rows<br align="left" />execution_summary:<br align="left" />   checkpoint_time: 0.05 msecs<br align="left" />   num_checkpoints: 19<br align="left" />   num_executions: 1000<br align="left" /></i>>, shape="box", tooltip="index: 29
+kind: RELATIONAL
+displayName: Scan
+childLinks:
+- childIndex: 30
   variable: SingerId_1
-- child_index: 31
+- childIndex: 31
   variable: AlbumId
-- child_index: 32
+- childIndex: 32
   variable: TrackId
-- child_index: 33
+- childIndex: 33
   variable: SongName
-- child_index: 34
+- childIndex: 34
   variable: Duration
-- child_index: 35
+- childIndex: 35
   variable: SongGenre
-- child_index: 42
+- childIndex: 42
   type: Seek Condition
-display_name: Scan
-execution_stats:
+metadata:
+  execution_method: Row
+  scan_method: Row
+  scan_target: Songs
+  scan_type: TableScan
+executionStats:
   cpu_time:
     histogram:
     - count: \"999\"
@@ -509,13 +516,6 @@ execution_stats:
   scanned_rows:
     total: \"1024000\"
     unit: rows
-index: 29
-kind: 1
-metadata:
-  execution_method: Row
-  scan_method: Row
-  scan_target: Songs
-  scan_type: TableScan
 "];
 	"node29" -> "node28" [label="", style="solid"];
 	"node28" -> "node27" [label="", style="solid"];

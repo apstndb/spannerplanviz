@@ -12,11 +12,10 @@ import (
 	"time"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
+	"github.com/apstndb/protoyaml"
 	"github.com/apstndb/spannerplan"
 	"github.com/apstndb/spannerplan/plantree"
 	"google.golang.org/protobuf/types/known/structpb"
-	"sigs.k8s.io/yaml"
-
 )
 
 // This file contains logics which are purely formatting strings and building tree structures.
@@ -348,9 +347,11 @@ func (n *TreeNode) GetName() string {
 	return fmt.Sprintf("node%d", n.planNode.GetIndex())
 }
 
-// GetTooltip generates the tooltip string (YAML of the planNode) on demand.
+// GetTooltip generates the tooltip string on demand. The tooltip is the
+// canonical protojson-over-YAML rendering of the plan node (proto field names
+// in camelCase, named enums, and field-number ordering).
 func (n *TreeNode) GetTooltip() (string, error) {
-	tooltipBytes, err := yaml.Marshal(n.planNode)
+	tooltipBytes, err := protoyaml.Marshal(n.planNode)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal planNode for tooltip: %w", err)
 	}
