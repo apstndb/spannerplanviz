@@ -14,6 +14,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/apstndb/spannerplanviz/internal/graphmodel"
 	"github.com/apstndb/spannerplanviz/visualize"
 )
 
@@ -62,6 +63,14 @@ func writeDOT(w io.Writer, plan *visualize.Plan, opts Options) error {
 		return fmt.Errorf("cannot render dot: plan is nil")
 	}
 
+	graph, err := visualize.BuildGraph(plan, visualize.GraphOptions{
+		ShowQuery:      opts.ShowQuery,
+		ShowQueryStats: opts.ShowQueryStats,
+	})
+	if err != nil {
+		return err
+	}
+
 	var sb strings.Builder
 	sb.WriteString("digraph {\n")
 	// These graph attributes (fontname, rankdir, start) are the sole source of
@@ -69,64 +78,52 @@ func writeDOT(w io.Writer, plan *visualize.Plan, opts Options) error {
 	// them on the parsed graph.
 	sb.WriteString("\tgraph [fontname=" + quote(`Times New Roman:style=Bold`) + ", rankdir=" + quote("BT") + ", start=" + quote("regular") + "];\n")
 
-	if err := writeTree(&sb, plan.Root, plan); err != nil {
-		return err
-	}
+	writeTree(&sb, graph.Root)
 
-	if (opts.ShowQuery || opts.ShowQueryStats) && plan.QueryStats != nil {
-		queryHTML := visualize.FormatQueryNode(plan.QueryStats.GetQueryStats().GetFields(), opts.ShowQueryStats)
+	if graph.Query != nil {
+		queryHTML := visualize.RenderQueryNodeHTML(graph.Query)
 		sb.WriteString("\t" + quote("query") + " [label=" + htmlString(queryHTML) + ", shape=" + quote("box") + ", style=" + quote("rounded") + "];\n")
-		sb.WriteString("\t" + quote(plan.Root.GetName()) + " -> " + quote("query") + ";\n")
+		sb.WriteString("\t" + quote(graph.Root.ID) + " -> " + quote("query") + ";\n")
 	}
 
 	sb.WriteString("}\n")
-	_, err := io.WriteString(w, sb.String())
+	_, err = io.WriteString(w, sb.String())
 	return err
 }
 
-// writeTree emits node and edge statements in the same pre-order traversal as
-// the graphviz package: a node, then each child subtree followed by the edge
-// from that child to the node.
-func writeTree(sb *strings.Builder, node *visualize.TreeNode, plan *visualize.Plan) error {
-	if err := writeNode(sb, node, plan); err != nil {
-		return err
-	}
+// writeTree emits node and edge statements in a pre-order traversal: a node,
+// then each child subtree followed by the edge from that child to the node.
+// The traversal is intentionally undeduplicated so a shared node's subtree is
+// emitted once per incoming edge, matching the historical graphviz output.
+func writeTree(sb *strings.Builder, node *graphmodel.Node) {
+	writeNode(sb, node)
 
 	for _, child := range node.Children {
-		if err := writeTree(sb, child.ChildNode, plan); err != nil {
-			return err
-		}
+		writeTree(sb, child.To)
 		writeEdge(sb, node, child)
 	}
-	return nil
 }
 
-func writeNode(sb *strings.Builder, node *visualize.TreeNode, plan *visualize.Plan) error {
-	tooltip, err := node.GetTooltip()
-	if err != nil {
-		return fmt.Errorf("error getting tooltip for node %s: %w", node.GetName(), err)
-	}
-
-	sb.WriteString("\t" + quote(node.GetName()) +
-		" [label=" + htmlString(node.HTML(plan.Build, plan.RowType)) +
+func writeNode(sb *strings.Builder, node *graphmodel.Node) {
+	sb.WriteString("\t" + quote(node.ID) +
+		" [label=" + htmlString(visualize.RenderGraphvizNodeHTML(node.Label, node.ID)) +
 		", shape=" + quote("box") +
-		", tooltip=" + quote(tooltip) + "];\n")
-	return nil
+		", tooltip=" + quote(node.Tooltip) + "];\n")
 }
 
-func writeEdge(sb *strings.Builder, parent *visualize.TreeNode, edge *visualize.Link) {
+func writeEdge(sb *strings.Builder, parent *graphmodel.Node, edge graphmodel.Edge) {
 	// Edges point from child to parent; combined with rankdir=BT this places
 	// children below their parent, matching the graphviz package.
-	sb.WriteString("\t" + quote(edge.ChildNode.GetName()) + " -> " + quote(parent.GetName()) +
-		" [label=" + quote(edge.ChildType) +
+	sb.WriteString("\t" + quote(edge.To.ID) + " -> " + quote(parent.ID) +
+		" [label=" + quote(edge.Label) +
 		", style=" + quote(toEdgeStyle(edge.Style)) + "];\n")
 }
 
-func toEdgeStyle(style visualize.EdgeStyle) string {
+func toEdgeStyle(style graphmodel.EdgeStyle) string {
 	switch style {
-	case visualize.EdgeStyleDashed:
+	case graphmodel.EdgeStyleDashed:
 		return "dashed"
-	case visualize.EdgeStyleDotted:
+	case graphmodel.EdgeStyleDotted:
 		return "dotted"
 	default:
 		return "solid"
