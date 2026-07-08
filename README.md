@@ -53,6 +53,14 @@ spannerplanviz --full --type=mermaid --output profile.mermaid < dca_profile.json
 
 The generated source uses HTML labels and a browser-friendly init block (`htmlLabels: true`, `useMaxWidth: false`). See `visualize/testdata/dca_profile.golden.mermaid` for a full example output.
 
+`--type dot` emits pure Graphviz DOT source (unlaid-out, no `pos`/`bb` layout attributes) via the `dot` package. Pipe it into `dot -Tsvg` (or any Graphviz tool) to lay it out:
+
+```
+spannerplanviz --full --type=dot < dca_profile.json | dot -Tsvg -o profile.svg
+```
+
+`--type svg` and `--type png` still produce fully laid-out output; they generate the same DOT source internally and render it with the embedded Graphviz runtime.
+
 ## Library usage
 
 Build a diagram model once, then render with the backend of your choice:
@@ -73,8 +81,8 @@ Renderers:
 - `mermaid.Source(plan)` — Mermaid.js source using `plan.Build`
 - `mermaid.SourceWithOptions(plan, opts)` — override `plan.Build` at render time (including disabling flags)
 - `mermaid.NewRenderer(opts).Render(ctx, w, plan)` — streaming render
-- `graphviz.NewRenderer(opts).Render(ctx, w, plan)` — SVG/PNG/DOT via Graphviz
-- `dot.Source(plan)` / `dot.SourceWithOptions(plan, opts)` — DOT source text without a Graphviz runtime (no `goccy/go-graphviz` dependency); lay it out elsewhere, e.g. with a browser-side Graphviz build
+- `dot.Source(plan)` / `dot.SourceWithOptions(plan, opts)` — DOT source text without a Graphviz runtime (no `goccy/go-graphviz` dependency); lay it out elsewhere, e.g. with a browser-side Graphviz build. This is the single source of truth for graph construction.
+- `graphviz.NewRenderer(opts).Render(ctx, w, plan)` — SVG/PNG via Graphviz; internally generates the `dot` package's source and hands it to the Graphviz runtime, so both paths describe an identical graph
 
 ## Browser embedding
 

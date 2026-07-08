@@ -160,6 +160,69 @@ func TestRenderer_rendersSVG(t *testing.T) {
 	}
 }
 
+// TestRenderer_specialCharacters is a regression test for the DOT source the
+// graphviz renderer now consumes (it generates dot.SourceWithOptions and hands
+// it to the Graphviz runtime). It guards the boundary that the old
+// dot.TestSource_parityWithGraphvizRenderer used to police: a plan whose labels
+// and tooltips contain characters requiring DOT quoting/escaping (quotes,
+// backslashes, angle brackets, non-ASCII) must still parse and render, with the
+// expected node labels surviving into the output.
+func TestRenderer_specialCharacters(t *testing.T) {
+	jsonBytes, err := os.ReadFile(testdataPath("various_characters_profile.json"))
+	if err != nil {
+		t.Fatalf("read various_characters_profile.json: %v", err)
+	}
+
+	var resultSet sppb.ResultSet
+	unmarshalOpts := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err := unmarshalOpts.Unmarshal(jsonBytes, &resultSet); err != nil {
+		t.Fatalf("unmarshal various_characters_profile.json: %v", err)
+	}
+
+	opts := option.Options{
+		TypeFlag:          "svg",
+		Full:              true,
+		NonVariableScalar: true,
+		VariableScalar:    true,
+		Metadata:          true,
+		ExecutionStats:    true,
+		ExecutionSummary:  true,
+		SerializeResult:   true,
+		ShowQuery:         true,
+		ShowQueryStats:    true,
+	}
+
+	plan, err := visualize.BuildPlan(resultSet.GetMetadata().GetRowType(), resultSet.GetStats(), opts.BuildOptions())
+	if err != nil {
+		t.Fatalf("BuildPlan() error = %v", err)
+	}
+
+	var buf bytes.Buffer
+	renderer := graphviz.NewRenderer(graphviz.Options{
+		Format:         graphviz.SVG,
+		ShowQuery:      true,
+		ShowQueryStats: true,
+	})
+	if err := renderer.Render(context.Background(), &buf, plan); err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	got := buf.String()
+	if !strings.Contains(got, "<svg") {
+		t.Fatalf("Render() output is not SVG: %.80q", got)
+	}
+	for _, want := range []string{
+		"Distributed Union",
+		"Distributed Cross Apply",
+		"Compute Struct",
+		"Serialize Result",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Render() output missing node label %q", want)
+		}
+	}
+}
+
 func TestRenderer_requiresFormat(t *testing.T) {
 	plan, err := visualize.BuildPlan(nil, &sppb.ResultSetStats{
 		QueryPlan: &sppb.QueryPlan{

@@ -1,12 +1,11 @@
 // Package dot generates Graphviz DOT source text for a built plan without
 // depending on a Graphviz runtime.
 //
-// It mirrors the graph semantics of the graphviz package (same nodes, edges,
-// attributes, and traversal order) but only emits DOT source, so callers that
-// lay out the graph elsewhere (for example in a browser-side Graphviz build)
-// do not need to link github.com/goccy/go-graphviz and its WASM/font stack.
-// Parity with the graphviz package is enforced by tests that parse both
-// outputs and compare them structurally.
+// This package is the single source of truth for graph construction: the
+// graphviz package renders svg/png by generating this DOT source and handing it
+// to the Graphviz runtime, and callers that lay out the graph elsewhere (for
+// example in a browser-side Graphviz build) can consume the source directly
+// without linking github.com/goccy/go-graphviz and its WASM/font stack.
 package dot
 
 import (
@@ -65,8 +64,9 @@ func writeDOT(w io.Writer, plan *visualize.Plan, opts Options) error {
 
 	var sb strings.Builder
 	sb.WriteString("digraph {\n")
-	// Keep these graph attributes in sync with graphviz.Renderer
-	// (SetFontName/SetRankDir/SetStart in the graphviz package).
+	// These graph attributes (fontname, rankdir, start) are the sole source of
+	// truth: the graphviz package embeds this DOT source and does not re-apply
+	// them on the parsed graph.
 	sb.WriteString("\tgraph [fontname=" + quote(`Times New Roman:style=Bold`) + ", rankdir=" + quote("BT") + ", start=" + quote("regular") + "];\n")
 
 	if err := writeTree(&sb, plan.Root, plan); err != nil {

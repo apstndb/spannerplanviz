@@ -3,21 +3,17 @@ package dot_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 
 	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
-	"github.com/goccy/go-graphviz/cgraph"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/apstndb/spannerplanviz/dot"
-	"github.com/apstndb/spannerplanviz/graphviz"
 	"github.com/apstndb/spannerplanviz/visualize"
 )
 
@@ -141,133 +137,7 @@ func TestSource_goldenDCAProfile(t *testing.T) {
 	}
 }
 
-// TestSource_parityWithGraphvizRenderer is the conformance test for this
-// package: the DOT source must describe the same graph as the graphviz
-// package's DOT output. Both outputs are parsed with Graphviz itself and
-// compared structurally (semantic attributes only — the graphviz package's
-// output additionally contains layout attributes such as pos/bb, which have
-// no counterpart in unlaid-out source).
-func TestSource_parityWithGraphvizRenderer(t *testing.T) {
-	for _, tt := range []struct {
-		fixture string
-		opts    dot.Options
-	}{
-		{"dca_profile.json", dot.Options{}},
-		{"dca_profile.json", dot.Options{ShowQuery: true, ShowQueryStats: true}},
-		{"various_characters_profile.json", dot.Options{}},
-		{"various_characters_profile.json", dot.Options{ShowQuery: true, ShowQueryStats: true}},
-	} {
-		name := fmt.Sprintf("%s/query=%v/stats=%v", tt.fixture, tt.opts.ShowQuery, tt.opts.ShowQueryStats)
-		t.Run(name, func(t *testing.T) {
-			plan := buildPlanFromFixture(t, tt.fixture)
-
-			source, err := dot.SourceWithOptions(plan, tt.opts)
-			if err != nil {
-				t.Fatalf("SourceWithOptions() error = %v", err)
-			}
-
-			var buf bytes.Buffer
-			renderer := graphviz.NewRenderer(graphviz.Options{
-				Format:         graphviz.DOT,
-				ShowQuery:      tt.opts.ShowQuery,
-				ShowQueryStats: tt.opts.ShowQueryStats,
-			})
-			if err := renderer.Render(context.Background(), &buf, plan); err != nil {
-				t.Fatalf("graphviz Render() error = %v", err)
-			}
-
-			gotGraph := parseGraph(t, []byte(source))
-			wantGraph := parseGraph(t, buf.Bytes())
-
-			if diff := cmp.Diff(wantGraph, gotGraph); diff != "" {
-				t.Errorf("graph structure mismatch (-graphviz +dot):\n%s", diff)
-			}
-		})
-	}
-}
-
-// graphRepr is a renderer-independent description of the semantic content of
-// a parsed DOT graph.
-type graphRepr struct {
-	GraphAttrs map[string]string
-	Nodes      map[string]map[string]string
-	Edges      []map[string]string
-}
-
-var (
-	graphAttrKeys = []string{"fontname", "rankdir", "start"}
-	nodeAttrKeys  = []string{"label", "shape", "style", "tooltip"}
-	edgeAttrKeys  = []string{"label", "style"}
-)
-
-func parseGraph(t *testing.T, dotBytes []byte) graphRepr {
-	t.Helper()
-
-	g, err := cgraph.ParseBytes(dotBytes)
-	if err != nil {
-		t.Fatalf("ParseBytes() error = %v", err)
-	}
-	defer func() {
-		if err := g.Close(); err != nil {
-			t.Errorf("close parsed graph: %v", err)
-		}
-	}()
-
-	repr := graphRepr{
-		GraphAttrs: map[string]string{},
-		Nodes:      map[string]map[string]string{},
-	}
-	for _, key := range graphAttrKeys {
-		repr.GraphAttrs[key] = g.GetStr(key)
-	}
-
-	for n, err := g.FirstNode(); n != nil; n, err = g.NextNode(n) {
-		if err != nil {
-			t.Fatalf("iterate nodes: %v", err)
-		}
-
-		name, err := n.Name()
-		if err != nil {
-			t.Fatalf("node name: %v", err)
-		}
-
-		attrs := map[string]string{}
-		for _, key := range nodeAttrKeys {
-			attrs[key] = n.GetStr(key)
-		}
-		repr.Nodes[name] = attrs
-
-		for e, err := g.FirstOut(n); e != nil; e, err = g.NextOut(e) {
-			if err != nil {
-				t.Fatalf("iterate out-edges of %s: %v", name, err)
-			}
-
-			head, err := e.Head()
-			if err != nil {
-				t.Fatalf("edge head: %v", err)
-			}
-			headName, err := head.Name()
-			if err != nil {
-				t.Fatalf("edge head name: %v", err)
-			}
-
-			edgeAttrs := map[string]string{"tail": name, "head": headName}
-			for _, key := range edgeAttrKeys {
-				edgeAttrs[key] = e.GetStr(key)
-			}
-			repr.Edges = append(repr.Edges, edgeAttrs)
-		}
-	}
-
-	sort.Slice(repr.Edges, func(i, j int) bool {
-		a, b := repr.Edges[i], repr.Edges[j]
-		if a["tail"] != b["tail"] {
-			return a["tail"] < b["tail"]
-		}
-		if a["head"] != b["head"] {
-			return a["head"] < b["head"]
-		}
-		return a["label"] < b["label"]
-	})
-	return repr
-}
+// The DOT source this package emits is exercised end-to-end by the graphviz
+// package, which now generates it and hands it to the Graphviz runtime for
+// svg/png rendering. graphviz.TestRenderer_specialCharacters covers the
+// escaping/quoting boundary that the former parity test policed here.
