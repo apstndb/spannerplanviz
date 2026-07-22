@@ -29,26 +29,29 @@ func buildTree(qp *spannerplan.QueryPlan, planNode *sppb.PlanNode, rowType *sppb
 	}
 
 	var edges []*Link
-	for _, cl := range qp.VisibleChildLinks(planNode) {
+	for rawChildLinkIndex, cl := range planNode.GetChildLinks() {
+		if !qp.IsVisible(cl) {
+			continue
+		}
 		childNode, err := buildTree(qp, qp.GetNodeByChildLink(cl), rowType, param, rowsByID)
 		if err != nil {
 			return nil, err
 		}
 
-		edge := buildLink(qp, cl, planNode, childNode)
+		edge := buildLink(qp, cl, planNode, rawChildLinkIndex, childNode)
 		edges = append(edges, edge)
 	}
 	node.Children = edges
 	return node, nil
 }
 
-func buildLink(qp *spannerplan.QueryPlan, cl *sppb.PlanNode_ChildLink, node *sppb.PlanNode, child *TreeNode) *Link {
+func buildLink(qp *spannerplan.QueryPlan, cl *sppb.PlanNode_ChildLink, node *sppb.PlanNode, rawChildLinkIndex int, child *TreeNode) *Link {
 	style := EdgeStyleSolid
 	if isRemoteCall(node, cl) {
 		style = EdgeStyleDashed
 	}
 	return &Link{
-		ChildType: qp.GetLinkType(cl),
+		ChildType: qp.LinkTypeInParent(node, rawChildLinkIndex),
 		Style:     style,
 		ChildNode: child,
 	}

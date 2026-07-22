@@ -639,6 +639,62 @@ func TestIsRemoteCall(t *testing.T) {
 	}
 }
 
+func TestBuildTreePreservesRawChildLinkPositions(t *testing.T) {
+	tests := []struct {
+		name string
+		root *sppb.PlanNode
+		want []string
+	}{
+		{
+			name: "repeated child occurrence",
+			root: &sppb.PlanNode{
+				Index:       0,
+				DisplayName: "Apply",
+				ChildLinks: []*sppb.PlanNode_ChildLink{
+					{ChildIndex: 2},
+					{ChildIndex: 2},
+				},
+			},
+			want: []string{"Input", ""},
+		},
+		{
+			name: "invisible scalar link precedes relational child",
+			root: &sppb.PlanNode{
+				Index:       0,
+				DisplayName: "Apply",
+				ChildLinks: []*sppb.PlanNode_ChildLink{
+					{ChildIndex: 1, Type: "SCALAR"},
+					{ChildIndex: 2},
+				},
+			},
+			want: []string{""},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nodes := []*sppb.PlanNode{
+				tt.root,
+				{Index: 1, DisplayName: "Scalar", Kind: sppb.PlanNode_SCALAR},
+				{Index: 2, DisplayName: "Relational", Kind: sppb.PlanNode_RELATIONAL},
+			}
+			qp, err := newTestQueryPlan(nodes)
+			if err != nil {
+				t.Fatalf("newTestQueryPlan: %v", err)
+			}
+
+			root := testBuildTree(t, qp, nil, BuildOptions{})
+			got := make([]string, 0, len(root.Children))
+			for _, child := range root.Children {
+				got = append(got, child.ChildType)
+			}
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("child types mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestTryToTimestampStr(t *testing.T) {
 	tests := []struct {
 		name      string
